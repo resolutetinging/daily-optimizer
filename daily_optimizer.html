@@ -165,14 +165,14 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue","PingFang TC"
 /* inline feedback - hidden by default, shown on status select */
 .ri-feedback{margin-top:8px;display:none;}
 .ri-feedback.show{display:block;}
-.ri-fb-input{width:100%;padding:9px 11px;border-radius:8px;border:1px solid #cec8bf;background:#ece8e0;font-size:12px;color:#38342e;resize:none;min-height:54px;font-family:inherit;outline:none;line-height:1.55;}
+.ri-fb-input{width:100%;padding:9px 11px;border-radius:8px;border:1px solid #cec8bf;background:#ece8e0;font-size:12px;color:#38342e;resize:vertical;min-height:54px;font-family:inherit;outline:none;line-height:1.55;}
 .ri-fb-input::placeholder{color:#b0aaa0;}
 .ri-fb-input:focus{border-color:#7a8e9e;}
 
 /* overall note */
 .overall-wrap{margin-top:13px;border-top:1px solid #ddd8d0;padding-top:13px;}
 .overall-label{font-size:11px;font-weight:600;color:#9a9088;letter-spacing:.05em;text-transform:uppercase;margin-bottom:7px;}
-.overall-input{width:100%;padding:11px 13px;border-radius:10px;border:1px solid #cec8bf;background:#ece8e0;font-size:13px;color:#38342e;resize:none;min-height:70px;font-family:inherit;outline:none;line-height:1.6;white-space:pre-wrap;}
+.overall-input{width:100%;padding:11px 13px;border-radius:10px;border:1px solid #cec8bf;background:#ece8e0;font-size:13px;color:#38342e;resize:vertical;min-height:70px;font-family:inherit;outline:none;line-height:1.6;white-space:pre-wrap;}
 .overall-input::placeholder{color:#b0aaa0;}
 .overall-input:focus{border-color:#7a8e9e;}
 
@@ -251,6 +251,42 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue","PingFang TC"
   <div id="keyOk" class="key-ok hidden">
     <div class="dot dok"></div>
     <span>Groq Key 已設定（免費）&nbsp;·&nbsp;<a href="#" onclick="clearKey();return false;" style="color:#9a9088">清除</a></span>
+  </div>
+
+  <!-- Gist Sync -->
+  <div class="key-card" id="gistCard">
+    <div class="key-title">☁️ GitHub Gist 雲端同步</div>
+    <div id="gist-status-row" style="font-size:12px;color:#9a9088;margin-bottom:10px;"></div>
+    <div id="gist-sync-btns" style="display:none;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
+      <button class="key-save" onclick="syncToGist()">↑ 推送到雲端</button>
+      <button class="key-save" style="background:#8a9e8a;" onclick="syncFromGist()">↓ 從雲端讀取</button>
+    </div>
+    <div id="gist-id-row" style="display:none;margin-bottom:8px;">
+      <div style="font-size:11px;color:#9a9088;margin-bottom:4px;">Gist ID（複製給 iPhone）</div>
+      <div style="display:flex;gap:6px;align-items:center;">
+        <span id="gist-id-label" style="font-family:monospace;font-size:11px;background:#faf8f4;border:1px solid #cec8bf;border-radius:6px;padding:5px 8px;flex:1;word-break:break-all;"></span>
+        <button class="key-save" style="flex-shrink:0;" onclick="copyGistId()">複製</button>
+      </div>
+    </div>
+    <button style="font-size:11px;color:#9a9088;background:none;border:none;cursor:pointer;text-decoration:underline;padding:0;" onclick="toggleGistSetup()">⚙️ 設定 Token / Gist ID</button>
+    <div id="gist-setup-section" style="display:none;margin-top:10px;">
+      <div style="margin-bottom:8px;">
+        <div style="font-size:11px;color:#9a9088;margin-bottom:4px;">GitHub Token（Mac 設定，需 gist 權限）</div>
+        <div class="key-row">
+          <input class="key-in" type="password" id="gist-token-input" placeholder="ghp_…" autocomplete="off">
+          <button class="key-save" onclick="saveGistToken()">儲存</button>
+        </div>
+      </div>
+      <div>
+        <div style="font-size:11px;color:#9a9088;margin-bottom:4px;">Gist ID（iPhone 貼入）</div>
+        <div class="key-row">
+          <input class="key-in" type="text" id="gist-id-input" placeholder="貼上 Gist ID…">
+          <button class="key-save" onclick="saveGistId()">套用</button>
+        </div>
+      </div>
+      <button onclick="clearGistSetup()" style="margin-top:8px;font-size:11px;color:#a07070;background:none;border:none;cursor:pointer;text-decoration:underline;padding:0;">清除全部設定</button>
+    </div>
+    <div id="gist-sync-status" class="key-hint" style="margin-top:6px;"></div>
   </div>
 
   <div class="sbar" id="fbar">
@@ -484,7 +520,7 @@ function openRestReview(){
   outSec.scrollIntoView({behavior:'smooth',block:'start'});
 }
 
-window.onload=()=>{setDate();renderT();renderKey();fetchSleep();loadSavedReview();};
+window.onload=()=>{setDate();renderT();renderKey();refreshGistUI();fetchSleep();loadSavedReview();};
 
 function setDate(){const d=new Date(),w=['週日','週一','週二','週三','週四','週五','週六'];document.getElementById('hdate').textContent=`${d.getMonth()+1}月${d.getDate()}日　${w[d.getDay()]}`;}
 
@@ -706,6 +742,7 @@ function renderOut(r){
   localStorage.setItem(todayKey(), JSON.stringify({
     ...existing,
     aiScheduled,
+    fullSchedule: r.schedule||[],
     summary: r.summary||'',
     calEvents: document.getElementById('calInput').value.trim(),
     taskLibrary: tasks.map(t=>t.text),
@@ -913,8 +950,11 @@ async function genReviewFeedback(){
     const resp=await fetch(GROQ,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+key},body:JSON.stringify({model:'llama-3.3-70b-versatile',messages:[{role:'user',content:prompt}],temperature:0.5,max_tokens:600})});
     if(!resp.ok) throw new Error('HTTP '+resp.status);
     const data=await resp.json();
-    out.textContent=data.choices?.[0]?.message?.content||'';
+    const fbText=data.choices?.[0]?.message?.content||'';
+    out.textContent=fbText;
     out.style.display='block';
+    const ex=JSON.parse(localStorage.getItem(todayKey())||'{}');
+    localStorage.setItem(todayKey(),JSON.stringify({...ex,aiFeedback:fbText}));
   }catch(e){
     out.textContent='生成失敗：'+e.message;
     out.style.display='block';
@@ -925,6 +965,58 @@ async function genReviewFeedback(){
 function loadSavedReview(){
   const saved=JSON.parse(localStorage.getItem(todayKey())||'{}');
   if(saved.overall)document.getElementById('overallFeedback').value=saved.overall;
+  if(saved.aiFeedback){
+    const out=document.getElementById('aiFbOut');
+    out.textContent=saved.aiFeedback;
+    out.style.display='block';
+  }
+  if(saved.restMode&&saved.items&&saved.items.length){
+    restMode=true;
+    const btn=document.getElementById('restBtn');
+    btn.classList.add('on');btn.textContent='✓ 休假中';
+    document.getElementById('planSec').style.display='none';
+    document.getElementById('restCard').classList.add('show');
+    if(saved.restNote)document.getElementById('restNote').value=saved.restNote;
+    document.getElementById('outSec').classList.remove('hidden');
+    const schedCard=document.getElementById('sout')?.closest('.card');
+    if(schedCard)schedCard.style.display='none';
+    document.getElementById('taskSplitSec').style.display='none';
+    renderReview(saved.items.map(i=>i.name),true);
+  }else if(saved.fullSchedule&&saved.fullSchedule.length){
+    document.getElementById('outSec').classList.remove('hidden');
+    renderSavedSchedule(saved);
+  }
+}
+
+function renderSavedSchedule(saved){
+  const tc={high:'t-h',med:'t-m',low:'t-l',break:'t-b',cal:'t-cal'};
+  const tl={high:'重點',med:'常規',low:'輕鬆',break:'休息',cal:'行程'};
+  const sc=document.getElementById('sout');
+  sc.innerHTML=saved.summary?`<div class="sbox">${saved.summary}</div>`:'';
+  (saved.fullSchedule||[]).forEach(item=>{
+    const d=document.createElement('div');d.className='si';
+    d.innerHTML=`<div class="tlbl">${item.time||''}</div><div class="sb"><div class="stask">${item.task||''}</div>${item.note?`<div class="snote">${item.note}</div>`:''} ${item.tag?`<span class="tag ${tc[item.tag]||'t-m'}">${tl[item.tag]||item.tag}</span>`:''}</div>`;
+    sc.appendChild(d);
+  });
+  const selectedNames=(saved.aiScheduled||[]).map(s=>s.task);
+  const allTaskNames=tasks.map(t=>t.text);
+  const inList=allTaskNames.filter(n=>selectedNames.some(s=>s===n||n.includes(s.slice(0,4))));
+  const outList=allTaskNames.filter(n=>!inList.includes(n));
+  document.getElementById('tasksIn').innerHTML=inList.length
+    ?inList.map(n=>`<div class="t-in-row"><div class="t-dot-in"></div>${esc(n)}</div>`).join('')
+    :'<div style="font-size:12px;color:#9a9088;padding:4px 0">（無任務分配記錄）</div>';
+  if(outList.length){
+    document.getElementById('tasksOut').innerHTML=outList.map((n,i)=>`
+      <div class="t-out-row" id="outrow-${i}">
+        <div class="t-dot-out"></div>
+        <span>${esc(n)}</span>
+        <button class="t-add-btn" onclick="addToReview('${n.replace(/'/g,"\\'")}',${i})">＋ 加入覆盤</button>
+      </div>`).join('');
+    document.getElementById('tasksOutWrap').classList.remove('hidden');
+  }
+  document.getElementById('taskSplitSec').classList.remove('hidden');
+  const reviewNames=inList.length?inList:selectedNames.length?selectedNames:[];
+  renderReview(reviewNames);
 }
 
 /* ── Weekly Recap ── */
@@ -1101,15 +1193,139 @@ function renderHist(){
             ${item.feedback?`<div class="hist-item-fb">${esc(item.feedback)}</div>`:''}
           </div>`).join('')}
         ${data.overall?`
+          <div style="padding:10px 0 0">
+            <div class="hist-overall">
+              <div class="hist-overall-label" style="text-align:left">整體反饋</div>
+              <div style="text-align:left">${esc(data.overall)}</div>
+            </div>
+          </div>`:''}
+        ${data.aiFeedback?`
           <div style="padding:10px 0">
             <div class="hist-overall">
-              <div class="hist-overall-label">整體反饋</div>
-              ${esc(data.overall)}
+              <div class="hist-overall-label" style="text-align:left">AI 反饋</div>
+              <div style="text-align:left;white-space:pre-wrap">${esc(data.aiFeedback)}</div>
             </div>
           </div>`:''}
       </div>`;
     content.appendChild(dayDiv);
   });
+}
+
+/* ── GitHub Gist Sync ── */
+const GIST_TOKEN_KEY_DO='do_gist_token';
+const GIST_ID_KEY_DO='do_gist_id';
+const GIST_FILENAME_DO='daily_optimizer_sync.json';
+function getGistToken(){return localStorage.getItem(GIST_TOKEN_KEY_DO)||'';}
+function getGistId(){return localStorage.getItem(GIST_ID_KEY_DO)||'';}
+
+function saveGistToken(){
+  const val=document.getElementById('gist-token-input').value.trim();
+  if(!val){alert('請輸入 Token');return;}
+  localStorage.setItem(GIST_TOKEN_KEY_DO,val);
+  document.getElementById('gist-token-input').value='';
+  refreshGistUI();
+  showGistStatus('✅ Token 已儲存，請點「推送到雲端」完成首次設定','ok');
+}
+function saveGistId(){
+  const val=document.getElementById('gist-id-input').value.trim();
+  if(!val){alert('請輸入 Gist ID');return;}
+  localStorage.setItem(GIST_ID_KEY_DO,val);
+  document.getElementById('gist-id-input').value='';
+  refreshGistUI();
+  showGistStatus('✅ Gist ID 已套用，可按「從雲端讀取」同步','ok');
+}
+async function copyGistId(){
+  const id=getGistId();if(!id)return;
+  try{await navigator.clipboard.writeText(id);showGistStatus('✅ Gist ID 已複製','ok');}
+  catch{prompt('請手動複製：',id);}
+}
+function clearGistSetup(){
+  if(!confirm('確定要清除 Token 和 Gist 設定？'))return;
+  localStorage.removeItem(GIST_TOKEN_KEY_DO);
+  localStorage.removeItem(GIST_ID_KEY_DO);
+  refreshGistUI();
+}
+function toggleGistSetup(){
+  const el=document.getElementById('gist-setup-section');
+  el.style.display=el.style.display==='none'?'block':'none';
+}
+function showGistStatus(msg,type){
+  const el=document.getElementById('gist-sync-status');
+  el.textContent=msg;
+  el.style.color=type==='ok'?'#7a9e8a':type==='err'?'#a07070':'#7a7570';
+}
+function refreshGistUI(){
+  const hasToken=!!getGistToken(),gistId=getGistId();
+  const sr=document.getElementById('gist-status-row');
+  const sb=document.getElementById('gist-sync-btns');
+  const ir=document.getElementById('gist-id-row');
+  if(hasToken){
+    sr.textContent='● Token 已設定'+(gistId?'　Gist 已建立 ✓':'　尚未首次同步');
+    sr.style.color='#7a9e8a';sb.style.display='flex';
+    if(gistId){ir.style.display='block';document.getElementById('gist-id-label').textContent=gistId;}
+    else{ir.style.display='none';}
+  }else if(gistId){
+    sr.textContent='● Gist ID 已設定（唯讀模式）';sr.style.color='#7a8e9e';
+    sb.style.display='flex';ir.style.display='none';
+  }else{
+    sr.textContent='尚未設定，點下方「⚙️ 設定 Token / Gist ID」開始';
+    sr.style.color='#9a9088';sb.style.display='none';
+  }
+}
+function getAllReviews(){
+  const r={};
+  for(let i=0;i<localStorage.length;i++){
+    const k=localStorage.key(i);
+    if(k&&k.startsWith('review_')){try{r[k]=JSON.parse(localStorage.getItem(k)||'{}');}catch(e){}}
+  }
+  return r;
+}
+async function syncToGist(){
+  const token=getGistToken();
+  if(!token){showGistStatus('請先設定 GitHub Token','err');return;}
+  const reviews=getAllReviews();
+  const payload=JSON.stringify({version:1,syncedAt:new Date().toISOString(),reviews},null,2);
+  const gistId=getGistId();
+  showGistStatus('⏳ 正在推送到雲端…','');
+  try{
+    let resp;
+    if(gistId){
+      resp=await fetch(`https://api.github.com/gists/${gistId}`,{method:'PATCH',
+        headers:{'Authorization':`Bearer ${token}`,'Content-Type':'application/json'},
+        body:JSON.stringify({files:{[GIST_FILENAME_DO]:{content:payload}}})});
+    }else{
+      resp=await fetch('https://api.github.com/gists',{method:'POST',
+        headers:{'Authorization':`Bearer ${token}`,'Content-Type':'application/json'},
+        body:JSON.stringify({description:'Daily Optimizer review sync',public:false,
+          files:{[GIST_FILENAME_DO]:{content:payload}}})});
+    }
+    if(!resp.ok){const err=await resp.json().catch(()=>({}));throw new Error(err.message||`GitHub API 錯誤 ${resp.status}`);}
+    const data=await resp.json();
+    localStorage.setItem(GIST_ID_KEY_DO,data.id);
+    refreshGistUI();
+    showGistStatus(`✅ 推送完成！共 ${Object.keys(reviews).length} 筆覆盤記錄已同步`,'ok');
+  }catch(err){showGistStatus(`❌ ${err.message}`,'err');}
+}
+async function syncFromGist(){
+  const token=getGistToken(),gistId=getGistId();
+  if(!token){showGistStatus('請先設定 GitHub Token','err');return;}
+  if(!gistId){showGistStatus('請先在 Mac 推送建立 Gist','err');return;}
+  showGistStatus('⏳ 正在從雲端讀取…','');
+  try{
+    const resp=await fetch(`https://api.github.com/gists/${gistId}`,{
+      headers:{'Authorization':`Bearer ${token}`}});
+    if(!resp.ok){const err=await resp.json().catch(()=>({}));throw new Error(err.message||`GitHub API 錯誤 ${resp.status}`);}
+    const data=await resp.json();
+    const content=data.files?.[GIST_FILENAME_DO]?.content;
+    if(!content)throw new Error('Gist 中找不到 Daily Optimizer 資料');
+    const remote=JSON.parse(content);
+    const reviews=remote.reviews||{};
+    const localKeys=[];
+    for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);if(k&&k.startsWith('review_'))localKeys.push(k);}
+    localKeys.forEach(k=>localStorage.removeItem(k));
+    Object.entries(reviews).forEach(([k,v])=>localStorage.setItem(k,JSON.stringify(v)));
+    showGistStatus(`✅ 從雲端讀取完成！已同步 ${Object.keys(reviews).length} 筆覆盤記錄`,'ok');
+  }catch(err){showGistStatus(`❌ ${err.message}`,'err');}
 }
 
 function toggleHistDay(header){
