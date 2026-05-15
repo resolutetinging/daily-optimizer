@@ -223,6 +223,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue","PingFang TC"
 .hidden{display:none!important;}
 .fi{animation:fi .4s ease;}
 @keyframes fi{from{opacity:0;transform:translateY(8px)}to{opacity:1}}
+/* Collapsible gist card */
+.key-card-hd{cursor:pointer;user-select:none;display:flex;align-items:center;justify-content:space-between;margin-bottom:0;}
+.key-card-hd .chev{font-size:13px;color:#9a9088;transition:transform .25s;flex-shrink:0;}
+.key-card-hd.coll .chev{transform:rotate(-90deg);}
+.key-card-bd{overflow:hidden;max-height:600px;transition:max-height .32s cubic-bezier(.4,0,.2,1),opacity .25s;opacity:1;margin-top:8px;}
+.key-card-bd.coll{max-height:0!important;opacity:0;margin-top:0;}
 </style>
 </head>
 <body>
@@ -255,7 +261,11 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue","PingFang TC"
 
   <!-- Gist Sync -->
   <div class="key-card" id="gistCard">
-    <div class="key-title">☁️ GitHub Gist 雲端同步</div>
+    <div class="key-card-hd" id="gistCardHd" onclick="toggleGistCard()">
+      <div class="key-title" style="margin-bottom:0;">☁️ GitHub Gist 雲端同步</div>
+      <span class="chev">▾</span>
+    </div>
+    <div id="gistCardBody" class="key-card-bd">
     <div id="gist-status-row" style="font-size:12px;color:#9a9088;margin-bottom:10px;"></div>
     <div id="gist-sync-btns" style="display:none;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
       <button class="key-save" onclick="syncToGist()">↑ 推送到雲端</button>
@@ -287,6 +297,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue","PingFang TC"
       <button onclick="clearGistSetup()" style="margin-top:8px;font-size:11px;color:#a07070;background:none;border:none;cursor:pointer;text-decoration:underline;padding:0;">清除全部設定</button>
     </div>
     <div id="gist-sync-status" class="key-hint" style="margin-top:6px;"></div>
+    </div><!-- /gistCardBody -->
   </div>
 
   <div class="sbar" id="fbar">
@@ -475,6 +486,23 @@ let nid=Math.max(...tasks.map(t=>t.id),9)+1;
 const saveT=()=>localStorage.setItem('tina_tasks',JSON.stringify(tasks));
 const todayKey=()=>'review_'+new Date().toISOString().slice(0,10);
 
+/* gist card toggle */
+function toggleGistCard(){
+  const h=document.getElementById('gistCardHd');
+  const b=document.getElementById('gistCardBody');
+  h.classList.toggle('coll');
+  b.classList.toggle('coll');
+  localStorage.setItem('do_gist_coll',h.classList.contains('coll')?'1':'');
+}
+function initGistCard(){
+  if(localStorage.getItem('do_gist_coll')==='1'){
+    const h=document.getElementById('gistCardHd');
+    const b=document.getElementById('gistCardBody');
+    if(h)h.classList.add('coll');
+    if(b)b.classList.add('coll');
+  }
+}
+
 /* key */
 function saveKey(){const k=document.getElementById('keyInput').value.trim();if(!k.startsWith('gsk_')){alert('Groq Key 應以 gsk_ 開頭');return;}localStorage.setItem('tina_groq',k);renderKey();}
 function clearKey(){localStorage.removeItem('tina_groq');document.getElementById('keyInput').value='';renderKey();}
@@ -520,7 +548,7 @@ function openRestReview(){
   outSec.scrollIntoView({behavior:'smooth',block:'start'});
 }
 
-window.onload=()=>{setDate();renderT();renderKey();refreshGistUI();fetchSleep();loadSavedReview();};
+window.onload=()=>{setDate();renderT();renderKey();refreshGistUI();fetchSleep();loadSavedReview();initGistCard();};
 
 function setDate(){const d=new Date(),w=['週日','週一','週二','週三','週四','週五','週六'];document.getElementById('hdate').textContent=`${d.getMonth()+1}月${d.getDate()}日　${w[d.getDay()]}`;}
 
