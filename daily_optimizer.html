@@ -249,7 +249,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue","PingFang TC"
   <div id="keyBanner" class="key-card">
     <div class="key-title">🔑 Groq API Key（一次設定）</div>
     <div class="key-row">
-      <input class="key-in" type="password" id="keyInput" placeholder="gsk_…" autocomplete="off">
+      <input class="key-in" type="password" id="keyInput" placeholder="gsk_…" autocomplete="new-password" autocorrect="off" autocapitalize="none" spellcheck="false">
+      <button onclick="toggleVis('keyInput',this)" style="background:rgba(40,38,32,.07);border:none;border-radius:7px;padding:0 9px;cursor:pointer;font-size:13px;flex-shrink:0;">👁</button>
       <button class="key-save" onclick="saveKey()">儲存</button>
     </div>
     <div class="key-hint">取得：<a href="https://console.groq.com/keys" target="_blank">console.groq.com/keys</a> → Create API Key。免費，Key 只存本機。</div>
@@ -283,7 +284,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue","PingFang TC"
       <div style="margin-bottom:8px;">
         <div style="font-size:11px;color:#9a9088;margin-bottom:4px;">GitHub Token（Mac 設定，需 gist 權限）</div>
         <div class="key-row">
-          <input class="key-in" type="password" id="gist-token-input" placeholder="ghp_…" autocomplete="off">
+          <input class="key-in" type="password" id="gist-token-input" placeholder="ghp_…" autocomplete="new-password" autocorrect="off" autocapitalize="none" spellcheck="false">
+          <button onclick="toggleVis('gist-token-input',this)" style="background:rgba(40,38,32,.07);border:none;border-radius:7px;padding:0 9px;cursor:pointer;font-size:13px;flex-shrink:0;">👁</button>
           <button class="key-save" onclick="saveGistToken()">儲存</button>
         </div>
       </div>
@@ -504,6 +506,7 @@ function initGistCard(){
 }
 
 /* key */
+function toggleVis(id,btn){const el=document.getElementById(id);if(!el)return;el.type=el.type==='password'?'text':'password';btn.textContent=el.type==='password'?'👁':'🙈';}
 function saveKey(){const k=document.getElementById('keyInput').value.trim();if(!k.startsWith('gsk_')){alert('Groq Key 應以 gsk_ 開頭');return;}localStorage.setItem('tina_groq',k);renderKey();}
 function clearKey(){localStorage.removeItem('tina_groq');document.getElementById('keyInput').value='';renderKey();}
 function renderKey(){const has=!!localStorage.getItem('tina_groq');document.getElementById('keyBanner').classList.toggle('hidden',has);document.getElementById('keyOk').classList.toggle('hidden',!has);}
