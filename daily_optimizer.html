@@ -896,7 +896,8 @@ function applyStatus(idx,val){
 
 function saveReview(){
   const overall=document.getElementById('overallFeedback').value.trim();
-  const data={items:reviewItems.map(i=>({name:i.name,status:i.status,feedback:i.feedback})),overall,savedAt:new Date().toISOString()};
+  const existing=JSON.parse(localStorage.getItem(todayKey())||'{}');
+  const data={...existing,items:reviewItems.map(i=>({name:i.name,status:i.status,feedback:i.feedback})),overall,savedAt:new Date().toISOString()};
   localStorage.setItem(todayKey(),JSON.stringify(data));
   const toast=document.getElementById('savedToast');
   toast.style.display='block';
