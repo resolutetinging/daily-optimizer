@@ -524,8 +524,18 @@ function toggleRest(){
   btn.textContent=restMode?'✓ 休假中':'🌿 休假';
   plan.style.display=restMode?'none':'block';
   card.classList.toggle('show', restMode);
-  // hide schedule output if switching back
-  if(!restMode) outSec.classList.add('hidden');
+  if(!restMode){
+    outSec.classList.add('hidden');
+  } else {
+    // 切入休假模式：清除 normal mode 留下的覆盤資料
+    reviewItems=[];
+    renderReviewFromItems();
+    document.getElementById('overallFeedback').value='';
+    const fo=document.getElementById('aiFbOut');
+    fo.style.display='none';fo.textContent='';
+    const fb=document.getElementById('aiFbBtn');
+    fb.disabled=false;fb.textContent='✦ 生成 AI 反饋';
+  }
 }
 
 function openRestReview(){
@@ -546,8 +556,13 @@ function openRestReview(){
   if(schedCard) schedCard.style.display='none';
   const splitSec=document.getElementById('taskSplitSec');
   if(splitSec) splitSec.style.display='none';
-  // Render review — rest mode starts empty, user adds items manually
-  renderReview([], true);
+  // 清除 AI 反饋顯示（避免殘留 normal mode 或舊 session 的內容）
+  const fo=document.getElementById('aiFbOut');
+  fo.style.display='none';fo.textContent='';
+  const fb=document.getElementById('aiFbBtn');
+  fb.disabled=false;fb.textContent='✦ 生成 AI 反饋';
+  // Render review — rest mode starts fresh (fresh=true: 不回填 overall)
+  renderReview([], true, true);
   outSec.scrollIntoView({behavior:'smooth',block:'start'});
 }
 
@@ -811,7 +826,7 @@ function addToReview(name, rowIdx){
 }
 
 /* ── Per-item review ── */
-function renderReview(names, isRestMode=false){
+function renderReview(names, isRestMode=false, fresh=false){
   reviewItems=names.map(name=>({name,status:'',feedback:''}));
   const saved=JSON.parse(localStorage.getItem(todayKey())||'{}');
   // restore saved statuses — in rest mode only restore custom items (not old task library)
@@ -823,7 +838,8 @@ function renderReview(names, isRestMode=false){
       reviewItems.push({name:s.name,status:s.status||'',feedback:s.feedback||'',custom:true});
     }
   });
-  if(saved.overall) document.getElementById('overallFeedback').value=saved.overall;
+  // fresh=true (openRestReview 主動呼叫) 不回填 overall，避免殘留 normal mode 資料
+  if(!fresh && saved.overall) document.getElementById('overallFeedback').value=saved.overall;
   // show rest note if present
   const nd=document.getElementById('restNoteDisplay');
   if(saved.restNote&&saved.restNote.trim()){
