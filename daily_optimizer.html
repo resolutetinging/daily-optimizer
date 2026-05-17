@@ -843,7 +843,7 @@ function renderReview(names, isRestMode=false, fresh=false){
   // show rest note if present
   const nd=document.getElementById('restNoteDisplay');
   if(saved.restNote&&saved.restNote.trim()){
-    nd.textContent='📝 今日備注：'+saved.restNote;
+    nd.textContent='📝 今日備注：\n'+saved.restNote;
     nd.classList.add('show');
   } else { nd.classList.remove('show'); }
   renderReviewFromItems();
