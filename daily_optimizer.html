@@ -96,6 +96,17 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue","PingFang TC"
 .obtn.sel-mauve{border-color:#8e7a9e;color:#6e5a7e;background:rgba(142,122,158,.09);}
 .obtn.sel-warm{border-color:#a07878;color:#704848;background:rgba(160,120,120,.09);}
 .obtn.sel-rose{border-color:#a08878;color:#705848;background:rgba(160,136,120,.09);}
+.feel-row{display:flex;flex-wrap:wrap;gap:7px;margin:0 16px 9px;}
+.feel-row .obtn{flex:1;min-width:90px;}
+.feel-custom-pill{position:relative;display:inline-flex;align-items:center;gap:4px;padding:10px 10px 10px 11px;border-radius:10px;border:1.5px solid #cec8bf;background:#f4f1ec;font-size:12.5px;font-weight:500;color:#7a7570;cursor:pointer;transition:all .15s;white-space:nowrap;}
+.feel-custom-pill .rm{font-size:10px;color:#bbb;margin-left:2px;cursor:pointer;line-height:1;}
+.feel-custom-pill .rm:hover{color:#a07878;}
+.feel-add-btn{padding:10px 13px;border-radius:10px;border:1.5px dashed #cec8bf;background:transparent;font-size:12.5px;color:#b0a898;cursor:pointer;white-space:nowrap;}
+.feel-add-btn:hover{border-color:#a0988a;color:#7a7570;}
+.feel-input-wrap{display:flex;align-items:center;gap:6px;margin:0 16px 9px;}
+.feel-input{flex:1;padding:9px 11px;border-radius:9px;border:1.5px solid #cec8bf;background:#f4f1ec;font-size:13px;color:#38342e;font-family:inherit;}
+.feel-input:focus{outline:none;border-color:#8a9aaa;}
+.feel-confirm-btn{padding:9px 14px;border-radius:9px;border:none;background:#7a8e9e;color:#fff;font-size:12.5px;cursor:pointer;font-family:inherit;}
 
 .wrap{margin:0 16px 9px;}
 .area{width:100%;padding:12px 14px;border-radius:10px;border:1px solid #cec8bf;background:#f4f1ec;font-size:14px;color:#38342e;resize:none;font-family:inherit;outline:none;line-height:1.6;}
@@ -366,10 +377,15 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue","PingFang TC"
   </div>
 
   <div class="stitle">今日體感</div>
-  <div class="orow3">
+  <div class="feel-row" id="feel-row">
     <button class="obtn" data-feel="疲憊" onclick="pick(this,'feel')">😴 疲憊<span class="sub">身體偏重</span></button>
     <button class="obtn" data-feel="正常" onclick="pick(this,'feel')">🙂 正常<span class="sub">還好</span></button>
     <button class="obtn" data-feel="有能量" onclick="pick(this,'feel')">✨ 有能量<span class="sub">狀態不錯</span></button>
+  </div>
+  <div class="feel-input-wrap hidden" id="feel-input-wrap">
+    <input class="feel-input" id="feel-input" placeholder="輸入自訂體感標籤…" maxlength="12"
+      onkeydown="if(event.key==='Enter')confirmCustomFeel();if(event.key==='Escape')cancelCustomFeel();">
+    <button class="feel-confirm-btn" onclick="confirmCustomFeel()">確認</button>
   </div>
 
   <div class="stitle">咖啡因攝取</div>
@@ -568,7 +584,7 @@ function openRestReview(){
   outSec.scrollIntoView({behavior:'smooth',block:'start'});
 }
 
-window.onload=()=>{setDate();renderT();renderKey();refreshGistUI();fetchSleep();loadSavedReview();initGistCard();};
+window.onload=()=>{setDate();renderT();renderKey();refreshGistUI();fetchSleep();loadSavedReview();initGistCard();renderCustomFeelBtns();};
 
 function setDate(){const d=new Date(),w=['週日','週一','週二','週三','週四','週五','週六'];document.getElementById('hdate').textContent=`${d.getMonth()+1}月${d.getDate()}日　${w[d.getDay()]}`;}
 
@@ -657,6 +673,67 @@ function pick(btn,g){
   else if(g==='mode') selMode=btn.dataset.mode;
   else if(g==='feel') selFeel=btn.dataset.feel;
   else if(g==='caf') selCaf=btn.dataset.caf;
+}
+
+/* custom feel tags */
+const FEEL_KEY='optimizer_custom_feels';
+function loadCustomFeels(){
+  let arr=[];
+  try{arr=JSON.parse(localStorage.getItem(FEEL_KEY)||'[]');}catch{}
+  return Array.isArray(arr)?arr:[];
+}
+function saveCustomFeels(arr){ localStorage.setItem(FEEL_KEY,JSON.stringify(arr)); }
+function renderCustomFeelBtns(){
+  const row=document.getElementById('feel-row');
+  // 移除舊自訂按鈕和「＋」
+  row.querySelectorAll('.feel-custom-pill,.feel-add-btn').forEach(el=>el.remove());
+  const arr=loadCustomFeels();
+  arr.forEach((label,i)=>{
+    const span=document.createElement('span');
+    span.className='feel-custom-pill';
+    span.dataset.feel=label;
+    span.onclick=function(e){ if(e.target.classList.contains('rm'))return; pickCustomFeel(this,label); };
+    span.innerHTML=`${label}<span class="rm" onclick="removeCustomFeel(${i})">✕</span>`;
+    if(selFeel===label) span.classList.add('sel-blue');
+    row.appendChild(span);
+  });
+  // 加＋按鈕
+  const add=document.createElement('button');
+  add.className='feel-add-btn';
+  add.textContent='＋ 自訂';
+  add.onclick=openCustomFeelInput;
+  row.appendChild(add);
+}
+function pickCustomFeel(el,label){
+  document.querySelectorAll('[data-feel]').forEach(b=>b.classList.remove('sel-blue','sel-sage','sel-sand','sel-mauve','sel-rose','sel-warm'));
+  document.querySelectorAll('.feel-custom-pill').forEach(b=>b.classList.remove('sel-blue'));
+  el.classList.add('sel-blue');
+  selFeel=label;
+}
+function openCustomFeelInput(){
+  document.getElementById('feel-input-wrap').classList.remove('hidden');
+  document.getElementById('feel-input').value='';
+  document.getElementById('feel-input').focus();
+}
+function cancelCustomFeel(){ document.getElementById('feel-input-wrap').classList.add('hidden'); }
+function confirmCustomFeel(){
+  const val=document.getElementById('feel-input').value.trim();
+  if(!val){cancelCustomFeel();return;}
+  const arr=loadCustomFeels();
+  if(!arr.includes(val)){ arr.push(val); saveCustomFeels(arr); }
+  cancelCustomFeel();
+  renderCustomFeelBtns();
+  // 自動選取剛新增的標籤
+  const newBtn=document.getElementById('feel-row').querySelector(`[data-feel="${val}"]`);
+  if(newBtn){ pickCustomFeel(newBtn,val); }
+}
+function removeCustomFeel(idx){
+  const arr=loadCustomFeels();
+  const removed=arr[idx];
+  arr.splice(idx,1);
+  saveCustomFeels(arr);
+  if(selFeel===removed) selFeel='';
+  renderCustomFeelBtns();
 }
 
 /* tasks */
