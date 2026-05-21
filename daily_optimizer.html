@@ -748,7 +748,12 @@ ${tasks.map((t,i)=>`${i+1}. ${t.text}`).join('\n')}
 function renderOut(r){
   const tc={high:'t-h',med:'t-m',low:'t-l',break:'t-b',cal:'t-cal'};
   const tl={high:'重點',med:'常規',low:'輕鬆',break:'休息',cal:'行程'};
+  // 清除休假模式留下的 inline display:none
   const sc=document.getElementById('sout');
+  const schedCard=sc?.closest('.card');
+  if(schedCard) schedCard.style.display='';
+  const splitSec=document.getElementById('taskSplitSec');
+  if(splitSec) splitSec.style.display='';
   sc.innerHTML=r.summary?`<div class="sbox">${r.summary}</div>`:'';
   (r.schedule||[]).forEach(item=>{
     const d=document.createElement('div');d.className='si';
