@@ -96,12 +96,11 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue","PingFang TC"
 .obtn.sel-mauve{border-color:#8e7a9e;color:#6e5a7e;background:rgba(142,122,158,.09);}
 .obtn.sel-warm{border-color:#a07878;color:#704848;background:rgba(160,120,120,.09);}
 .obtn.sel-rose{border-color:#a08878;color:#705848;background:rgba(160,136,120,.09);}
-.feel-row{display:flex;flex-wrap:wrap;gap:7px;margin:0 16px 9px;}
-.feel-row .obtn{flex:1;min-width:90px;}
-.feel-custom-pill{position:relative;display:inline-flex;align-items:center;gap:4px;padding:10px 10px 10px 11px;border-radius:10px;border:1.5px solid #cec8bf;background:#f4f1ec;font-size:12.5px;font-weight:500;color:#7a7570;cursor:pointer;transition:all .15s;white-space:nowrap;}
-.feel-custom-pill .rm{font-size:10px;color:#bbb;margin-left:2px;cursor:pointer;line-height:1;}
+.feel-row{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin:0 16px 9px;}
+.feel-custom-pill{display:flex;align-items:center;justify-content:space-between;padding:10px 10px 10px 11px;border-radius:10px;border:1.5px solid #cec8bf;background:#f4f1ec;font-size:12.5px;font-weight:500;color:#7a7570;cursor:pointer;transition:all .15s;box-sizing:border-box;}
+.feel-custom-pill .rm{font-size:10px;color:#bbb;cursor:pointer;line-height:1;flex-shrink:0;}
 .feel-custom-pill .rm:hover{color:#a07878;}
-.feel-add-btn{padding:10px 13px;border-radius:10px;border:1.5px dashed #cec8bf;background:transparent;font-size:12.5px;color:#b0a898;cursor:pointer;white-space:nowrap;}
+.feel-add-btn{padding:10px 6px;border-radius:10px;border:1.5px dashed #cec8bf;background:transparent;font-size:12.5px;color:#b0a898;cursor:pointer;text-align:center;box-sizing:border-box;}
 .feel-add-btn:hover{border-color:#a0988a;color:#7a7570;}
 .feel-input-wrap{display:flex;align-items:center;gap:6px;margin:0 16px 9px;}
 .feel-input{flex:1;padding:9px 11px;border-radius:9px;border:1.5px solid #cec8bf;background:#f4f1ec;font-size:13px;color:#38342e;font-family:inherit;}
@@ -375,16 +374,11 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue","PingFang TC"
   </div>
 
   <div class="stitle">今日模式</div>
-  <div class="feel-row" id="mode-row">
+  <div class="feel-row">
     <button class="obtn" data-mode="戰鬥日" onclick="pick(this,'mode')">⚡ 戰鬥日<span class="sub">全力衝刺</span></button>
     <button class="obtn" data-mode="綜合型態" onclick="pick(this,'mode')">🔀 綜合型態<span class="sub">外務＋任務</span></button>
     <button class="obtn" data-mode="休息日" onclick="pick(this,'mode')">🌿 休息日<span class="sub">低壓恢復</span></button>
-    <button class="obtn" data-mode="工作日" onclick="pick(this,'mode')">🏠 工作日<span class="sub">自由安排</span></button>
-  </div>
-  <div class="feel-input-wrap hidden" id="mode-input-wrap">
-    <input class="feel-input" id="mode-input" placeholder="輸入自訂模式…" maxlength="14"
-      onkeydown="if(event.key==='Enter')confirmCustomMode();if(event.key==='Escape')cancelCustomMode();">
-    <button class="feel-confirm-btn" onclick="confirmCustomMode()">確認</button>
+    <button class="obtn" data-mode="工作日" onclick="pick(this,'mode')">🏠 工作日</button>
   </div>
 
   <div class="stitle">今日體感</div>
@@ -400,10 +394,15 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue","PingFang TC"
   </div>
 
   <div class="stitle">咖啡因攝取</div>
-  <div class="orow3">
+  <div class="feel-row" id="caf-row">
     <button class="obtn" data-caf="0杯" onclick="pick(this,'caf')">🚫 0杯<span class="sub">今日無咖啡</span></button>
     <button class="obtn" data-caf="1杯" onclick="pick(this,'caf')">☕ 1杯<span class="sub">正常範圍</span></button>
     <button class="obtn" data-caf="1杯以上" onclick="pick(this,'caf')">☕☕ 1杯以上<span class="sub">需注意</span></button>
+  </div>
+  <div class="feel-input-wrap hidden" id="caf-input-wrap">
+    <input class="feel-input" id="caf-input" placeholder="輸入自訂攝取量…" maxlength="12"
+      onkeydown="if(event.key==='Enter')confirmCustomCaf();if(event.key==='Escape')cancelCustomCaf();">
+    <button class="feel-confirm-btn" onclick="confirmCustomCaf()">確認</button>
   </div>
 
   <div class="stitle">📅 今日行程（從 Google Calendar 複製）</div>
@@ -595,7 +594,7 @@ function openRestReview(){
   outSec.scrollIntoView({behavior:'smooth',block:'start'});
 }
 
-window.onload=()=>{setDate();renderT();renderKey();refreshGistUI();fetchSleep();loadSavedReview();initGistCard();renderLocRow();renderModeRow();renderCustomFeelBtns();};
+window.onload=()=>{setDate();renderT();renderKey();refreshGistUI();fetchSleep();loadSavedReview();initGistCard();renderLocRow();renderCustomFeelBtns();renderCafRow();};
 
 function setDate(){const d=new Date(),w=['週日','週一','週二','週三','週四','週五','週六'];document.getElementById('hdate').textContent=`${d.getMonth()+1}月${d.getDate()}日　${w[d.getDay()]}`;}
 
@@ -726,42 +725,42 @@ function removeCustomLoc(idx){
   if(selLoc===removed)selLoc='';renderLocRow();
 }
 
-/* custom mode tags */
-const CUSTOM_MODE_KEY='optimizer_custom_modes';
-function loadCustomModes(){try{const a=JSON.parse(localStorage.getItem(CUSTOM_MODE_KEY)||'[]');return Array.isArray(a)?a:[];}catch{return[];}}
-function saveCustomModes(arr){localStorage.setItem(CUSTOM_MODE_KEY,JSON.stringify(arr));}
-function renderModeRow(){
-  const row=document.getElementById('mode-row');
+/* custom caf tags */
+const CUSTOM_CAF_KEY='optimizer_custom_cafs';
+function loadCustomCafs(){try{const a=JSON.parse(localStorage.getItem(CUSTOM_CAF_KEY)||'[]');return Array.isArray(a)?a:[];}catch{return[];}}
+function saveCustomCafs(arr){localStorage.setItem(CUSTOM_CAF_KEY,JSON.stringify(arr));}
+function renderCafRow(){
+  const row=document.getElementById('caf-row');
   row.querySelectorAll('.feel-custom-pill,.feel-add-btn').forEach(el=>el.remove());
-  const arr=loadCustomModes();
+  const arr=loadCustomCafs();
   arr.forEach((label,i)=>{
-    const span=document.createElement('span');span.className='feel-custom-pill';span.dataset.mode=label;
-    span.onclick=function(e){if(e.target.classList.contains('rm'))return;pickCustomMode(this,label);};
-    span.innerHTML=`${label}<span class="rm" onclick="removeCustomMode(${i})">✕</span>`;
-    if(selMode===label)span.classList.add('sel-blue');
+    const span=document.createElement('span');span.className='feel-custom-pill';span.dataset.caf=label;
+    span.onclick=function(e){if(e.target.classList.contains('rm'))return;pickCustomCaf(this,label);};
+    span.innerHTML=`${label}<span class="rm" onclick="removeCustomCaf(${i})">✕</span>`;
+    if(selCaf===label)span.classList.add('sel-blue');
     row.appendChild(span);
   });
   const add=document.createElement('button');add.className='feel-add-btn';add.textContent='＋ 自訂';
-  add.onclick=()=>{document.getElementById('mode-input-wrap').classList.remove('hidden');document.getElementById('mode-input').value='';document.getElementById('mode-input').focus();};
+  add.onclick=()=>{document.getElementById('caf-input-wrap').classList.remove('hidden');document.getElementById('caf-input').value='';document.getElementById('caf-input').focus();};
   row.appendChild(add);
 }
-function pickCustomMode(el,label){
-  document.querySelectorAll('[data-mode]').forEach(b=>b.classList.remove('sel-blue','sel-sage','sel-sand','sel-mauve','sel-rose','sel-warm'));
-  document.querySelectorAll('#mode-row .feel-custom-pill').forEach(b=>b.classList.remove('sel-blue'));
-  el.classList.add('sel-blue');selMode=label;
+function pickCustomCaf(el,label){
+  document.querySelectorAll('[data-caf]').forEach(b=>b.classList.remove('sel-blue','sel-sage','sel-sand','sel-mauve','sel-rose','sel-warm'));
+  document.querySelectorAll('#caf-row .feel-custom-pill').forEach(b=>b.classList.remove('sel-blue'));
+  el.classList.add('sel-blue');selCaf=label;
 }
-function cancelCustomMode(){document.getElementById('mode-input-wrap').classList.add('hidden');}
-function confirmCustomMode(){
-  const val=document.getElementById('mode-input').value.trim();
-  if(!val){cancelCustomMode();return;}
-  const arr=loadCustomModes();if(!arr.includes(val)){arr.push(val);saveCustomModes(arr);}
-  cancelCustomMode();renderModeRow();
-  const el=document.getElementById('mode-row').querySelector(`[data-mode="${val}"]`);
-  if(el)pickCustomMode(el,val);
+function cancelCustomCaf(){document.getElementById('caf-input-wrap').classList.add('hidden');}
+function confirmCustomCaf(){
+  const val=document.getElementById('caf-input').value.trim();
+  if(!val){cancelCustomCaf();return;}
+  const arr=loadCustomCafs();if(!arr.includes(val)){arr.push(val);saveCustomCafs(arr);}
+  cancelCustomCaf();renderCafRow();
+  const el=document.getElementById('caf-row').querySelector(`[data-caf="${val}"]`);
+  if(el)pickCustomCaf(el,val);
 }
-function removeCustomMode(idx){
-  const arr=loadCustomModes();const removed=arr[idx];arr.splice(idx,1);saveCustomModes(arr);
-  if(selMode===removed)selMode='';renderModeRow();
+function removeCustomCaf(idx){
+  const arr=loadCustomCafs();const removed=arr[idx];arr.splice(idx,1);saveCustomCafs(arr);
+  if(selCaf===removed)selCaf='';renderCafRow();
 }
 
 /* custom feel tags */
