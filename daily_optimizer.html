@@ -363,17 +363,28 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue","PingFang TC"
   <!-- 一般規劃區（休假模式時隱藏）-->
   <div id="planSec">
   <div class="stitle">今日地點</div>
-  <div class="orow3">
+  <div class="feel-row" id="loc-row">
     <button class="obtn" data-loc="分館" onclick="pick(this,'loc')">文化局分館<span class="sub">08:30–19:00</span></button>
     <button class="obtn" data-loc="總館" onclick="pick(this,'loc')">圖書館總館<span class="sub">09:15–18:00</span></button>
     <button class="obtn" data-loc="外出日" onclick="pick(this,'loc')">外出日<span class="sub">彈性安排</span></button>
   </div>
+  <div class="feel-input-wrap hidden" id="loc-input-wrap">
+    <input class="feel-input" id="loc-input" placeholder="輸入自訂地點…" maxlength="14"
+      onkeydown="if(event.key==='Enter')confirmCustomLoc();if(event.key==='Escape')cancelCustomLoc();">
+    <button class="feel-confirm-btn" onclick="confirmCustomLoc()">確認</button>
+  </div>
 
   <div class="stitle">今日模式</div>
-  <div class="orow3">
+  <div class="feel-row" id="mode-row">
     <button class="obtn" data-mode="戰鬥日" onclick="pick(this,'mode')">⚡ 戰鬥日<span class="sub">全力衝刺</span></button>
     <button class="obtn" data-mode="綜合型態" onclick="pick(this,'mode')">🔀 綜合型態<span class="sub">外務＋任務</span></button>
     <button class="obtn" data-mode="休息日" onclick="pick(this,'mode')">🌿 休息日<span class="sub">低壓恢復</span></button>
+    <button class="obtn" data-mode="工作日" onclick="pick(this,'mode')">🏠 工作日<span class="sub">自由安排</span></button>
+  </div>
+  <div class="feel-input-wrap hidden" id="mode-input-wrap">
+    <input class="feel-input" id="mode-input" placeholder="輸入自訂模式…" maxlength="14"
+      onkeydown="if(event.key==='Enter')confirmCustomMode();if(event.key==='Escape')cancelCustomMode();">
+    <button class="feel-confirm-btn" onclick="confirmCustomMode()">確認</button>
   </div>
 
   <div class="stitle">今日體感</div>
@@ -584,7 +595,7 @@ function openRestReview(){
   outSec.scrollIntoView({behavior:'smooth',block:'start'});
 }
 
-window.onload=()=>{setDate();renderT();renderKey();refreshGistUI();fetchSleep();loadSavedReview();initGistCard();renderCustomFeelBtns();};
+window.onload=()=>{setDate();renderT();renderKey();refreshGistUI();fetchSleep();loadSavedReview();initGistCard();renderLocRow();renderModeRow();renderCustomFeelBtns();};
 
 function setDate(){const d=new Date(),w=['週日','週一','週二','週三','週四','週五','週六'];document.getElementById('hdate').textContent=`${d.getMonth()+1}月${d.getDate()}日　${w[d.getDay()]}`;}
 
@@ -665,6 +676,7 @@ function pick(btn,g){
   if(btn.dataset.mode==='休息日') cls='sel-sage';
   else if(btn.dataset.mode==='綜合型態') cls='sel-mauve';
   else if(btn.dataset.loc==='外出日') cls='sel-sand';
+  else if(btn.dataset.mode==='工作日') cls='sel-sand';
   else if(btn.dataset.feel==='疲憊') cls='sel-warm';
   else if(btn.dataset.feel==='有能量') cls='sel-sage';
   else if(btn.dataset.caf==='1杯以上') cls='sel-sand';
@@ -673,6 +685,83 @@ function pick(btn,g){
   else if(g==='mode') selMode=btn.dataset.mode;
   else if(g==='feel') selFeel=btn.dataset.feel;
   else if(g==='caf') selCaf=btn.dataset.caf;
+}
+
+/* custom loc tags */
+const CUSTOM_LOC_KEY='optimizer_custom_locs';
+function loadCustomLocs(){try{const a=JSON.parse(localStorage.getItem(CUSTOM_LOC_KEY)||'[]');return Array.isArray(a)?a:[];}catch{return[];}}
+function saveCustomLocs(arr){localStorage.setItem(CUSTOM_LOC_KEY,JSON.stringify(arr));}
+function renderLocRow(){
+  const row=document.getElementById('loc-row');
+  row.querySelectorAll('.feel-custom-pill,.feel-add-btn').forEach(el=>el.remove());
+  const arr=loadCustomLocs();
+  arr.forEach((label,i)=>{
+    const span=document.createElement('span');
+    span.className='feel-custom-pill';span.dataset.loc=label;
+    span.onclick=function(e){if(e.target.classList.contains('rm'))return;pickCustomLoc(this,label);};
+    span.innerHTML=`${label}<span class="rm" onclick="removeCustomLoc(${i})">✕</span>`;
+    if(selLoc===label)span.classList.add('sel-blue');
+    row.appendChild(span);
+  });
+  const add=document.createElement('button');add.className='feel-add-btn';add.textContent='＋ 自訂';
+  add.onclick=()=>{document.getElementById('loc-input-wrap').classList.remove('hidden');document.getElementById('loc-input').value='';document.getElementById('loc-input').focus();};
+  row.appendChild(add);
+}
+function pickCustomLoc(el,label){
+  document.querySelectorAll('[data-loc]').forEach(b=>b.classList.remove('sel-blue','sel-sage','sel-sand','sel-mauve','sel-rose','sel-warm'));
+  document.querySelectorAll('#loc-row .feel-custom-pill').forEach(b=>b.classList.remove('sel-blue'));
+  el.classList.add('sel-blue');selLoc=label;
+}
+function cancelCustomLoc(){document.getElementById('loc-input-wrap').classList.add('hidden');}
+function confirmCustomLoc(){
+  const val=document.getElementById('loc-input').value.trim();
+  if(!val){cancelCustomLoc();return;}
+  const arr=loadCustomLocs();if(!arr.includes(val)){arr.push(val);saveCustomLocs(arr);}
+  cancelCustomLoc();renderLocRow();
+  const el=document.getElementById('loc-row').querySelector(`[data-loc="${val}"]`);
+  if(el)pickCustomLoc(el,val);
+}
+function removeCustomLoc(idx){
+  const arr=loadCustomLocs();const removed=arr[idx];arr.splice(idx,1);saveCustomLocs(arr);
+  if(selLoc===removed)selLoc='';renderLocRow();
+}
+
+/* custom mode tags */
+const CUSTOM_MODE_KEY='optimizer_custom_modes';
+function loadCustomModes(){try{const a=JSON.parse(localStorage.getItem(CUSTOM_MODE_KEY)||'[]');return Array.isArray(a)?a:[];}catch{return[];}}
+function saveCustomModes(arr){localStorage.setItem(CUSTOM_MODE_KEY,JSON.stringify(arr));}
+function renderModeRow(){
+  const row=document.getElementById('mode-row');
+  row.querySelectorAll('.feel-custom-pill,.feel-add-btn').forEach(el=>el.remove());
+  const arr=loadCustomModes();
+  arr.forEach((label,i)=>{
+    const span=document.createElement('span');span.className='feel-custom-pill';span.dataset.mode=label;
+    span.onclick=function(e){if(e.target.classList.contains('rm'))return;pickCustomMode(this,label);};
+    span.innerHTML=`${label}<span class="rm" onclick="removeCustomMode(${i})">✕</span>`;
+    if(selMode===label)span.classList.add('sel-blue');
+    row.appendChild(span);
+  });
+  const add=document.createElement('button');add.className='feel-add-btn';add.textContent='＋ 自訂';
+  add.onclick=()=>{document.getElementById('mode-input-wrap').classList.remove('hidden');document.getElementById('mode-input').value='';document.getElementById('mode-input').focus();};
+  row.appendChild(add);
+}
+function pickCustomMode(el,label){
+  document.querySelectorAll('[data-mode]').forEach(b=>b.classList.remove('sel-blue','sel-sage','sel-sand','sel-mauve','sel-rose','sel-warm'));
+  document.querySelectorAll('#mode-row .feel-custom-pill').forEach(b=>b.classList.remove('sel-blue'));
+  el.classList.add('sel-blue');selMode=label;
+}
+function cancelCustomMode(){document.getElementById('mode-input-wrap').classList.add('hidden');}
+function confirmCustomMode(){
+  const val=document.getElementById('mode-input').value.trim();
+  if(!val){cancelCustomMode();return;}
+  const arr=loadCustomModes();if(!arr.includes(val)){arr.push(val);saveCustomModes(arr);}
+  cancelCustomMode();renderModeRow();
+  const el=document.getElementById('mode-row').querySelector(`[data-mode="${val}"]`);
+  if(el)pickCustomMode(el,val);
+}
+function removeCustomMode(idx){
+  const arr=loadCustomModes();const removed=arr[idx];arr.splice(idx,1);saveCustomModes(arr);
+  if(selMode===removed)selMode='';renderModeRow();
 }
 
 /* custom feel tags */
@@ -766,6 +855,8 @@ async function generate(){
   if(!key){alert('請先設定 Groq API Key');return;}
   if(!selLoc){alert('請選擇今日地點');return;}
   if(!selMode){alert('請選擇今日模式');return;}
+  // 工作日模式：跳過 AI，直接進自由行程+覆盤
+  if(selMode==='工作日'){renderWorkdayOut();return;}
   const p=pwr||(parseInt(document.getElementById('mpow').value)||50);
   const calEvents=document.getElementById('calInput').value.trim();
   const notes=document.getElementById('notes').value.trim();
@@ -820,6 +911,45 @@ ${tasks.map((t,i)=>`${i+1}. ${t.text}`).join('\n')}
     document.getElementById('ovl').classList.add('hidden');
     renderOut(result);
   }catch(e){document.getElementById('ovl').classList.add('hidden');alert('生成失敗：'+e.message);}
+}
+
+function renderWorkdayOut(){
+  const sc=document.getElementById('sout');
+  const schedCard=sc?.closest('.card');
+  if(schedCard)schedCard.style.display='';
+  const splitSec=document.getElementById('taskSplitSec');
+  if(splitSec)splitSec.style.display='';
+  // 讀取已存的自由行程
+  const saved=JSON.parse(localStorage.getItem(todayKey())||'{}');
+  sc.innerHTML=`<div style="font-size:11px;color:#9a9088;text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px;">工作日行程（自由填寫）</div>
+    <textarea id="workday-sched-ta"
+      style="width:100%;min-height:110px;resize:vertical;background:#f4f1ec;border:1.5px solid #cec8bf;border-radius:10px;padding:10px 12px;font-size:13px;color:#38342e;font-family:inherit;line-height:1.6;box-sizing:border-box;"
+      placeholder="例：09:30 整理筆記&#10;11:00 BQ practice&#10;14:00 LinkedIn 投遞…"
+      oninput="saveWorkdaySched(this.value)">${esc(saved.workdaySchedule||'')}</textarea>`;
+  // 任務全部列入，不做 AI 分配
+  const allNames=tasks.map(t=>t.text);
+  document.getElementById('tasksIn').innerHTML=allNames.length
+    ?allNames.map(n=>`<div class="t-in-row"><div class="t-dot-in"></div>${esc(n)}</div>`).join('')
+    :'<div style="font-size:12px;color:#9a9088;padding:4px 0">（任務庫為空）</div>';
+  document.getElementById('tasksOutWrap').classList.add('hidden');
+  document.getElementById('taskSplitSec').classList.remove('hidden');
+  // 清除 AI 反饋殘留
+  document.getElementById('overallFeedback').value=saved.overall||'';
+  document.getElementById('aiFbOut').style.display='none';document.getElementById('aiFbOut').textContent='';
+  document.getElementById('aiFbBtn').disabled=false;document.getElementById('aiFbBtn').textContent='✦ 生成 AI 反饋';
+  document.getElementById('savedToast').style.display='none';
+  // 存 workdayMode 標記
+  const existing=JSON.parse(localStorage.getItem(todayKey())||'{}');
+  localStorage.setItem(todayKey(),JSON.stringify({...existing,workdayMode:true,combatPower:pwr,mode:selMode,feel:selFeel,taskLibrary:allNames}));
+  // 覆盤：正常模式，帶入所有任務
+  renderReview(allNames);
+  const o=document.getElementById('outSec');
+  o.classList.remove('hidden');o.classList.add('fi');
+  setTimeout(()=>o.scrollIntoView({behavior:'smooth',block:'start'}),100);
+}
+function saveWorkdaySched(val){
+  const existing=JSON.parse(localStorage.getItem(todayKey())||'{}');
+  localStorage.setItem(todayKey(),JSON.stringify({...existing,workdaySchedule:val}));
 }
 
 function renderOut(r){
@@ -1102,7 +1232,25 @@ function loadSavedReview(){
     out.textContent=saved.aiFeedback;
     out.style.display='block';
   }
-  if(saved.restMode&&saved.items&&saved.items.length){
+  if(saved.workdayMode){
+    document.getElementById('outSec').classList.remove('hidden');
+    const sc=document.getElementById('sout');
+    const schedCard=sc?.closest('.card');
+    if(schedCard)schedCard.style.display='';
+    document.getElementById('taskSplitSec').style.display='';
+    document.getElementById('taskSplitSec').classList.remove('hidden');
+    sc.innerHTML=`<div style="font-size:11px;color:#9a9088;text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px;">工作日行程（自由填寫）</div>
+      <textarea id="workday-sched-ta"
+        style="width:100%;min-height:110px;resize:vertical;background:#f4f1ec;border:1.5px solid #cec8bf;border-radius:10px;padding:10px 12px;font-size:13px;color:#38342e;font-family:inherit;line-height:1.6;box-sizing:border-box;"
+        placeholder="例：09:30 整理筆記&#10;11:00 BQ practice&#10;14:00 LinkedIn 投遞…"
+        oninput="saveWorkdaySched(this.value)">${esc(saved.workdaySchedule||'')}</textarea>`;
+    const allNames=tasks.map(t=>t.text);
+    document.getElementById('tasksIn').innerHTML=allNames.length
+      ?allNames.map(n=>`<div class="t-in-row"><div class="t-dot-in"></div>${esc(n)}</div>`).join('')
+      :'<div style="font-size:12px;color:#9a9088;padding:4px 0">（任務庫為空）</div>';
+    document.getElementById('tasksOutWrap').classList.add('hidden');
+    renderReview(saved.items?saved.items.map(i=>i.name):allNames);
+  } else if(saved.restMode&&saved.items&&saved.items.length){
     restMode=true;
     const btn=document.getElementById('restBtn');
     btn.classList.add('on');btn.textContent='✓ 休假中';
