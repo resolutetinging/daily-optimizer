@@ -514,7 +514,7 @@ let tasks=JSON.parse(localStorage.getItem('tina_tasks')||'null')||[
 ];
 let nid=Math.max(...tasks.map(t=>t.id),9)+1;
 const saveT=()=>localStorage.setItem('tina_tasks',JSON.stringify(tasks));
-const todayKey=()=>'review_'+new Date().toISOString().slice(0,10);
+const todayKey=()=>{const d=new Date();return 'review_'+d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');};
 
 /* gist card toggle */
 function toggleGistCard(){
