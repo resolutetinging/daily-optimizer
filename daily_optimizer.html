@@ -432,6 +432,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue","PingFang TC"
   </div><!-- /planSec -->
 
   <div id="outSec" class="hidden">
+    <div id="editingBanner" style="display:none;background:#f0e8d8;border:1.5px solid #c8b89a;border-radius:10px;padding:9px 14px;margin-bottom:12px;font-size:13px;color:#6b5a42;font-weight:500;display:flex;justify-content:space-between;align-items:center"><span id="editingBannerText"></span><button onclick="reloadCombat()" style="font-size:11px;background:#e8ddd0;border:none;border-radius:6px;padding:3px 8px;color:#6b5a42;cursor:pointer">← 返回今日</button></div>
     <div class="stitle">今日行程</div>
     <div class="card fi"><div id="sout"></div></div>
 
@@ -515,6 +516,7 @@ let tasks=JSON.parse(localStorage.getItem('tina_tasks')||'null')||[
 let nid=Math.max(...tasks.map(t=>t.id),9)+1;
 const saveT=()=>localStorage.setItem('tina_tasks',JSON.stringify(tasks));
 const todayKey=()=>{const d=new Date();return 'review_'+d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');};
+let displayKey=todayKey(); // 追蹤當前編輯的 key，存檔跟著顯示的日期走
 
 /* gist card toggle */
 function toggleGistCard(){
@@ -568,8 +570,8 @@ function toggleRest(){
 
 function openRestReview(){
   const note=document.getElementById('restNote').value.trim();
-  const existing=JSON.parse(localStorage.getItem(todayKey())||'{}');
-  localStorage.setItem(todayKey(), JSON.stringify({
+  const existing=JSON.parse(localStorage.getItem(displayKey)||'{}');
+  localStorage.setItem(displayKey, JSON.stringify({
     ...existing,
     restMode: true,
     restNote: note,
@@ -600,6 +602,10 @@ function setDate(){const d=new Date(),w=['週日','週一','週二','週三','�
 
 /* sleep */
 async function reloadCombat(){
+  // 重置為今日 key，並隱藏歷史編輯 banner
+  displayKey=todayKey();
+  const banner=document.getElementById('editingBanner');
+  if(banner)banner.style.display='none';
   // 清除覆盤區，避免殘留昨日資料
   const outSec=document.getElementById('outSec');
   outSec.classList.add('hidden');
@@ -935,7 +941,7 @@ function renderWorkdayOut(){
   const splitSec=document.getElementById('taskSplitSec');
   if(splitSec)splitSec.style.display='';
   // 讀取已存的自由行程
-  const saved=JSON.parse(localStorage.getItem(todayKey())||'{}');
+  const saved=JSON.parse(localStorage.getItem(displayKey)||'{}');
   sc.innerHTML=`<div style="font-size:11px;color:#9a9088;text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px;">工作日行程（自由填寫）</div>
     <textarea id="workday-sched-ta"
       style="width:100%;min-height:110px;resize:vertical;background:#f4f1ec;border:1.5px solid #cec8bf;border-radius:10px;padding:10px 12px;font-size:13px;color:#38342e;font-family:inherit;line-height:1.6;box-sizing:border-box;"
@@ -954,8 +960,8 @@ function renderWorkdayOut(){
   document.getElementById('aiFbBtn').disabled=false;document.getElementById('aiFbBtn').textContent='✦ 生成 AI 反饋';
   document.getElementById('savedToast').style.display='none';
   // 存 workdayMode 標記
-  const existing=JSON.parse(localStorage.getItem(todayKey())||'{}');
-  localStorage.setItem(todayKey(),JSON.stringify({...existing,workdayMode:true,combatPower:pwr,mode:selMode,feel:selFeel,taskLibrary:allNames}));
+  const existing=JSON.parse(localStorage.getItem(displayKey)||'{}');
+  localStorage.setItem(displayKey,JSON.stringify({...existing,workdayMode:true,combatPower:pwr,mode:selMode,feel:selFeel,taskLibrary:allNames}));
   // 覆盤：正常模式，帶入所有任務
   renderReview(allNames);
   const o=document.getElementById('outSec');
@@ -963,8 +969,8 @@ function renderWorkdayOut(){
   setTimeout(()=>o.scrollIntoView({behavior:'smooth',block:'start'}),100);
 }
 function saveWorkdaySched(val){
-  const existing=JSON.parse(localStorage.getItem(todayKey())||'{}');
-  localStorage.setItem(todayKey(),JSON.stringify({...existing,workdaySchedule:val}));
+  const existing=JSON.parse(localStorage.getItem(displayKey)||'{}');
+  localStorage.setItem(displayKey,JSON.stringify({...existing,workdaySchedule:val}));
 }
 
 function renderOut(r){
@@ -1013,8 +1019,8 @@ function renderOut(r){
   const aiScheduled = (r.schedule||[])
     .filter(s=>s.tag!=='break'&&s.tag!=='cal')
     .map(s=>({time:s.time,task:s.task,note:s.note||''}));
-  const existing = JSON.parse(localStorage.getItem(todayKey())||'{}');
-  localStorage.setItem(todayKey(), JSON.stringify({
+  const existing = JSON.parse(localStorage.getItem(displayKey)||'{}');
+  localStorage.setItem(displayKey, JSON.stringify({
     ...existing,
     aiScheduled,
     fullSchedule: r.schedule||[],
@@ -1057,7 +1063,7 @@ function addToReview(name, rowIdx){
 /* ── Per-item review ── */
 function renderReview(names, isRestMode=false, fresh=false){
   reviewItems=names.map(name=>({name,status:'',feedback:''}));
-  const saved=JSON.parse(localStorage.getItem(todayKey())||'{}');
+  const saved=JSON.parse(localStorage.getItem(displayKey)||'{}');
   // restore saved statuses — in rest mode only restore custom items (not old task library)
   if(saved.items) saved.items.forEach((s,i)=>{
     const existing=reviewItems.find(r=>r.name===s.name);
@@ -1141,9 +1147,9 @@ function applyStatus(idx,val){
 
 function saveReview(){
   const overall=document.getElementById('overallFeedback').value.trim();
-  const existing=JSON.parse(localStorage.getItem(todayKey())||'{}');
+  const existing=JSON.parse(localStorage.getItem(displayKey)||'{}');
   const data={...existing,items:reviewItems.map(i=>({name:i.name,status:i.status,feedback:i.feedback})),overall,savedAt:new Date().toISOString()};
-  localStorage.setItem(todayKey(),JSON.stringify(data));
+  localStorage.setItem(displayKey,JSON.stringify(data));
   const toast=document.getElementById('savedToast');
   toast.style.display='block';
   setTimeout(()=>toast.style.display='none',2200);
@@ -1152,7 +1158,7 @@ function saveReview(){
 async function genReviewFeedback(){
   const key=getKey();
   if(!key){alert('請先設定 Groq API Key');return;}
-  const saved=JSON.parse(localStorage.getItem(todayKey())||'{}');
+  const saved=JSON.parse(localStorage.getItem(displayKey)||'{}');
   if(!saved.items||!saved.items.length){alert('請先儲存今日覆盤');return;}
 
   const btn=document.getElementById('aiFbBtn');
@@ -1230,8 +1236,8 @@ async function genReviewFeedback(){
     const fbText=data.choices?.[0]?.message?.content||'';
     out.textContent=fbText;
     out.style.display='block';
-    const ex=JSON.parse(localStorage.getItem(todayKey())||'{}');
-    localStorage.setItem(todayKey(),JSON.stringify({...ex,aiFeedback:fbText}));
+    const ex=JSON.parse(localStorage.getItem(displayKey)||'{}');
+    localStorage.setItem(displayKey,JSON.stringify({...ex,aiFeedback:fbText}));
   }catch(e){
     out.textContent='生成失敗：'+e.message;
     out.style.display='block';
@@ -1239,8 +1245,9 @@ async function genReviewFeedback(){
     btn.textContent='✦ 生成 AI 反饋';btn.disabled=false;
   }
 }
-function loadSavedReview(){
-  const saved=JSON.parse(localStorage.getItem(todayKey())||'{}');
+function loadSavedReview(key){
+  displayKey=key||todayKey();
+  const saved=JSON.parse(localStorage.getItem(displayKey)||'{}');
   if(saved.overall)document.getElementById('overallFeedback').value=saved.overall;
   if(saved.aiFeedback){
     const out=document.getElementById('aiFbOut');
@@ -1418,6 +1425,37 @@ ${weekSummary}
 }
 
 /* ── History ── */
+function loadHistEntry(key){
+  closeHist();
+  // 清空目前覆盤區，避免舊 DOM 殘留
+  document.getElementById('outSec').classList.add('hidden');
+  reviewItems=[];
+  renderReviewFromItems();
+  document.getElementById('overallFeedback').value='';
+  const fo=document.getElementById('aiFbOut');
+  fo.style.display='none';fo.textContent='';
+  document.getElementById('aiFbBtn').disabled=false;
+  document.getElementById('aiFbBtn').textContent='✦ 生成 AI 反饋';
+  // 顯示「正在編輯」banner
+  const dateStr=key.replace('review_','');
+  const d=new Date(dateStr+'T12:00:00');
+  const days=['週日','週一','週二','週三','週四','週五','週六'];
+  const banner=document.getElementById('editingBanner');
+  document.getElementById('editingBannerText').textContent=`📅 正在編輯 ${d.getMonth()+1}月${d.getDate()}日（${days[d.getDay()]}）記錄`;
+  banner.style.display='flex';
+  loadSavedReview(key);
+  setTimeout(()=>document.getElementById('outSec').scrollIntoView({behavior:'smooth',block:'start'}),100);
+}
+function deleteHistEntry(key,e){
+  e.stopPropagation();
+  const dateStr=key.replace('review_','');
+  if(!confirm('確定刪除 '+dateStr+' 的覆盤記錄？'))return;
+  localStorage.removeItem(key);
+  if(displayKey===key){
+    reloadCombat();
+  }
+  renderHist();
+}
 function openHist(){
   const panel=document.getElementById('histPanel');
   panel.classList.add('open');
@@ -1474,6 +1512,8 @@ function renderHist(){
         <div style="display:flex;align-items:center;gap:8px">
           <div class="hist-day-stats">${statsHtml}</div>
           <button class="h-rest-sm${data.restMode?' on':''}" onclick="toggleHistRest('${key}',event)">${data.restMode?'✓ 休假':'🌿'}</button>
+          <button style="font-size:11px;background:#e8f0e8;border:none;border-radius:6px;padding:3px 7px;color:#4a7a4a;cursor:pointer" onclick="loadHistEntry('${key}');event.stopPropagation()">✏️ 編輯</button>
+          <button style="font-size:11px;background:#f0e8e8;border:none;border-radius:6px;padding:3px 7px;color:#8a4a4a;cursor:pointer" onclick="deleteHistEntry('${key}',event)">🗑</button>
           <span class="hist-chevron">›</span>
         </div>
       </div>
