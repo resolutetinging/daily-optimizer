@@ -901,7 +901,8 @@ async function generate(){
 
 只輸出 JSON：
 {"summary":"一句話評估（45字內）","schedule":[{"time":"09:30","task":"任務","note":"建議","tag":"high|med|low|break|cal"}],"reviewTasks":["原始任務名1","原始任務名2"]}
-tag：high=重點深度,med=常規,low=輕鬆,break=休息,cal=固定行程`;
+tag：high=重點深度,med=常規,low=輕鬆,break=休息,cal=固定行程
+cal 規則：task 欄填入 Calendar 中的實際行程名稱（如「牙醫」「會議」），絕不能填 "cal"`;
 
   const usr=`今天：${document.getElementById('hdate').textContent}
 地點：${selLoc}${isOut?'':` 開館${selLoc==='分館'?'08:30':'09:15'} 閉館${close}`}
@@ -985,7 +986,9 @@ function renderOut(r){
   sc.innerHTML=r.summary?`<div class="sbox">${r.summary}</div>`:'';
   (r.schedule||[]).forEach(item=>{
     const d=document.createElement('div');d.className='si';
-    d.innerHTML=`<div class="tlbl">${item.time||''}</div><div class="sb"><div class="stask">${item.task||''}</div>${item.note?`<div class="snote">${item.note}</div>`:''} ${item.tag?`<span class="tag ${tc[item.tag]||'t-m'}">${tl[item.tag]||item.tag}</span>`:''}</div>`;
+    const _t=(item.tag==='cal'&&(!item.task||item.task==='cal'))?(item.note||''):(item.task||'');
+    const _n=(item.tag==='cal'&&(!item.task||item.task==='cal'))?'':(item.note||'');
+    d.innerHTML=`<div class="tlbl">${item.time||''}</div><div class="sb"><div class="stask">${_t}</div>${_n?`<div class="snote">${_n}</div>`:''} ${item.tag?`<span class="tag ${tc[item.tag]||'t-m'}">${tl[item.tag]||item.tag}</span>`:''}</div>`;
     sc.appendChild(d);
   });
 
@@ -1297,7 +1300,9 @@ function renderSavedSchedule(saved){
   sc.innerHTML=saved.summary?`<div class="sbox">${saved.summary}</div>`:'';
   (saved.fullSchedule||[]).forEach(item=>{
     const d=document.createElement('div');d.className='si';
-    d.innerHTML=`<div class="tlbl">${item.time||''}</div><div class="sb"><div class="stask">${item.task||''}</div>${item.note?`<div class="snote">${item.note}</div>`:''} ${item.tag?`<span class="tag ${tc[item.tag]||'t-m'}">${tl[item.tag]||item.tag}</span>`:''}</div>`;
+    const _t=(item.tag==='cal'&&(!item.task||item.task==='cal'))?(item.note||''):(item.task||'');
+    const _n=(item.tag==='cal'&&(!item.task||item.task==='cal'))?'':(item.note||'');
+    d.innerHTML=`<div class="tlbl">${item.time||''}</div><div class="sb"><div class="stask">${_t}</div>${_n?`<div class="snote">${_n}</div>`:''} ${item.tag?`<span class="tag ${tc[item.tag]||'t-m'}">${tl[item.tag]||item.tag}</span>`:''}</div>`;
     sc.appendChild(d);
   });
   const selectedNames=(saved.aiScheduled||[]).map(s=>s.task);
