@@ -254,7 +254,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue","PingFang TC"
     <div style="display:flex;gap:7px;align-items:center">
       <button class="h-rest" id="restBtn" onclick="toggleRest()">🌿 休假</button>
       <button class="h-hist" onclick="openHist()">📋 歷史</button>
-      <button class="h-reload" onclick="fetchSleep()">↻ 重新載入</button>
+      <button class="h-reload" onclick="reloadCombat()">↻ 重新載入</button>
     </div>
   </div>
 
@@ -599,6 +599,22 @@ window.onload=()=>{setDate();renderT();renderKey();refreshGistUI();fetchSleep();
 function setDate(){const d=new Date(),w=['週日','週一','週二','週三','週四','週五','週六'];document.getElementById('hdate').textContent=`${d.getMonth()+1}月${d.getDate()}日　${w[d.getDay()]}`;}
 
 /* sleep */
+async function reloadCombat(){
+  // 清除覆盤區，避免殘留昨日資料
+  const outSec=document.getElementById('outSec');
+  outSec.classList.add('hidden');
+  reviewItems=[];
+  renderReviewFromItems();
+  document.getElementById('overallFeedback').value='';
+  const fo=document.getElementById('aiFbOut');
+  fo.style.display='none';fo.textContent='';
+  document.getElementById('aiFbBtn').disabled=false;
+  document.getElementById('aiFbBtn').textContent='✦ 生成 AI 反饋';
+  // 重新載入今日 combat
+  await fetchSleep();
+  // 以今日 key 重讀已存的覆盤（新的一天通常為空）
+  loadSavedReview();
+}
 async function fetchSleep(){
   setFS('load','正在讀取睡眠數據…');
   try{const r=await fetch(DASH);if(r.ok){const h=await r.text();if(parseSleep(h))return;}}catch(e){}
