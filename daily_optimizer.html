@@ -164,18 +164,6 @@ input:checked+.js-slider:before{transform:translateX(13px);}
 .catmgr-addinput{flex:1;font-size:12.5px;color:#38342e;background:transparent;border:none;outline:none;font-family:inherit;}
 .catmgr-addinput::placeholder{color:#b0aaa0;}
 /* AI suggestion card */
-.sug-card{background:#f4f1ec;border:1.5px solid #d4cfc4;border-radius:12px;padding:13px 15px;margin:0 16px 9px;}
-.sug-title{font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#9a9088;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;}
-.sug-item{display:flex;align-items:flex-start;gap:9px;padding:7px 0;border-bottom:1px solid #e4dfd8;}
-.sug-item:last-child{border-bottom:none;}
-.sug-item-body{flex:1;}
-.sug-item-name{font-size:13.5px;color:#38342e;margin-bottom:2px;}
-.sug-item-reason{font-size:11px;color:#9a9088;line-height:1.5;}
-.sug-add-btn{font-size:11px;padding:4px 10px;border-radius:8px;border:1px solid #7a8e9e;background:transparent;color:#7a8e9e;cursor:pointer;white-space:nowrap;flex-shrink:0;transition:all .15s;}
-.sug-add-btn:hover{background:#7a8e9e;color:#fff;}
-.sug-add-btn.added{background:#7a9e8a;border-color:#7a9e8a;color:#fff;cursor:default;}
-.sug-gen-btn{font-size:11px;padding:4px 10px;border-radius:8px;border:1px solid #a09888;background:transparent;color:#9a9088;cursor:pointer;transition:all .15s;}
-.sug-gen-btn:hover{background:#9a9088;color:#fff;}
 
 .gbtn{margin:10px 16px 0;width:calc(100% - 32px);padding:15px;border-radius:10px;border:none;background:#7a8e9e;color:#fff;font-size:15px;font-weight:600;cursor:pointer;letter-spacing:.02em;-webkit-tap-highlight-color:transparent;transition:opacity .15s,transform .1s;display:flex;align-items:center;justify-content:center;gap:7px;}
 .gbtn:active{opacity:.82;transform:scale(.98);}
@@ -486,12 +474,6 @@ input:checked+.js-slider:before{transform:translateX(13px);}
     </div>
   </div>
 
-  <div class="sug-card">
-    <div class="sug-title">✨ AI 加項建議
-      <button class="sug-gen-btn" id="sugGenBtn" onclick="suggestTasks()">生成建議</button>
-    </div>
-    <div id="sugList"><div style="font-size:12px;color:#b0a898;">依今日戰力，從「按需」分類中推薦可加入的任務。確認後納入行程生成。</div></div>
-  </div>
 
   <button class="gbtn" onclick="generate()">✦ 生成今日行程</button>
 
@@ -625,7 +607,6 @@ function loadTaskData(){
 let taskData=loadTaskData();
 let nid=Math.max(...taskData.tasks.map(t=>t.id),9)+1;
 let jobsearchMode=localStorage.getItem('optimizer_jobsearch_mode')==='1';
-let confirmedSugs=[];
 const saveTaskData=()=>localStorage.setItem(TASKS_KEY,JSON.stringify(taskData));
 function getEffectiveTasks(){
   return taskData.tasks.filter(t=>{
@@ -634,8 +615,7 @@ function getEffectiveTasks(){
     const freq=t.freq||cat.freq;
     if(freq==='daily')return true;
     if(freq==='mode_jobsearch')return jobsearchMode;
-    if(freq==='ondemand')return confirmedSugs.includes(t.id);
-    return false;
+    return false; // ondemand → excluded
   });
 }
 const todayKey=()=>{const d=new Date();return 'review_'+d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');};
@@ -987,9 +967,8 @@ function renderTaskLib(){
     catTasks.forEach(t=>{
       const tfreq=t.freq||cat.freq;
       const inactive=(tfreq==='mode_jobsearch'&&!jobsearchMode)||(tfreq==='ondemand');
-      const isSugConfirmed=tfreq==='ondemand'&&confirmedSugs.includes(t.id);
       const d=document.createElement('div');d.className='ti';d.draggable=true;d.dataset.id=t.id;
-      if(inactive&&!isSugConfirmed)d.style.opacity='0.4';
+      if(inactive)d.style.opacity='0.4';
       const isJobCat=cat.freq==='mode_jobsearch';
       const isOn=tfreq!=='ondemand'&&!(tfreq==='mode_jobsearch'&&!jobsearchMode);
       const toggleHtml=isJobCat?'':`<label class="ti-onoff" title="${isOn?'點擊：從行程移除':'點擊：加入行程'}"><input type="checkbox" ${isOn?'checked':''} onchange="toggleTaskActive(${t.id},this.checked)"><span class="ti-onoff-sl"></span></label>`;
@@ -1092,50 +1071,6 @@ function setCatFreq(key,freq){
   const cat=taskData.categories.find(c=>c.key===key);if(cat)cat.freq=freq;saveTaskData();renderTaskLib();
 }
 
-/* AI Task Suggestions */
-let sugResults=[];
-async function suggestTasks(){
-  const key=getKey();if(!key){alert('請先設定 Groq API Key');return;}
-  const ondemandTasks=taskData.tasks.filter(t=>{
-    const cat=taskData.categories.find(c=>c.key===t.catKey);return cat&&cat.freq==='ondemand';
-  });
-  const sugEl=document.getElementById('sugList');
-  if(!ondemandTasks.length){sugEl.innerHTML='<div style="font-size:12px;color:#b0a898;">目前沒有「按需」分類的任務，請先新增。</div>';return;}
-  const btn=document.getElementById('sugGenBtn');btn.textContent='生成中…';btn.disabled=true;
-  const p=pwr||(parseInt(document.getElementById('mpow')?.value)||50);
-  const lv=p>=80?'高（80+，可挑戰性任務）':p>=70?'穩定（70–79，保持節奏）':p>=60?'注意（60–69，選輕量優先）':'低（<60，僅安排必要）';
-  const activeTasks=getEffectiveTasks().map(t=>t.text);
-  const sys=`你是效能顧問，根據使用者今日睡眠戰力，從備選任務庫推薦可加入今日行程的非強制任務。
-今日戰力：${lv}
-今日已排任務：${activeTasks.join('、')||'無'}
-備選任務（按需，從中選擇）：
-${ondemandTasks.map((t,i)=>`${i+1}. ${t.text}`).join('\n')}
-
-規則：戰力<50 建議0-1項且選輕量；50-69 建議1-2項；70+ 建議1-3項。若已排任務充實可建議0項（空陣列）。每項附建議原因15字內。只能從備選任務中選，不得創造新任務。
-只輸出JSON：{"suggestions":[{"text":"任務名稱（原文）","reason":"建議原因"}]}`;
-  try{
-    const resp=await fetch(GROQ,{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${key}`},body:JSON.stringify({model:'llama-3.3-70b-versatile',messages:[{role:'user',content:sys}],temperature:0.5,max_tokens:300,response_format:{type:'json_object'}})});
-    if(!resp.ok)throw new Error('HTTP '+resp.status);
-    const data=await resp.json();
-    sugResults=JSON.parse((data.choices?.[0]?.message?.content||'{}').replace(/```json|```/g,'').trim()).suggestions||[];
-    renderSugResults();
-  }catch(err){sugEl.innerHTML=`<div style="font-size:12px;color:#a07070;">生成失敗：${err.message}</div>`;}
-  finally{btn.textContent='重新生成';btn.disabled=false;}
-}
-function renderSugResults(){
-  const el=document.getElementById('sugList');
-  if(!sugResults.length){el.innerHTML='<div style="font-size:12px;color:#b0a898;">今日戰力評估後，維持現有排程即可。</div>';return;}
-  el.innerHTML=sugResults.map((s,i)=>{
-    const task=taskData.tasks.find(t=>t.text===s.text);const tid=task?task.id:-1;
-    const added=confirmedSugs.includes(tid);
-    return`<div class="sug-item"><div class="sug-item-body"><div class="sug-item-name">${esc(s.text)}</div><div class="sug-item-reason">${esc(s.reason)}</div></div><button class="sug-add-btn${added?' added':''}" id="sug-btn-${i}" onclick="acceptSug(${tid},${i})">${added?'已加入':'+ 加入今日'}</button></div>`;
-  }).join('');
-}
-function acceptSug(tid,idx){
-  if(tid<0||confirmedSugs.includes(tid))return;
-  confirmedSugs.push(tid);renderTaskLib();
-  const btn=document.getElementById('sug-btn-'+idx);if(btn){btn.textContent='已加入';btn.classList.add('added');}
-}
 
 /* generate */
 async function generate(){
