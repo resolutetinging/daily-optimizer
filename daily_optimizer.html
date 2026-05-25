@@ -124,6 +124,11 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue","PingFang TC"
 .dh{color:#c8c2b8;font-size:14px;cursor:grab;padding:0 2px;}
 .db{font-size:16px;color:#c8c2b8;cursor:pointer;padding:0 3px;opacity:0;transition:opacity .15s;line-height:1;}
 .ti:hover .db{opacity:1;}
+.ti-freq{font-size:9px;padding:1px 5px;border-radius:8px;border:none;cursor:pointer;font-weight:600;letter-spacing:.03em;outline:none;-webkit-appearance:none;appearance:none;flex-shrink:0;opacity:0;transition:opacity .15s;}
+.ti:hover .ti-freq{opacity:1;}
+.ti-freq.cf-daily{background:rgba(122,158,138,.18);color:#3a7e5a;}
+.ti-freq.cf-job{background:rgba(122,142,158,.18);color:#4a6e7e;}
+.ti-freq.cf-ondemand{background:rgba(160,150,130,.16);color:#7a6850;}
 .arow{display:flex;align-items:center;gap:10px;padding:9px 0;}
 .ainput{flex:1;font-size:14px;color:#7a7570;background:transparent;border:none;outline:none;font-family:inherit;}
 .ainput::placeholder{color:#b0aaa0;}
@@ -577,12 +582,10 @@ const DEFAULT_CATS=[
 ];
 const DEFAULT_TASKS_INIT=[
   {id:1,text:'英文練習',catKey:'learning'},
-  {id:2,text:'LinkedIn 職缺快掃',catKey:'jobsearch'},
-  {id:3,text:'BQ 面試練習',catKey:'jobsearch'},
-  {id:4,text:'半導體／AI 產業研究',catKey:'learning'},
-  {id:5,text:'Claude Project 開發',catKey:'learning'},
-  {id:6,text:'睡前閱讀（圖書館借閱書）',catKey:'daily_tasks'},
-  {id:7,text:'斗數筆記整理',catKey:'daily_tasks'},
+  {id:2,text:'Claude Project 開發',catKey:'learning'},
+  {id:3,text:'半導體／AI 產業研究',catKey:'learning'},
+  {id:4,text:'LinkedIn 職缺快掃',catKey:'jobsearch'},
+  {id:5,text:'BQ 面試練習',catKey:'jobsearch'},
 ];
 function loadTaskData(){
   const v2=localStorage.getItem(TASKS_KEY);
@@ -603,9 +606,10 @@ function getEffectiveTasks(){
   return taskData.tasks.filter(t=>{
     const cat=taskData.categories.find(c=>c.key===t.catKey);
     if(!cat)return false;
-    if(cat.freq==='daily')return true;
-    if(cat.freq==='mode_jobsearch')return jobsearchMode;
-    if(cat.freq==='ondemand')return confirmedSugs.includes(t.id);
+    const freq=t.freq||cat.freq;
+    if(freq==='daily')return true;
+    if(freq==='mode_jobsearch')return jobsearchMode;
+    if(freq==='ondemand')return confirmedSugs.includes(t.id);
     return false;
   });
 }
@@ -955,14 +959,16 @@ function renderTaskLib(){
     sec.innerHTML=`<div class="cat-hd"><span class="cat-lbl">${esc(cat.label)}</span><span class="cat-freq ${FREQ_CLASSES[cat.freq]||''}">${FREQ_LABELS[cat.freq]||cat.freq}</span>${jsHtml}</div><div id="cat-items-${cat.key}"></div>`;
     el.appendChild(sec);
     const itemsEl=document.getElementById('cat-items-'+cat.key);
-    const inactive=(cat.freq==='mode_jobsearch'&&!jobsearchMode)||(cat.freq==='ondemand');
     catTasks.forEach(t=>{
-      const isSugConfirmed=cat.freq==='ondemand'&&confirmedSugs.includes(t.id);
+      const tfreq=t.freq||cat.freq;
+      const inactive=(tfreq==='mode_jobsearch'&&!jobsearchMode)||(tfreq==='ondemand');
+      const isSugConfirmed=tfreq==='ondemand'&&confirmedSugs.includes(t.id);
       const d=document.createElement('div');d.className='ti';d.draggable=true;d.dataset.id=t.id;
       if(inactive&&!isSugConfirmed)d.style.opacity='0.4';
+      const freqSel=`<select class="ti-freq ${FREQ_CLASSES[tfreq]||''}" onchange="setTaskFreq(${t.id},this.value)"><option value="daily"${tfreq==='daily'?' selected':''}>每日</option><option value="mode_jobsearch"${tfreq==='mode_jobsearch'?' selected':''}>求職</option><option value="ondemand"${tfreq==='ondemand'?' selected':''}>按需</option></select>`;
       d.innerHTML=`<div class="ti-dot"></div>
         <div contenteditable="true" class="tt" onblur="upt(${t.id},this.textContent.trim())" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur()}">${esc(t.text)}</div>
-        <span class="dh">⠿</span><span class="db" onclick="del(${t.id})">×</span>`;
+        ${freqSel}<span class="dh">⠿</span><span class="db" onclick="del(${t.id})">×</span>`;
       d.addEventListener('dragstart',function(){dragSrc=this;this.classList.add('drag');});
       d.addEventListener('dragover',e=>e.preventDefault());
       d.addEventListener('drop',function(e){
@@ -989,6 +995,10 @@ function addT(e){
 }
 function toggleJobSearch(checked){
   jobsearchMode=checked;localStorage.setItem('optimizer_jobsearch_mode',checked?'1':'0');renderTaskLib();
+}
+function setTaskFreq(id,freq){
+  const t=taskData.tasks.find(t=>t.id===id);if(!t)return;
+  t.freq=freq;saveTaskData();renderTaskLib();
 }
 
 /* Category Management */
