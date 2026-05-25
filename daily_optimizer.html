@@ -589,10 +589,24 @@ const DEFAULT_TASKS_INIT=[
 ];
 function loadTaskData(){
   const v2=localStorage.getItem(TASKS_KEY);
-  if(v2){try{return JSON.parse(v2);}catch(e){}}
+  if(v2){
+    try{
+      const data=JSON.parse(v2);
+      // repair: tasks in ondemand categories with no explicit freq → set daily
+      let repaired=false;
+      data.tasks.forEach(t=>{
+        if(t.freq===undefined){
+          const cat=data.categories.find(c=>c.key===t.catKey);
+          if(cat&&cat.freq==='ondemand'){t.freq='daily';repaired=true;}
+        }
+      });
+      if(repaired)localStorage.setItem(TASKS_KEY,JSON.stringify(data));
+      return data;
+    }catch(e){}
+  }
   const old=JSON.parse(localStorage.getItem('tina_tasks')||'null');
   if(old&&old.length){
-    const data={categories:DEFAULT_CATS.map(c=>({...c})),tasks:old.map(t=>({...t,catKey:'daily_tasks'}))};
+    const data={categories:DEFAULT_CATS.map(c=>({...c})),tasks:old.map(t=>({...t,catKey:'daily_tasks',freq:'daily'}))};
     localStorage.setItem(TASKS_KEY,JSON.stringify(data));return data;
   }
   return{categories:DEFAULT_CATS.map(c=>({...c})),tasks:DEFAULT_TASKS_INIT.map(t=>({...t}))};
