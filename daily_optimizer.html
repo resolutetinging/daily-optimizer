@@ -192,6 +192,13 @@ input:checked+.js-slider:before{transform:translateX(13px);}
 .review-card{background:#f4f1ec;border:1px solid #cec8bf;border-radius:14px;padding:15px 17px;margin:0 16px 9px;}
 .rest-note-display{padding:10px 13px;border-radius:8px;background:#ece8e0;border:1px solid #cec8bf;font-size:13px;color:#6a6660;line-height:1.6;margin-bottom:13px;white-space:pre-wrap;display:none;}
 .rest-note-display.show{display:block;}
+.depleted-row{display:flex;align-items:center;gap:8px;padding:7px 0 8px;border-bottom:1px solid #e4dfd8;margin-bottom:2px;}
+.depleted-lbl{font-size:12px;color:#9a9088;flex:1;}
+.depleted-time{font-size:13px;font-weight:600;color:#b07848;}
+.depleted-rec-btn{font-size:11px;padding:3px 10px;border-radius:8px;border:1px solid #cec8bf;background:transparent;color:#7a7570;cursor:pointer;transition:background .15s;}
+.depleted-rec-btn:hover{background:#ece8e0;}
+.depleted-clr{font-size:13px;color:#c8c2b8;cursor:pointer;padding:0 3px;line-height:1;}
+.depleted-clr:hover{color:#a07878;}
 .add-ri-row{display:flex;align-items:center;gap:8px;padding:9px 12px;margin-top:8px;border-radius:9px;background:#ece8e0;border:1px dashed #c4bfb6;}
 .add-ri-input{flex:1;font-size:13px;color:#38342e;background:transparent;border:none;outline:none;font-family:inherit;}
 .add-ri-input::placeholder{color:#aaa49c;}
@@ -503,6 +510,7 @@ input:checked+.js-slider:before{transform:translateX(13px);}
         <div class="review-title">逐項回顧</div>
       </div>
       <div id="restNoteDisplay" class="rest-note-display"></div>
+      <div class="depleted-row" id="depletedRow"></div>
       <div id="reviewList"></div>
       <div class="add-ri-row">
         <input class="add-ri-input" id="addRiInput" placeholder="＋ 自訂項目（Enter 新增）" onkeydown="addReviewItem(event)">
@@ -1293,7 +1301,30 @@ function renderReview(names, isRestMode=false, fresh=false){
     nd.textContent='📝 今日備注：\n'+saved.restNote;
     nd.classList.add('show');
   } else { nd.classList.remove('show'); }
+  renderDepletedRow();
   renderReviewFromItems();
+}
+
+function renderDepletedRow(){
+  const el=document.getElementById('depletedRow');if(!el)return;
+  const saved=JSON.parse(localStorage.getItem(displayKey)||'{}');
+  const t=saved.depleted_at||'';
+  el.innerHTML=t
+    ?`<span class="depleted-lbl">⚡ 體力耗盡</span><span class="depleted-time">${t}</span><span class="depleted-clr" onclick="clearDepleted()" title="清除">×</span>`
+    :`<span class="depleted-lbl">⚡ 體力耗盡</span><button class="depleted-rec-btn" onclick="recordDepleted()">記錄當下</button>`;
+}
+function recordDepleted(){
+  const now=new Date();
+  const t=String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0');
+  const ex=JSON.parse(localStorage.getItem(displayKey)||'{}');
+  localStorage.setItem(displayKey,JSON.stringify({...ex,depleted_at:t}));
+  renderDepletedRow();
+}
+function clearDepleted(){
+  const ex=JSON.parse(localStorage.getItem(displayKey)||'{}');
+  delete ex.depleted_at;
+  localStorage.setItem(displayKey,JSON.stringify(ex));
+  renderDepletedRow();
 }
 
 function addReviewItem(e){
@@ -1429,6 +1460,7 @@ async function genReviewFeedback(){
     +'設計背景：AI 預排行程為當日 fixed plan；[人工加入]代表使用者在一天之中根據狀況手動追加（可能是有餘裕能量、當日新增事項、或替代未完成的預排任務）。'+NL+NL
     +'日期：'+dateStr+'　模式：'+(saved.mode||'未知')+'　體感：'+(saved.feel||'未知')+NL
     +'今日戰力：'+cp+'% '+cpLabel+NL
+    +(saved.depleted_at?'⚡ 體力耗盡時間：'+saved.depleted_at+'（可推算當日體力續航長度）'+NL:'')
     +'戰力期待值：'+cpExpect+NL+NL
     +planSection+NL+NL
     +'【實際覆盤結果】'+NL+actualItems+missedText+overall+NL+NL
@@ -1461,6 +1493,7 @@ async function genReviewFeedback(){
 function loadSavedReview(key){
   displayKey=key||todayKey();
   const saved=JSON.parse(localStorage.getItem(displayKey)||'{}');
+  renderDepletedRow();
   if(saved.overall)document.getElementById('overallFeedback').value=saved.overall;
   if(saved.aiFeedback){
     const out=document.getElementById('aiFbOut');
