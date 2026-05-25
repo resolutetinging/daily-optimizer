@@ -592,7 +592,15 @@ const DEFAULT_TASKS_INIT=[
 ];
 function loadTaskData(){
   const v3=localStorage.getItem(TASKS_KEY);
-  if(v3){try{return JSON.parse(v3);}catch(e){}}
+  if(v3){
+    try{
+      const data=JSON.parse(v3);
+      // repair: daily_tasks category still ondemand from older migration
+      const dtCat=data.categories.find(c=>c.key==='daily_tasks');
+      if(dtCat&&dtCat.freq==='ondemand'){dtCat.freq='daily';localStorage.setItem(TASKS_KEY,JSON.stringify(data));}
+      return data;
+    }catch(e){}
+  }
   // v2 → v3: tasks with no explicit freq get freq:'daily'
   const v2str=localStorage.getItem('tina_tasks_v2');
   if(v2str){
@@ -1029,7 +1037,10 @@ function addT(e){
   const i=document.getElementById('ainput'),tx=i.value.trim();if(!tx)return;
   const catSel=document.getElementById('ainput-cat');
   const catKey=catSel?catSel.value:(taskData.categories[0]?.key||'daily_tasks');
-  taskData.tasks.push({id:nid++,text:tx,catKey});i.value='';renderTaskLib();
+  const cat=taskData.categories.find(c=>c.key===catKey);
+  // set explicit freq so new tasks are always visible regardless of category default
+  const freq=cat?.freq==='mode_jobsearch'?'mode_jobsearch':'daily';
+  taskData.tasks.push({id:nid++,text:tx,catKey,freq});i.value='';renderTaskLib();
 }
 function toggleJobSearch(checked){
   jobsearchMode=checked;localStorage.setItem('optimizer_jobsearch_mode',checked?'1':'0');renderTaskLib();
