@@ -114,11 +114,11 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue","PingFang TC"
 .minput{width:100%;padding:12px 14px;border-radius:10px;border:1px solid #cec8bf;background:#f4f1ec;font-size:14px;color:#38342e;font-family:inherit;outline:none;}
 .minput:focus{border-color:#7a8e9e;}
 
-.ti{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid #ddd8d0;cursor:grab;}
+.ti{display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid #ece8e0;cursor:grab;}
 .ti:last-child{border-bottom:none;}
 .ti.drag{opacity:.3;}
-.ti-dot{width:6px;height:6px;border-radius:50%;background:#cec8bf;flex-shrink:0;margin-left:2px;}
-.tt{flex:1;font-size:14px;color:#38342e;outline:none;background:transparent;border:none;font-family:inherit;padding:2px 4px;line-height:1.5;border-radius:4px;}
+.ti-dot{width:5px;height:5px;border-radius:50%;background:#cec8bf;flex-shrink:0;}
+.tt{flex:1;font-size:13px;color:#38342e;outline:none;background:transparent;border:none;font-family:inherit;padding:2px 4px;line-height:1.5;border-radius:4px;}
 .tt:hover{background:rgba(0,0,0,.04);}
 .tt:focus{background:rgba(122,142,158,.07);}
 .dh{color:#c8c2b8;font-size:14px;cursor:grab;padding:0 2px;}
@@ -129,13 +129,15 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue","PingFang TC"
 .ti-freq.cf-daily{background:rgba(122,158,138,.18);color:#3a7e5a;}
 .ti-freq.cf-job{background:rgba(122,142,158,.18);color:#4a6e7e;}
 .ti-freq.cf-ondemand{background:rgba(160,150,130,.16);color:#7a6850;}
+.si-cat-lbl{font-size:10.5px;color:#9a9088;font-weight:500;margin-right:4px;letter-spacing:.01em;}
 .arow{display:flex;align-items:center;gap:10px;padding:9px 0;}
 .ainput{flex:1;font-size:14px;color:#7a7570;background:transparent;border:none;outline:none;font-family:inherit;}
 .ainput::placeholder{color:#b0aaa0;}
 /* ── Category task library ── */
-.cat-sec{margin-bottom:2px;}
-.cat-hd{display:flex;align-items:center;gap:7px;padding:8px 0 6px;border-bottom:1px solid #e4dfd8;}
-.cat-lbl{font-size:10.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#7a7570;}
+.cat-sec{margin-bottom:8px;}
+.cat-hd{display:flex;align-items:center;gap:7px;padding:9px 0 6px;}
+.cat-lbl{font-size:13px;font-weight:700;letter-spacing:.01em;color:#4a4540;}
+.cat-items{padding-left:12px;border-left:2px solid #e4dfd8;margin-left:3px;margin-bottom:2px;}
 .cat-freq{font-size:9px;padding:2px 7px;border-radius:10px;font-weight:600;letter-spacing:.03em;}
 .cf-daily{background:rgba(122,158,138,.14);color:#3a7e5a;}
 .cf-job{background:rgba(122,142,158,.14);color:#4a6e7e;}
@@ -969,7 +971,7 @@ function renderTaskLib(){
     const catTasks=taskData.tasks.filter(t=>t.catKey===cat.key);
     const sec=document.createElement('div');sec.className='cat-sec';
     const jsHtml=cat.freq==='mode_jobsearch'?`<div class="cat-js-wrap"><span class="cat-js-lbl">求職模式</span><label class="js-toggle"><input type="checkbox" ${jobsearchMode?'checked':''} onchange="toggleJobSearch(this.checked)"><span class="js-slider"></span></label></div>`:'';
-    sec.innerHTML=`<div class="cat-hd"><span class="cat-lbl">${esc(cat.label)}</span><span class="cat-freq ${FREQ_CLASSES[cat.freq]||''}">${FREQ_LABELS[cat.freq]||cat.freq}</span>${jsHtml}</div><div id="cat-items-${cat.key}"></div>`;
+    sec.innerHTML=`<div class="cat-hd"><span class="cat-lbl">${esc(cat.label)}</span><span class="cat-freq ${FREQ_CLASSES[cat.freq]||''}">${FREQ_LABELS[cat.freq]||cat.freq}</span>${jsHtml}</div><div id="cat-items-${cat.key}" class="cat-items"></div>`;
     el.appendChild(sec);
     const itemsEl=document.getElementById('cat-items-'+cat.key);
     catTasks.forEach(t=>{
@@ -1197,6 +1199,10 @@ function saveWorkdaySched(val){
   localStorage.setItem(displayKey,JSON.stringify({...existing,workdaySchedule:val}));
 }
 
+function getTaskCatLabel(taskText){
+  const t=taskData.tasks.find(t=>t.text===taskText);if(!t)return null;
+  const cat=taskData.categories.find(c=>c.key===t.catKey);return cat?cat.label:null;
+}
 function renderOut(r){
   const tc={high:'t-h',med:'t-m',low:'t-l',break:'t-b',cal:'t-cal'};
   const tl={high:'重點',med:'常規',low:'輕鬆',break:'休息',cal:'行程'};
@@ -1211,7 +1217,9 @@ function renderOut(r){
     const d=document.createElement('div');d.className='si';
     const _t=(item.tag==='cal'&&(!item.task||item.task==='cal'))?(item.note||''):(item.task||'');
     const _n=(item.tag==='cal'&&(!item.task||item.task==='cal'))?'':(item.note||'');
-    d.innerHTML=`<div class="tlbl">${item.time||''}</div><div class="sb"><div class="stask">${_t}</div>${_n?`<div class="snote">${_n}</div>`:''} ${item.tag?`<span class="tag ${tc[item.tag]||'t-m'}">${tl[item.tag]||item.tag}</span>`:''}</div>`;
+    const _cl=item.tag!=='cal'&&item.tag!=='break'?getTaskCatLabel(_t):null;
+    const _td=_cl?`<span class="si-cat-lbl">[${_cl}]</span>${esc(_t)}`:esc(_t);
+    d.innerHTML=`<div class="tlbl">${item.time||''}</div><div class="sb"><div class="stask">${_td}</div>${_n?`<div class="snote">${esc(_n)}</div>`:''} ${item.tag?`<span class="tag ${tc[item.tag]||'t-m'}">${tl[item.tag]||item.tag}</span>`:''}</div>`;
     sc.appendChild(d);
   });
 
@@ -1439,7 +1447,8 @@ async function genReviewFeedback(){
     :cp>=60?'Caution 狀態下，完成 2-3 項輕中度任務即屬合理，高強度任務跳過可理解。'
     :'Critical 狀態下，能完成任何任務都值得肯定，重點是識別今日狀態對明日的影響。';
 
-  const prompt='你是 Tina 的效能顧問。請根據以下資訊做深度覆盤分析，重點是「戰力狀態 × 計畫 × 實際」三者之間的關係。'+NL+NL
+  const prompt='你是 Tina 的效能顧問。請根據以下資訊做深度覆盤分析，重點是「戰力狀態 × 計畫 × 實際」三者之間的關係。'+NL
+    +'設計背景：AI 預排行程為當日 fixed plan；[人工加入]代表使用者在一天之中根據狀況手動追加（可能是有餘裕能量、當日新增事項、或替代未完成的預排任務）。'+NL+NL
     +'日期：'+dateStr+'　模式：'+(saved.mode||'未知')+'　體感：'+(saved.feel||'未知')+NL
     +'今日戰力：'+cp+'% '+cpLabel+NL
     +'戰力期待值：'+cpExpect+NL+NL
@@ -1449,7 +1458,7 @@ async function genReviewFeedback(){
     +'【戰力 × 實際表現分析】'+NL
     +'以今日戰力（'+cp+'% '+cpLabel+'）為基準，評估實際完成狀況是高於、符合、還是低於預期，說明原因（1-2句）'+NL+NL
     +'【計畫 vs 實際落差】'+NL
-    +(hasAiPlan?'針對 AI 預排 vs 實際的落差做 1-2 點觀察（哪項任務沒按計畫完成、人工加入的任務是否取代了預排任務）'
+    +(hasAiPlan?'針對 AI 預排 vs 實際的落差：(1) 預排任務哪些完成/未完成；(2) [人工加入]任務是有餘裕能量的加碼、還是修正了計畫—評估這些調整是否符合今日戰力狀態'
       :'以任務庫為基準，分析今日實際選擇反映了什麼優先順序或狀態')+NL+NL
     +'【今日小結】'+NL+'一句話（30字內）'+NL+NL
     +'【明日具體建議】'+NL+'1-2個明天可直接執行的調整，結合今日戰力與表現給出，不說泛泛建議'+NL+NL
@@ -1525,7 +1534,9 @@ function renderSavedSchedule(saved){
     const d=document.createElement('div');d.className='si';
     const _t=(item.tag==='cal'&&(!item.task||item.task==='cal'))?(item.note||''):(item.task||'');
     const _n=(item.tag==='cal'&&(!item.task||item.task==='cal'))?'':(item.note||'');
-    d.innerHTML=`<div class="tlbl">${item.time||''}</div><div class="sb"><div class="stask">${_t}</div>${_n?`<div class="snote">${_n}</div>`:''} ${item.tag?`<span class="tag ${tc[item.tag]||'t-m'}">${tl[item.tag]||item.tag}</span>`:''}</div>`;
+    const _cl=item.tag!=='cal'&&item.tag!=='break'?getTaskCatLabel(_t):null;
+    const _td=_cl?`<span class="si-cat-lbl">[${_cl}]</span>${esc(_t)}`:esc(_t);
+    d.innerHTML=`<div class="tlbl">${item.time||''}</div><div class="sb"><div class="stask">${_td}</div>${_n?`<div class="snote">${esc(_n)}</div>`:''} ${item.tag?`<span class="tag ${tc[item.tag]||'t-m'}">${tl[item.tag]||item.tag}</span>`:''}</div>`;
     sc.appendChild(d);
   });
   const selectedNames=(saved.aiScheduled||[]).map(s=>s.task);
