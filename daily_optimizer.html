@@ -993,7 +993,10 @@ function renderTaskLib(){
       d.innerHTML=`<div class="ti-dot"></div>
         <div contenteditable="true" class="tt" onblur="upt(${t.id},this.textContent.trim())" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur()}">${esc(t.text)}</div>
         ${freqSel}<span class="dh">⠿</span><span class="db" onclick="del(${t.id})">×</span>`;
-      d.addEventListener('dragstart',function(){dragSrc=this;this.classList.add('drag');});
+      d.addEventListener('dragstart',function(e){
+        if(e.target.tagName==='SELECT'||e.target.tagName==='BUTTON'){e.preventDefault();return;}
+        dragSrc=this;this.classList.add('drag');
+      });
       d.addEventListener('dragover',e=>e.preventDefault());
       d.addEventListener('drop',function(e){
         e.preventDefault();e.stopPropagation();if(dragSrc===this)return;
