@@ -976,7 +976,7 @@ function renderTaskLib(){
         <div contenteditable="true" class="tt" onblur="upt(${t.id},this.textContent.trim())" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur()}">${esc(t.text)}</div>
         ${toggleHtml}<span class="dh">⠿</span><span class="db" onclick="del(${t.id})">×</span>`;
       d.addEventListener('dragstart',function(e){
-        if(e.target.tagName==='INPUT'||e.target.tagName==='BUTTON'){e.preventDefault();return;}
+        if(e.target.isContentEditable||e.target.tagName==='INPUT'||e.target.tagName==='BUTTON'){e.preventDefault();return;}
         dragSrc=this;this.classList.add('drag');
       });
       d.addEventListener('dragover',e=>e.preventDefault());
