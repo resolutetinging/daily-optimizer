@@ -124,11 +124,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue","PingFang TC"
 .dh{color:#c8c2b8;font-size:14px;cursor:grab;padding:0 2px;}
 .db{font-size:16px;color:#c8c2b8;cursor:pointer;padding:0 3px;opacity:0;transition:opacity .15s;line-height:1;}
 .ti:hover .db{opacity:1;}
-.ti-freq{font-size:9px;padding:1px 5px;border-radius:8px;border:none;cursor:pointer;font-weight:600;letter-spacing:.03em;outline:none;-webkit-appearance:none;appearance:none;flex-shrink:0;opacity:0;transition:opacity .15s;}
-.ti:hover .ti-freq{opacity:1;}
-.ti-freq.cf-daily{background:rgba(122,158,138,.18);color:#3a7e5a;}
-.ti-freq.cf-job{background:rgba(122,142,158,.18);color:#4a6e7e;}
-.ti-freq.cf-ondemand{background:rgba(160,150,130,.16);color:#7a6850;}
+.ti-onoff{position:relative;width:28px;height:16px;cursor:pointer;display:inline-flex;flex-shrink:0;}
+.ti-onoff input{opacity:0;width:0;height:0;position:absolute;}
+.ti-onoff-sl{position:absolute;inset:0;background:#cec8bf;border-radius:16px;transition:.2s;}
+.ti-onoff-sl:before{content:'';position:absolute;width:11px;height:11px;left:2.5px;top:2.5px;background:#fff;border-radius:50%;transition:.2s;}
+.ti-onoff input:checked+.ti-onoff-sl{background:#7a9e8a;}
+.ti-onoff input:checked+.ti-onoff-sl:before{transform:translateX(12px);}
 .si-cat-lbl{font-size:12px;color:#38342e;font-weight:500;margin-right:4px;letter-spacing:.01em;}
 .arow{display:flex;align-items:center;gap:10px;padding:9px 0;}
 .ainput{flex:1;font-size:14px;color:#7a7570;background:transparent;border:none;outline:none;font-family:inherit;}
@@ -989,12 +990,14 @@ function renderTaskLib(){
       const isSugConfirmed=tfreq==='ondemand'&&confirmedSugs.includes(t.id);
       const d=document.createElement('div');d.className='ti';d.draggable=true;d.dataset.id=t.id;
       if(inactive&&!isSugConfirmed)d.style.opacity='0.4';
-      const freqSel=`<select class="ti-freq ${FREQ_CLASSES[tfreq]||''}" onchange="setTaskFreq(${t.id},this.value)"><option value="daily"${tfreq==='daily'?' selected':''}>每日</option><option value="mode_jobsearch"${tfreq==='mode_jobsearch'?' selected':''}>求職</option><option value="ondemand"${tfreq==='ondemand'?' selected':''}>按需</option></select>`;
+      const isJobCat=cat.freq==='mode_jobsearch';
+      const isOn=tfreq!=='ondemand'&&!(tfreq==='mode_jobsearch'&&!jobsearchMode);
+      const toggleHtml=isJobCat?'':`<label class="ti-onoff" title="${isOn?'點擊：從行程移除':'點擊：加入行程'}"><input type="checkbox" ${isOn?'checked':''} onchange="toggleTaskActive(${t.id},this.checked)"><span class="ti-onoff-sl"></span></label>`;
       d.innerHTML=`<div class="ti-dot"></div>
         <div contenteditable="true" class="tt" onblur="upt(${t.id},this.textContent.trim())" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur()}">${esc(t.text)}</div>
-        ${freqSel}<span class="dh">⠿</span><span class="db" onclick="del(${t.id})">×</span>`;
+        ${toggleHtml}<span class="dh">⠿</span><span class="db" onclick="del(${t.id})">×</span>`;
       d.addEventListener('dragstart',function(e){
-        if(e.target.tagName==='SELECT'||e.target.tagName==='BUTTON'){e.preventDefault();return;}
+        if(e.target.tagName==='INPUT'||e.target.tagName==='BUTTON'){e.preventDefault();return;}
         dragSrc=this;this.classList.add('drag');
       });
       d.addEventListener('dragover',e=>e.preventDefault());
@@ -1048,9 +1051,11 @@ function addT(e){
 function toggleJobSearch(checked){
   jobsearchMode=checked;localStorage.setItem('optimizer_jobsearch_mode',checked?'1':'0');renderTaskLib();
 }
-function setTaskFreq(id,freq){
+function toggleTaskActive(id,active){
   const t=taskData.tasks.find(t=>t.id===id);if(!t)return;
-  t.freq=freq;saveTaskData();renderTaskLib();
+  const cat=taskData.categories.find(c=>c.key===t.catKey);
+  t.freq=active?(cat?.freq==='mode_jobsearch'?'mode_jobsearch':'daily'):'ondemand';
+  saveTaskData();renderTaskLib();
 }
 
 /* Category Management */
