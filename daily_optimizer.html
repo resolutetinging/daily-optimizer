@@ -130,7 +130,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue","PingFang TC"
 .ti-onoff-sl:before{content:'';position:absolute;width:11px;height:11px;left:2.5px;top:2.5px;background:#fff;border-radius:50%;transition:.2s;}
 .ti-onoff input:checked+.ti-onoff-sl{background:#7a9e8a;}
 .ti-onoff input:checked+.ti-onoff-sl:before{transform:translateX(12px);}
-.si-cat-lbl{font-size:12px;color:#38342e;font-weight:500;margin-right:4px;letter-spacing:.01em;}
+.si-cat-lbl{font-size:14px;color:#38342e;font-weight:500;margin-right:4px;letter-spacing:.01em;}
 .arow{display:flex;align-items:center;gap:10px;padding:9px 0;}
 .ainput{flex:1;font-size:14px;color:#7a7570;background:transparent;border:none;outline:none;font-family:inherit;}
 .ainput::placeholder{color:#b0aaa0;}
@@ -172,9 +172,10 @@ input:checked+.js-slider:before{transform:translateX(13px);}
 .si:last-child{border-bottom:none;}
 .tlbl{font-size:11px;font-weight:600;color:#9a9088;min-width:46px;padding-top:2px;font-variant-numeric:tabular-nums;}
 .sb{flex:1;}
-.stask{font-size:14px;font-weight:500;color:#38342e;margin-bottom:2px;}
-.snote{font-size:12px;color:#7a7570;line-height:1.55;}
-.tag{display:inline-block;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:600;margin-top:4px;letter-spacing:.03em;}
+.stask-row{display:flex;align-items:center;justify-content:space-between;gap:8px;}
+.stask{font-size:14px;font-weight:500;color:#38342e;flex:1;}
+.snote{font-size:10px;color:#7a7570;line-height:1.55;margin-top:2px;}
+.tag{display:inline-block;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:600;letter-spacing:.03em;flex-shrink:0;}
 .t-h{background:rgba(122,142,158,.13);color:#5a6e7e;}
 .t-m{background:rgba(140,124,150,.13);color:#7a6e8e;}
 .t-l{background:rgba(122,158,138,.13);color:#4a7e5e;}
@@ -1196,7 +1197,7 @@ function renderOut(r){
     const _n=(item.tag==='cal'&&(!item.task||item.task==='cal'))?'':(item.note||'');
     const _cl=item.tag!=='cal'&&item.tag!=='break'?getTaskCatLabel(_t):null;
     const _td=_cl?`<span class="si-cat-lbl">[${_cl}]</span>${esc(_t)}`:esc(_t);
-    d.innerHTML=`<div class="tlbl">${item.time||''}</div><div class="sb"><div class="stask">${_td}</div>${_n?`<div class="snote">${esc(_n)}</div>`:''} ${item.tag?`<span class="tag ${tc[item.tag]||'t-m'}">${tl[item.tag]||item.tag}</span>`:''}</div>`;
+    d.innerHTML=`<div class="tlbl">${item.time||''}</div><div class="sb"><div class="stask-row"><div class="stask">${_td}</div>${item.tag?`<span class="tag ${tc[item.tag]||'t-m'}">${tl[item.tag]||item.tag}</span>`:''}</div>${_n?`<div class="snote">${esc(_n)}</div>`:''}</div>`;
     sc.appendChild(d);
   });
 
@@ -1513,7 +1514,7 @@ function renderSavedSchedule(saved){
     const _n=(item.tag==='cal'&&(!item.task||item.task==='cal'))?'':(item.note||'');
     const _cl=item.tag!=='cal'&&item.tag!=='break'?getTaskCatLabel(_t):null;
     const _td=_cl?`<span class="si-cat-lbl">[${_cl}]</span>${esc(_t)}`:esc(_t);
-    d.innerHTML=`<div class="tlbl">${item.time||''}</div><div class="sb"><div class="stask">${_td}</div>${_n?`<div class="snote">${esc(_n)}</div>`:''} ${item.tag?`<span class="tag ${tc[item.tag]||'t-m'}">${tl[item.tag]||item.tag}</span>`:''}</div>`;
+    d.innerHTML=`<div class="tlbl">${item.time||''}</div><div class="sb"><div class="stask-row"><div class="stask">${_td}</div>${item.tag?`<span class="tag ${tc[item.tag]||'t-m'}">${tl[item.tag]||item.tag}</span>`:''}</div>${_n?`<div class="snote">${esc(_n)}</div>`:''}</div>`;
     sc.appendChild(d);
   });
   const selectedNames=(saved.aiScheduled||[]).map(s=>s.task);
