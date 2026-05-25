@@ -571,14 +571,14 @@ const GROQ='https://api.groq.com/openai/v1/chat/completions';
 
 let selLoc='',selMode='',selFeel='',selCaf='',pwr=0,reviewItems=[];
 
-/* ── Task Library v2 ── */
-const TASKS_KEY='tina_tasks_v2';
+/* ── Task Library v3 ── */
+const TASKS_KEY='tina_tasks_v3';
 const FREQ_LABELS={daily:'每日',mode_jobsearch:'求職模式',ondemand:'按需'};
 const FREQ_CLASSES={daily:'cf-daily',mode_jobsearch:'cf-job',ondemand:'cf-ondemand'};
 const DEFAULT_CATS=[
   {key:'learning',label:'學習',freq:'daily'},
   {key:'jobsearch',label:'求職',freq:'mode_jobsearch'},
-  {key:'daily_tasks',label:'日常事務',freq:'ondemand'}
+  {key:'daily_tasks',label:'日常事務',freq:'daily'}
 ];
 const DEFAULT_TASKS_INIT=[
   {id:1,text:'英文練習',catKey:'learning'},
@@ -588,22 +588,21 @@ const DEFAULT_TASKS_INIT=[
   {id:5,text:'BQ 面試練習',catKey:'jobsearch'},
 ];
 function loadTaskData(){
-  const v2=localStorage.getItem(TASKS_KEY);
-  if(v2){
+  const v3=localStorage.getItem(TASKS_KEY);
+  if(v3){try{return JSON.parse(v3);}catch(e){}}
+  // v2 → v3: tasks with no explicit freq get freq:'daily'
+  const v2str=localStorage.getItem('tina_tasks_v2');
+  if(v2str){
     try{
-      const data=JSON.parse(v2);
-      // repair: tasks in ondemand categories with no explicit freq → set daily
-      let repaired=false;
-      data.tasks.forEach(t=>{
-        if(t.freq===undefined){
-          const cat=data.categories.find(c=>c.key===t.catKey);
-          if(cat&&cat.freq==='ondemand'){t.freq='daily';repaired=true;}
-        }
-      });
-      if(repaired)localStorage.setItem(TASKS_KEY,JSON.stringify(data));
-      return data;
+      const data=JSON.parse(v2str);
+      data.tasks=data.tasks.map(t=>t.freq?t:{...t,freq:'daily'});
+      // update daily_tasks category freq to daily
+      const dtCat=data.categories.find(c=>c.key==='daily_tasks');
+      if(dtCat)dtCat.freq='daily';
+      localStorage.setItem(TASKS_KEY,JSON.stringify(data));return data;
     }catch(e){}
   }
+  // tina_tasks (old flat array)
   const old=JSON.parse(localStorage.getItem('tina_tasks')||'null');
   if(old&&old.length){
     const data={categories:DEFAULT_CATS.map(c=>({...c})),tasks:old.map(t=>({...t,catKey:'daily_tasks',freq:'daily'}))};
