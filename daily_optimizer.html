@@ -137,7 +137,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue","PingFang TC"
 .cat-sec{margin-bottom:8px;}
 .cat-hd{display:flex;align-items:center;gap:7px;padding:9px 0 6px;}
 .cat-lbl{font-size:13px;font-weight:700;letter-spacing:.01em;color:#4a4540;}
-.cat-items{padding-left:12px;border-left:2px solid #e4dfd8;margin-left:3px;margin-bottom:2px;}
+.cat-items{padding-left:12px;border-left:2px solid #e4dfd8;margin-left:3px;margin-bottom:2px;min-height:8px;transition:background .15s,border-color .15s;}
+.cat-items.cat-drop-over{background:rgba(122,142,158,.07);border-left-color:#7a8e9e;border-radius:0 6px 6px 0;}
 .cat-freq{font-size:9px;padding:2px 7px;border-radius:10px;font-weight:600;letter-spacing:.03em;}
 .cf-daily{background:rgba(122,158,138,.14);color:#3a7e5a;}
 .cf-job{background:rgba(122,142,158,.14);color:#4a6e7e;}
@@ -987,12 +988,34 @@ function renderTaskLib(){
       d.addEventListener('dragstart',function(){dragSrc=this;this.classList.add('drag');});
       d.addEventListener('dragover',e=>e.preventDefault());
       d.addEventListener('drop',function(e){
-        e.preventDefault();if(dragSrc===this)return;
-        const si=taskData.tasks.findIndex(t=>t.id==dragSrc.dataset.id),ti=taskData.tasks.findIndex(t=>t.id==this.dataset.id);
-        const[item]=taskData.tasks.splice(si,1);taskData.tasks.splice(ti,0,item);renderTaskLib();
+        e.preventDefault();e.stopPropagation();if(dragSrc===this)return;
+        const si=taskData.tasks.findIndex(t=>t.id==dragSrc.dataset.id);
+        const ti=taskData.tasks.findIndex(t=>t.id==this.dataset.id);
+        if(si<0||ti<0)return;
+        // cross-category: update catKey to target task's category
+        if(taskData.tasks[si].catKey!==taskData.tasks[ti].catKey)
+          taskData.tasks[si].catKey=taskData.tasks[ti].catKey;
+        const[item]=taskData.tasks.splice(si,1);taskData.tasks.splice(ti,0,item);
+        renderTaskLib();
       });
-      d.addEventListener('dragend',()=>document.querySelectorAll('.ti').forEach(el=>el.classList.remove('drag')));
+      d.addEventListener('dragend',()=>{
+        document.querySelectorAll('.ti').forEach(el=>el.classList.remove('drag'));
+        document.querySelectorAll('.cat-items').forEach(el=>el.classList.remove('cat-drop-over'));
+      });
       itemsEl.appendChild(d);
+    });
+    // drop on empty category area → append to that category
+    itemsEl.addEventListener('dragover',e=>e.preventDefault());
+    itemsEl.addEventListener('dragenter',function(){this.classList.add('cat-drop-over');});
+    itemsEl.addEventListener('dragleave',function(e){if(!this.contains(e.relatedTarget))this.classList.remove('cat-drop-over');});
+    itemsEl.addEventListener('drop',function(e){
+      e.preventDefault();this.classList.remove('cat-drop-over');
+      if(!dragSrc)return;
+      const srcId=parseInt(dragSrc.dataset.id);
+      const srcTask=taskData.tasks.find(t=>t.id===srcId);
+      if(!srcTask)return;
+      const catKey=this.id.replace('cat-items-','');
+      if(srcTask.catKey!==catKey){srcTask.catKey=catKey;renderTaskLib();}
     });
   });
   saveTaskData();
