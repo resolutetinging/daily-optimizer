@@ -1310,8 +1310,8 @@ function renderDepletedRow(){
   const saved=JSON.parse(localStorage.getItem(displayKey)||'{}');
   const t=saved.depleted_at||'';
   el.innerHTML=t
-    ?`<span class="depleted-lbl">⚡ 體力耗盡</span><span class="depleted-time">${t}</span><span class="depleted-clr" onclick="clearDepleted()" title="清除">×</span>`
-    :`<span class="depleted-lbl">⚡ 體力耗盡</span><button class="depleted-rec-btn" onclick="recordDepleted()">記錄當下</button>`;
+    ?`<span class="depleted-lbl">⚡ 能量低點</span><span class="depleted-time">${t}</span><span class="depleted-clr" onclick="clearDepleted()" title="清除">×</span>`
+    :`<span class="depleted-lbl">⚡ 能量低點</span><button class="depleted-rec-btn" onclick="recordDepleted()">記錄當下</button>`;
 }
 function recordDepleted(){
   const now=new Date();
@@ -1460,7 +1460,7 @@ async function genReviewFeedback(){
     +'設計背景：AI 預排行程為當日 fixed plan；[人工加入]代表使用者在一天之中根據狀況手動追加（可能是有餘裕能量、當日新增事項、或替代未完成的預排任務）。'+NL+NL
     +'日期：'+dateStr+'　模式：'+(saved.mode||'未知')+'　體感：'+(saved.feel||'未知')+NL
     +'今日戰力：'+cp+'% '+cpLabel+NL
-    +(saved.depleted_at?'⚡ 體力耗盡時間：'+saved.depleted_at+'（可推算當日體力續航長度）'+NL:'')
+    +(saved.depleted_at?'⚡ 能量低點時間：'+saved.depleted_at+'（無法專注、思緒渙散的時間點，可推算今日有效工作續航長度）'+NL:'')
     +'戰力期待值：'+cpExpect+NL+NL
     +planSection+NL+NL
     +'【實際覆盤結果】'+NL+actualItems+missedText+overall+NL+NL
