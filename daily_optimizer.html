@@ -961,6 +961,7 @@ function removeCustomFeel(idx){
 /* tasks */
 let dragSrc=null;
 const esc=s=>s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const escClean=s=>esc(s.replace(/\n{3,}/g,'\n\n').trim());
 
 function renderTaskLib(){
   const el=document.getElementById('tlist');el.innerHTML='';
@@ -1782,14 +1783,14 @@ function renderHist(){
           <div style="padding:10px 0 0">
             <div class="hist-overall">
               <div class="hist-overall-label" style="text-align:left">整體反饋</div>
-              <div style="text-align:left">${esc(data.overall)}</div>
+              <div style="text-align:left">${escClean(data.overall)}</div>
             </div>
           </div>`:''}
         ${data.aiFeedback?`
           <div style="padding:10px 0">
             <div class="hist-overall">
               <div class="hist-overall-label" style="text-align:left">AI 反饋</div>
-              <div style="text-align:left;white-space:pre-wrap">${esc(data.aiFeedback)}</div>
+              <div style="text-align:left;white-space:pre-wrap">${escClean(data.aiFeedback)}</div>
             </div>
           </div>`:''}
       </div>`;
