@@ -961,7 +961,7 @@ function removeCustomFeel(idx){
 /* tasks */
 let dragSrc=null;
 const esc=s=>s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-const escClean=s=>esc(s.replace(/\n{3,}/g,'\n\n').trim());
+const escClean=s=>esc(s.split('\n').map(l=>l.trimEnd()).join('\n').replace(/\n{2,}/g,'\n').trim());
 
 function renderTaskLib(){
   const el=document.getElementById('tlist');el.innerHTML='';
