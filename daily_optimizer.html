@@ -1790,7 +1790,7 @@ function renderHist(){
           <div style="padding:10px 0">
             <div class="hist-overall">
               <div class="hist-overall-label" style="text-align:left">AI 反饋</div>
-              <div style="text-align:left;white-space:pre-wrap">${escClean(data.aiFeedback)}</div>
+              <div style="text-align:left;white-space:pre-wrap">${escClean(data.aiFeedback).replace(/【([^】]+)】/g,'<strong>【$1】</strong>')}</div>
             </div>
           </div>`:''}
       </div>`;
