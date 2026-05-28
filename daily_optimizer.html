@@ -218,6 +218,7 @@ input:checked+.js-slider:before{transform:translateX(13px);}
 .rb.on-done{background:#7a9e8a;border-color:#7a9e8a;color:#fff;}
 .rb.on-skip{background:#b0a090;border-color:#b0a090;color:#fff;}
 .rb.on-part{background:#8e9e7a;border-color:#8e9e7a;color:#fff;}
+.rb.on-no{background:#9e8a7a;border-color:#9e8a7a;color:#fff;}
 
 /* inline feedback - hidden by default, shown on status select */
 .ri-feedback{margin-top:8px;display:none;}
@@ -255,6 +256,7 @@ input:checked+.js-slider:before{transform:translateX(13px);}
 .sp-done{background:rgba(122,158,138,.15);color:#4a7e5e;}
 .sp-part{background:rgba(142,158,122,.15);color:#5a7e3e;}
 .sp-skip{background:rgba(176,160,144,.15);color:#7a6050;}
+.sp-no{background:rgba(158,138,122,.15);color:#6a5040;}
 .hist-day-body{border-top:1px solid #ddd8d0;padding:0 15px;}
 .hist-item{padding:10px 0;border-bottom:1px solid #ddd8d0;}
 .hist-item:last-child{border-bottom:none;}
@@ -264,9 +266,10 @@ input:checked+.js-slider:before{transform:translateX(13px);}
 .hs-done{background:rgba(122,158,138,.15);color:#4a7e5e;}
 .hs-part{background:rgba(142,158,122,.15);color:#5a7e3e;}
 .hs-skip{background:rgba(176,160,144,.15);color:#7a6050;}
+.hs-no{background:rgba(158,138,122,.15);color:#6a5040;}
 .hs-none{background:rgba(200,194,184,.15);color:#9a9088;}
 .hist-item-fb{font-size:12px;color:#7a7570;line-height:1.55;padding-left:2px;white-space:pre-wrap;word-break:break-word;}
-.hist-overall{margin:10px 0;padding:10px 12px;border-radius:8px;background:#ece8e0;font-size:12px;color:#6a6660;line-height:1.6;word-break:break-word;}
+.hist-overall{margin:10px 0;padding:10px 12px;border-radius:8px;background:#ece8e0;font-size:12px;color:#6a6660;line-height:1.6;white-space:pre-wrap;word-break:break-word;}
 .hist-overall-label{font-size:10px;font-weight:600;color:#9a9088;letter-spacing:.06em;text-transform:uppercase;margin-bottom:4px;}
 .hist-chevron{font-size:12px;color:#b0aaa0;transition:transform .2s;}
 .hist-chevron.open{transform:rotate(90deg);}
@@ -961,7 +964,6 @@ function removeCustomFeel(idx){
 /* tasks */
 let dragSrc=null;
 const esc=s=>s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-const escClean=s=>esc(s.split('\n').map(l=>l.trimEnd()).join('\n').replace(/\n{2,}/g,'\n').trim());
 
 function renderTaskLib(){
   const el=document.getElementById('tlist');el.innerHTML='';
@@ -1360,6 +1362,7 @@ function renderReviewFromItems(){
           <button class="rb" data-val="done" onclick="setStatus(${i},'done')">✓ 完成</button>
           <button class="rb" data-val="part" onclick="setStatus(${i},'part')">◑ 部分</button>
           <button class="rb" data-val="skip" onclick="setStatus(${i},'skip')">— 未做</button>
+          <button class="rb" data-val="no" onclick="setStatus(${i},'no')">⊘ 不做</button>
         </div>
       </div>
       <div class="ri-feedback" id="fb-${i}">
@@ -1384,8 +1387,8 @@ function applyStatus(idx,val){
   const btns=document.getElementById(`btns-${idx}`);
   if(!btns)return;
   btns.querySelectorAll('.rb').forEach(b=>{
-    b.classList.remove('on-done','on-part','on-skip');
-    if(b.dataset.val===val) b.classList.add(val==='done'?'on-done':val==='part'?'on-part':'on-skip');
+    b.classList.remove('on-done','on-part','on-skip','on-no');
+    if(b.dataset.val===val) b.classList.add(val==='done'?'on-done':val==='part'?'on-part':val==='no'?'on-no':'on-skip');
   });
 }
 
@@ -1434,7 +1437,7 @@ async function genReviewFeedback(){
   // ── 實際覆盤結果 ──
   const reviewedNames=saved.items.map(i=>i.name);
   const actualItems=saved.items.map(i=>{
-    const st=i.status==='done'?'✓ 完成':i.status==='part'?'◑ 部分完成':i.status==='skip'?'— 未做':'未記錄';
+    const st=i.status==='done'?'✓ 完成':i.status==='part'?'◑ 部分完成':i.status==='skip'?'— 未做':i.status==='no'?'⊘ 不做（有意識決定）':'未記錄';
     let tag='';
     if(hasAiPlan){
       tag=aiScheduled.some(s=>s.task===i.name)?'[預排]':'[人工加入]';
@@ -1598,11 +1601,12 @@ function renderWeeklyPreview(){
   const taskStats={};
   days.forEach(({date,data})=>{
     (data.items||[]).forEach(item=>{
-      if(!taskStats[item.name]) taskStats[item.name]={done:0,part:0,skip:0,total:0};
+      if(!taskStats[item.name]) taskStats[item.name]={done:0,part:0,skip:0,no:0,total:0};
       taskStats[item.name].total++;
       if(item.status==='done') taskStats[item.name].done++;
       else if(item.status==='part') taskStats[item.name].part++;
       else if(item.status==='skip') taskStats[item.name].skip++;
+      else if(item.status==='no') taskStats[item.name].no++;
     });
   });
   const wDays=['日','一','二','三','四','五'];
@@ -1612,7 +1616,7 @@ function renderWeeklyPreview(){
     return `<div style="padding:8px 0;border-bottom:1px solid #ddd8d0">
       <div style="display:flex;justify-content:space-between;align-items:center">
         <span style="font-size:13px;font-weight:500;color:#38342e">${esc(name)}</span>
-        <span style="font-size:11px;color:#9a9088">✓${s.done} ◑${s.part} —${s.skip}</span>
+        <span style="font-size:11px;color:#9a9088">✓${s.done} ◑${s.part} —${s.skip} ⊘${s.no||0}</span>
       </div>${bar}</div>`;
   }).join('');
   const dateRange=days.length?`${days[0].date.slice(5)} – ${days[days.length-1].date.slice(5)}`:'';
@@ -1773,8 +1777,8 @@ function renderHist(){
           <div class="hist-item">
             <div class="hist-item-top">
               <div class="hist-item-name">${esc(item.name||'')}</div>
-              <span class="hist-status ${item.status==='done'?'hs-done':item.status==='part'?'hs-part':item.status==='skip'?'hs-skip':'hs-none'}">
-                ${item.status==='done'?'✓ 完成':item.status==='part'?'◑ 部分':item.status==='skip'?'— 未做':'未記錄'}
+              <span class="hist-status ${item.status==='done'?'hs-done':item.status==='part'?'hs-part':item.status==='skip'?'hs-skip':item.status==='no'?'hs-no':'hs-none'}">
+                ${item.status==='done'?'✓ 完成':item.status==='part'?'◑ 部分':item.status==='skip'?'— 未做':item.status==='no'?'⊘ 不做':'未記錄'}
               </span>
             </div>
             ${item.feedback?`<div class="hist-item-fb">${esc(item.feedback)}</div>`:''}
@@ -1783,14 +1787,14 @@ function renderHist(){
           <div style="padding:10px 0 0">
             <div class="hist-overall">
               <div class="hist-overall-label" style="text-align:left">整體反饋</div>
-              <div style="text-align:left;white-space:pre-wrap">${escClean(data.overall)}</div>
+              <div style="text-align:left">${esc(data.overall)}</div>
             </div>
           </div>`:''}
         ${data.aiFeedback?`
           <div style="padding:10px 0">
             <div class="hist-overall">
               <div class="hist-overall-label" style="text-align:left">AI 反饋</div>
-              <div style="text-align:left;white-space:pre-wrap">${escClean(data.aiFeedback).replace(/【([^】]+)】/g,'<strong>【$1】</strong>')}</div>
+              <div style="text-align:left;white-space:pre-wrap">${esc(data.aiFeedback)}</div>
             </div>
           </div>`:''}
       </div>`;
