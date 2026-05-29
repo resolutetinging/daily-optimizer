@@ -1788,12 +1788,12 @@ function renderHist(){
         ${data.overall?`
           <div class="hist-overall">
             <div class="hist-overall-label" style="text-align:left">整體反饋</div>
-            <div style="text-align:left">${esc(data.overall.trim())}</div>
+            <div style="text-align:left">${esc(data.overall.trim().replace(/\n{2,}/g,'\n'))}</div>
           </div>`:''}
         ${data.aiFeedback?`
           <div class="hist-overall">
             <div class="hist-overall-label" style="text-align:left">AI 反饋</div>
-            <div style="text-align:left;white-space:pre-wrap">${esc(data.aiFeedback.trim())}</div>
+            <div style="text-align:left;white-space:pre-wrap">${esc(data.aiFeedback.trim().replace(/\n{2,}/g,'\n'))}</div>
           </div>`:''}
       </div>`;
     content.appendChild(dayDiv);
