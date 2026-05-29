@@ -269,7 +269,7 @@ input:checked+.js-slider:before{transform:translateX(13px);}
 .hs-no{background:rgba(158,138,122,.15);color:#6a5040;}
 .hs-none{background:rgba(200,194,184,.15);color:#9a9088;}
 .hist-item-fb{font-size:12px;color:#7a7570;line-height:1.55;padding-left:2px;white-space:pre-wrap;word-break:break-word;}
-.hist-overall{margin:6px 0 0;padding:8px 12px;border-radius:8px;background:#ece8e0;font-size:12px;color:#6a6660;line-height:1.6;white-space:pre-wrap;word-break:break-word;}
+.hist-overall{margin:6px 0 0;padding:8px 12px;border-radius:8px;background:#ece8e0;font-size:12px;color:#6a6660;line-height:1.6;word-break:break-word;}
 .hist-overall-label{font-size:10px;font-weight:600;color:#9a9088;letter-spacing:.06em;text-transform:uppercase;margin-bottom:2px;}
 .hist-chevron{font-size:12px;color:#b0aaa0;transition:transform .2s;}
 .hist-chevron.open{transform:rotate(90deg);}
@@ -1785,16 +1785,8 @@ function renderHist(){
             </div>
             ${item.feedback?`<div class="hist-item-fb">${esc(item.feedback)}</div>`:''}
           </div>`).join('')}
-        ${data.overall?`
-          <div class="hist-overall">
-            <div class="hist-overall-label" style="text-align:left">整體反饋</div>
-            <div style="text-align:left">${esc(data.overall.trim().replace(/\n{2,}/g,'\n'))}</div>
-          </div>`:''}
-        ${data.aiFeedback?`
-          <div class="hist-overall">
-            <div class="hist-overall-label" style="text-align:left">AI 反饋</div>
-            <div style="text-align:left;white-space:pre-wrap">${esc(data.aiFeedback.trim().replace(/\n{2,}/g,'\n'))}</div>
-          </div>`:''}
+        ${data.overall?`<div class="hist-overall"><div class="hist-overall-label" style="text-align:left">整體反饋</div><div style="text-align:left;white-space:pre-wrap">${esc(data.overall.trim().replace(/\n{2,}/g,'\n'))}</div></div>`:''}
+        ${data.aiFeedback?`<div class="hist-overall"><div class="hist-overall-label" style="text-align:left">AI 反饋</div><div style="text-align:left;white-space:pre-wrap">${esc(data.aiFeedback.trim().replace(/\n{2,}/g,'\n'))}</div></div>`:''}
       </div>`;
     content.appendChild(dayDiv);
   });
