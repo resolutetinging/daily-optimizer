@@ -6,7 +6,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Daily Optimizer">
-<title>Daily Optimizer v2 · Tina</title>
+<title>Daily Optimizer v2</title>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
 body{font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue","PingFang TC",sans-serif;background-color:#e8e4de;color:#38342e;font-size:15px;line-height:1.65;min-height:100vh;}
@@ -326,6 +326,12 @@ input:checked+.js-slider:before{transform:translateX(13px);}
 .brick.assigned{opacity:.25;cursor:default;text-decoration:line-through;pointer-events:none;}
 .brick-warn-dot{font-size:9px;color:#d09018;flex-shrink:0;}
 .mock-notice{font-size:11px;color:#a07840;background:rgba(176,140,80,.09);border:1px solid rgba(176,140,80,.22);border-radius:7px;padding:6px 10px;margin-bottom:10px;}
+.temp-brick-row{display:flex;gap:6px;margin-top:10px;}
+.temp-brick-input{flex:1;padding:7px 10px;border-radius:8px;border:1.5px dashed #cec8bf;background:transparent;font-size:12.5px;color:#38342e;font-family:inherit;outline:none;}
+.temp-brick-input:focus{border-color:#7a8e9e;background:rgba(122,142,158,.05);}
+.temp-brick-input::placeholder{color:#b0aaa0;}
+.temp-brick-btn{padding:7px 11px;border-radius:8px;border:none;background:#7a8e9e;color:#fff;font-size:12px;font-weight:500;cursor:pointer;flex-shrink:0;}
+.brick.temp-brick{border-style:dashed;border-color:#7a8e9e;color:#4a6e8e;background:rgba(122,142,158,.06);}
 </style>
 </head>
 <body>
@@ -1141,7 +1147,7 @@ async function generate(){
   const lv=p>=80?'Peak(80+)':p>=70?'Stable(70-79)':p>=60?'Caution(60-69)':'Critical(<60)';
   const taskList=getEffectiveTasks().map((t,i)=>`${i+1}. ${t.text}`).join('\n');
 
-  const sys=`你是 Tina 的私人效能顧問。根據今日三夜加權戰力值，將一日行程切分為數個「精力屬性大時段水管」。不要把任務硬塞入時間軸，只輸出骨架結構。
+  const sys=`你是我的私人效能顧問。根據今日三夜加權戰力值，將一日行程切分為數個「精力屬性大時段水管」。不要把任務硬塞入時間軸，只輸出骨架結構。
 
 水管類型（type）：
 - high = 深度高能時段（需高專注，適合核心難題）
@@ -1318,7 +1324,7 @@ function renderOut(r){
 /* ═══════════════════════════════════════════════════════
    PIPE SANDBOX — 雙軌制水管沙盒
 ═══════════════════════════════════════════════════════ */
-let _pipes=[], _pipeAssign={}, _skipTasks=[], _selPipeIdx=null, _selBrickText=null;
+let _pipes=[], _pipeAssign={}, _skipTasks=[], _selPipeIdx=null, _selBrickText=null, _tempBricks=[];
 
 function getMockPipes(p){
   const summary=p>=75?'⚡ 示範資料：戰力充足，今日早段衝刺核心難題，午後維持節奏。'
@@ -1378,24 +1384,38 @@ function renderPipeSandbox(result,isMock=false){
     </div>`;
   }).join('');
 
+  // 載入既有臨時積木
+  const exData=JSON.parse(localStorage.getItem(displayKey)||'{}');
+  _tempBricks=exData.tempBricks||[];
+
   sc.innerHTML=mockNotice+sumHtml
     +`<div class="pipe-track">${pipesHtml}</div>`
     +'<div class="sandbox-hint" id="sandboxHint">👇 點選時段水管，再點下方任務積木放入</div>'
-    +'<div class="brick-pool-sec"><div class="brick-pool-hd">📦 任務積木池</div><div class="brick-pool" id="brickPool"></div></div>';
+    +'<div class="brick-pool-sec">'
+      +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:9px;">'
+        +'<div class="brick-pool-hd" style="margin-bottom:0">📦 任務積木池</div>'
+      +'</div>'
+      +'<div class="brick-pool" id="brickPool"></div>'
+      +'<div class="temp-brick-row">'
+        +'<input class="temp-brick-input" id="tempBrickInput" placeholder="＋ 自訂臨時任務…" maxlength="30" onkeydown="if(event.key===\'Enter\')addTempBrick(this.value)">'
+        +'<button class="temp-brick-btn" onclick="addTempBrick(document.getElementById(\'tempBrickInput\').value)">新增</button>'
+      +'</div>'
+    +'</div>';
 
   renderBrickPool();
 
   // 存基礎資料到 localStorage
   const ex=JSON.parse(localStorage.getItem(displayKey)||'{}');
+  const allReviewNames=[...getEffectiveTasks().map(t=>t.text),..._tempBricks];
   localStorage.setItem(displayKey,JSON.stringify({...ex,
-    pipes:_pipes,skipTasks:_skipTasks,pipeAssignments:{},
+    pipes:_pipes,skipTasks:_skipTasks,pipeAssignments:{},tempBricks:_tempBricks,
     summary:result.summary||'',
     calEvents:document.getElementById('calInput').value.trim(),
     taskLibrary:getEffectiveTasks().map(t=>t.text),
     combatPower:pwr,mode:selMode,feel:selFeel,
   }));
 
-  renderReview(getEffectiveTasks().map(t=>t.text));
+  renderReview(allReviewNames);
   const o=document.getElementById('outSec');
   o.classList.remove('hidden');o.classList.add('fi');
   setTimeout(()=>o.scrollIntoView({behavior:'smooth',block:'start'}),100);
@@ -1408,7 +1428,8 @@ function renderBrickPool(){
   const pool=document.getElementById('brickPool');if(!pool)return;
   const tasks=getEffectiveTasks();
   const assignedSet=new Set(Object.values(_pipeAssign).flat());
-  pool.innerHTML=tasks.map((t,i)=>{
+  // 一般任務積木（依 getEffectiveTasks 動態篩選頻率）
+  const regularHtml=tasks.map((t,i)=>{
     const isAssigned=assignedSet.has(t.text);
     const isSkip=_skipTasks.includes(t.text);
     const isSel=_selBrickText===t.text;
@@ -1417,8 +1438,22 @@ function renderBrickPool(){
     else if(isSel)cls+=' selected';
     else if(isSkip)cls+=' skip-sug';
     const dot=isSkip?'<span class="brick-warn-dot">⚡</span>':'';
-    return`<div class="${cls}" id="brick-${i}" onclick="onBrickClick('${t.text.replace(/'/g,"\\'")}',${i})">${dot}${esc(t.text)}</div>`;
+    // 顯示分類標籤
+    const cat=taskData.categories.find(c=>c.key===t.catKey);
+    const catTag=cat?`<span style="font-size:9px;opacity:.55;margin-left:3px;">[${esc(cat.label)}]</span>`:'';
+    return`<div class="${cls}" id="brick-${i}" onclick="onBrickClick('${t.text.replace(/'/g,"\\'")}',${i})">${dot}${esc(t.text)}${catTag}</div>`;
   }).join('');
+  // 臨時自訂積木
+  const offset=tasks.length;
+  const tempHtml=_tempBricks.map((txt,i)=>{
+    const isAssigned=assignedSet.has(txt);
+    const isSel=_selBrickText===txt;
+    let cls='brick temp-brick';
+    if(isAssigned)cls+=' assigned';
+    else if(isSel)cls+=' selected';
+    return`<div class="${cls}" id="brick-tmp-${i}" onclick="onBrickClick('${txt.replace(/'/g,"\\'")}',${offset+i})">✦ ${esc(txt)}</div>`;
+  }).join('');
+  pool.innerHTML=regularHtml+tempHtml;
 }
 
 function onPipeClick(idx){
@@ -1508,6 +1543,23 @@ function updateSandboxHint(){
   }
 }
 
+function addTempBrick(name){
+  name=(name||'').trim();if(!name)return;
+  if(_tempBricks.includes(name))return;
+  _tempBricks.push(name);
+  // 即時加入覆盤清單（自訂 custom 項目）
+  if(!reviewItems.find(r=>r.name===name)){
+    reviewItems.push({name,status:'',feedback:'',custom:true});
+    renderReviewFromItems();
+  }
+  // 存 localStorage
+  const ex=JSON.parse(localStorage.getItem(displayKey)||'{}');
+  localStorage.setItem(displayKey,JSON.stringify({...ex,tempBricks:_tempBricks}));
+  renderBrickPool();
+  const inp=document.getElementById('tempBrickInput');
+  if(inp){inp.value='';inp.focus();}
+}
+
 function savePipeAssignments(){
   const aiScheduled=[];
   Object.entries(_pipeAssign).forEach(([pi,tasks])=>{
@@ -1543,10 +1595,21 @@ function renderSavedPipeSandbox(saved){
     </div>`;
   }).join('');
 
+  _tempBricks=saved.tempBricks||[];
+
   sc.innerHTML=sumHtml
     +`<div class="pipe-track">${pipesHtml}</div>`
     +'<div class="sandbox-hint" id="sandboxHint">👇 點選時段水管，再點下方任務積木放入</div>'
-    +'<div class="brick-pool-sec"><div class="brick-pool-hd">📦 任務積木池</div><div class="brick-pool" id="brickPool"></div></div>';
+    +'<div class="brick-pool-sec">'
+      +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:9px;">'
+        +'<div class="brick-pool-hd" style="margin-bottom:0">📦 任務積木池</div>'
+      +'</div>'
+      +'<div class="brick-pool" id="brickPool"></div>'
+      +'<div class="temp-brick-row">'
+        +'<input class="temp-brick-input" id="tempBrickInput" placeholder="＋ 自訂臨時任務…" maxlength="30" onkeydown="if(event.key===\'Enter\')addTempBrick(this.value)">'
+        +'<button class="temp-brick-btn" onclick="addTempBrick(document.getElementById(\'tempBrickInput\').value)">新增</button>'
+      +'</div>'
+    +'</div>';
 
   Object.keys(_pipeAssign).forEach(pi=>renderPipeChips(parseInt(pi)));
   // 還原警告圖示
@@ -1753,22 +1816,54 @@ async function genReviewFeedback(){
     :cp>=60?'Caution 狀態下，完成 2-3 項輕中度任務即屬合理，高強度任務跳過可理解。'
     :'Critical 狀態下，能完成任何任務都值得肯定，重點是識別今日狀態對明日的影響。';
 
-  const prompt='你是 Tina 的效能顧問。請根據以下資訊做深度覆盤分析，重點是「戰力狀態 × 計畫 × 實際」三者之間的關係。'+NL
-    +'設計背景：AI 預排行程為當日 fixed plan；[人工加入]代表使用者在一天之中根據狀況手動追加（可能是有餘裕能量、當日新增事項、或替代未完成的預排任務）。'+NL+NL
+  // ── 水管過載分析 ──
+  const savedPipes=saved.pipes||[];
+  const savedAssign=saved.pipeAssignments||{};
+  const overloadedPipes=[];
+  Object.entries(savedAssign).forEach(([pi,tasks])=>{
+    const pipe=savedPipes[parseInt(pi)];
+    if(!pipe||pipe.type==='rest'||!tasks.length)return;
+    // 過載定義：同一時段 ≥3 件，或低能時段塞入 ≥2 件高耗能任務
+    const highCostCount=tasks.filter(t=>(saved.skipTasks||[]).includes(t)).length;
+    if(tasks.length>=3||(pipe.type==='low'&&highCostCount>=2)){
+      // 計算這批任務的實際完成狀況
+      const statuses=tasks.map(t=>{
+        const ri=saved.items?.find(i=>i.name===t);
+        return ri?ri.status:'未記錄';
+      });
+      const doneCount=statuses.filter(s=>s==='done'||s==='part').length;
+      overloadedPipes.push({
+        range:`${pipe.start}–${pipe.end}`,label:pipe.label,type:pipe.type,
+        tasks,count:tasks.length,doneCount,allDone:doneCount===tasks.length
+      });
+    }
+  });
+  const overloadSection=overloadedPipes.length
+    ? NL+'【水管過載記錄（白天配速記錄）】'+NL
+      +overloadedPipes.map(o=>`  ${o.range}「${o.label}」(${o.type})：共 ${o.count} 件任務 [${o.tasks.join('、')}]，完成 ${o.doneCount}/${o.count} 件`).join(NL)
+    : '';
+
+  const prompt='你是我的效能顧問。請根據以下資訊做深度覆盤分析，重點是「戰力狀態 × 計畫 × 實際」三者之間的關係。'+NL
+    +'設計背景：AI 精力水管為當日 fixed plan；[人工加入]代表使用者在一天之中根據狀況手動追加。'+NL+NL
     +'日期：'+dateStr+'　模式：'+(saved.mode||'未知')+'　體感：'+(saved.feel||'未知')+NL
     +'今日戰力：'+cp+'% '+cpLabel+NL
-    +(saved.depleted_at?'⚡ 能量低點時間：'+saved.depleted_at+'（無法專注、思緒渙散的時間點，可推算今日有效工作續航長度）'+NL:'')
+    +(saved.depleted_at?'⚡ 能量低點時間：'+saved.depleted_at+'（可推算今日有效工作續航長度）'+NL:'')
     +'戰力期待值：'+cpExpect+NL+NL
-    +planSection+NL+NL
+    +planSection+overloadSection+NL+NL
     +'【實際覆盤結果】'+NL+actualItems+missedText+overall+NL+NL
     +'請用繁體中文，以下格式輸出（每段給出真實、有深度的觀察，不要只重述事實）：'+NL+NL
     +'【戰力 × 實際表現分析】'+NL
-    +'以今日戰力（'+cp+'% '+cpLabel+'）為基準，評估實際完成狀況是高於、符合、還是低於預期，說明原因（1-2句）'+NL+NL
+    +'以今日戰力（'+cp+'% '+cpLabel+'）為基準，評估實際完成狀況是高於、符合、還是低於預期（1-2句）'+NL+NL
+    +(overloadedPipes.length
+      ? '【水管過載防禦分析】'+NL
+        +'如果過載且有任務未完成：直接指出規劃落差是水管塞爆造成的，給出下次具體配速調整建議。'+NL
+        +'如果過載但全部完成：發出意志力防禦警示——這是在大幅燃燒意志力，需注意滯後疲勞回檔，建議明天主動在水管中置入「強制休息積木」。'+NL+NL
+      : '')
     +'【計畫 vs 實際落差】'+NL
-    +(hasAiPlan?'針對 AI 預排 vs 實際的落差：(1) 預排任務哪些完成/未完成；(2) [人工加入]任務是有餘裕能量的加碼、還是修正了計畫—評估這些調整是否符合今日戰力狀態'
+    +(hasAiPlan?'針對 AI 水管配置 vs 實際的落差：預排任務哪些完成/未完成；[人工加入]任務是有餘裕加碼還是修正計畫'
       :'以任務庫為基準，分析今日實際選擇反映了什麼優先順序或狀態')+NL+NL
     +'【今日小結】'+NL+'一句話（30字內）'+NL+NL
-    +'【明日具體建議】'+NL+'1-2個明天可直接執行的調整，結合今日戰力與表現給出，不說泛泛建議'+NL+NL
+    +'【明日具體建議】'+NL+'1-2個明天可直接執行的調整，語氣直接，不說泛泛建議'+NL+NL
     +'語氣直接，不過度鼓勵，給真實觀察。';
 
   try{
@@ -1948,7 +2043,7 @@ async function genWeeklyRecap(){
     return `${dayLabel}\n${items}${overall?'\n'+overall:''}`;
   }).join('\n\n');
 
-  const prompt=`你是 Tina 的效能顧問。請根據她本週的覆盤記錄，生成一份週回顧報告。
+  const prompt=`你是我的效能顧問。請根據本週的覆盤記錄，生成一份週回顧報告。
 
 【本週覆盤記錄】
 ${weekSummary}
