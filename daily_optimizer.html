@@ -6,7 +6,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Daily Optimizer">
-<title>Daily Optimizer · Tina</title>
+<title>Daily Optimizer v2 · Tina</title>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
 body{font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue","PingFang TC",sans-serif;background-color:#e8e4de;color:#38342e;font-size:15px;line-height:1.65;min-height:100vh;}
@@ -289,6 +289,43 @@ input:checked+.js-slider:before{transform:translateX(13px);}
 .key-card-hd.coll .chev{transform:rotate(-90deg);}
 .key-card-bd{overflow:hidden;max-height:600px;transition:max-height .32s cubic-bezier(.4,0,.2,1),opacity .25s;opacity:1;margin-top:8px;}
 .key-card-bd.coll{max-height:0!important;opacity:0;margin-top:0;}
+
+/* ─── Pipe Sandbox ─── */
+.pipe-summary{font-size:13px;color:#4a4640;line-height:1.65;padding:10px 13px;border-radius:8px;background:#ece8e0;border:1px solid #cec8bf;margin-bottom:14px;}
+.pipe-item{position:relative;border-radius:12px;padding:13px 14px 11px;margin-bottom:8px;cursor:pointer;transition:box-shadow .18s,border-color .18s;border:1.5px solid transparent;}
+.pipe-item.type-high{background:rgba(80,105,142,.13);border-color:rgba(80,105,142,.26);}
+.pipe-item.type-mid {background:rgba(80,140,115,.09);border-color:rgba(80,140,115,.22);}
+.pipe-item.type-low {background:rgba(115,148,95,.08);border-color:rgba(115,148,95,.2);}
+.pipe-item.type-rest{background:rgba(132,168,140,.07);border-color:rgba(168,198,172,.28);cursor:default;}
+.pipe-item.selected{box-shadow:0 0 0 2.5px #7a8e9e;border-color:#7a8e9e;}
+.pipe-warn{animation:pWarn 1.5s ease-in-out;}
+@keyframes pWarn{0%,100%{box-shadow:0 0 0 2.5px #7a8e9e}45%{box-shadow:0 0 0 3px #d09018,0 0 16px rgba(208,144,24,.28)}}
+.pipe-hd{display:flex;align-items:center;gap:8px;margin-bottom:3px;}
+.pipe-time-range{font-size:10.5px;font-weight:600;color:#9a9088;font-variant-numeric:tabular-nums;letter-spacing:.03em;}
+.pipe-type-badge{font-size:10px;font-weight:700;letter-spacing:.04em;padding:2px 7px;border-radius:10px;}
+.type-high .pipe-type-badge{background:rgba(80,105,142,.15);color:#3a5878;}
+.type-mid  .pipe-type-badge{background:rgba(80,140,115,.15);color:#2a6850;}
+.type-low  .pipe-type-badge{background:rgba(115,148,95,.12);color:#3a6030;}
+.type-rest .pipe-type-badge{background:rgba(90,140,100,.1);color:#4a7860;}
+.pipe-lbl{font-size:13px;font-weight:600;color:#38342e;margin-bottom:2px;}
+.pipe-hint{font-size:11px;color:#9a9088;line-height:1.5;margin-bottom:2px;}
+.pipe-chips{display:flex;flex-wrap:wrap;gap:5px;margin-top:7px;}
+.pipe-chip{display:inline-flex;align-items:center;gap:4px;padding:4px 8px 4px 10px;border-radius:20px;background:rgba(58,52,46,.09);border:1px solid rgba(58,52,46,.15);font-size:11.5px;color:#38342e;cursor:pointer;-webkit-tap-highlight-color:transparent;}
+.pipe-chip .prm{font-size:11px;color:#c0bab0;line-height:1;}
+.pipe-chip:hover .prm{color:#a07878;}
+.pipe-lock-ico{position:absolute;top:11px;right:13px;font-size:12px;opacity:.38;pointer-events:none;}
+.pipe-warn-ico{position:absolute;bottom:10px;right:12px;font-size:13px;pointer-events:none;}
+.sandbox-hint{font-size:11px;color:#9a9088;text-align:center;padding:6px 0 2px;letter-spacing:.01em;transition:color .15s;}
+.brick-pool-sec{margin-top:14px;padding-top:13px;border-top:1px solid #ddd8d0;}
+.brick-pool-hd{font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#9a9088;margin-bottom:9px;}
+.brick-pool{display:flex;flex-wrap:wrap;gap:7px;}
+.brick{display:inline-flex;align-items:center;gap:4px;padding:7px 11px;border-radius:10px;border:1.5px solid #cec8bf;background:#f4f1ec;font-size:12.5px;font-weight:500;color:#38342e;cursor:pointer;transition:all .15s;-webkit-tap-highlight-color:transparent;user-select:none;}
+.brick:active{transform:scale(.95);}
+.brick.skip-sug{opacity:.5;border-style:dashed;color:#9a9088;}
+.brick.selected{border-color:#7a8e9e!important;background:rgba(122,142,158,.13);color:#4a6e8e;opacity:1!important;border-style:solid!important;}
+.brick.assigned{opacity:.25;cursor:default;text-decoration:line-through;pointer-events:none;}
+.brick-warn-dot{font-size:9px;color:#d09018;flex-shrink:0;}
+.mock-notice{font-size:11px;color:#a07840;background:rgba(176,140,80,.09);border:1px solid rgba(176,140,80,.22);border-radius:7px;padding:6px 10px;margin-bottom:10px;}
 </style>
 </head>
 <body>
@@ -558,7 +595,7 @@ input:checked+.js-slider:before{transform:translateX(13px);}
 <div class="overlay hidden" id="ovl">
   <div class="ocard">
     <div class="spin"></div>
-    <div class="otxt">AI 正在規劃行程…</div>
+    <div class="otxt" id="ovl-txt">✦ 生成精力水管…</div>
   </div>
 </div>
 
@@ -733,8 +770,9 @@ async function reloadCombat(){
   document.getElementById('aiFbBtn').textContent='✦ 生成 AI 反饋';
   // 重新載入今日 combat
   await fetchSleep();
-  // 以今日 key 重讀已存的覆盤（新的一天通常為空）
-  loadSavedReview();
+  // 若 generate() 已在 fetchSleep 等待期間完成渲染，不覆蓋
+  if(!document.getElementById('sout')?.querySelector('.pipe-track'))
+    loadSavedReview();
 }
 async function fetchSleep(){
   setFS('load','正在讀取睡眠數據…');
@@ -965,7 +1003,7 @@ function removeCustomFeel(idx){
 
 /* tasks */
 let dragSrc=null;
-const esc=s=>s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const esc=s=>(s==null?'':String(s)).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 
 function renderTaskLib(){
   const el=document.getElementById('tlist');el.innerHTML='';
@@ -1092,63 +1130,68 @@ async function generate(){
   if(!key){alert('請先設定 Groq API Key');return;}
   if(!selLoc){alert('請選擇今日地點');return;}
   if(!selMode){alert('請選擇今日模式');return;}
-  // 工作日模式：跳過 AI，直接進自由行程+覆盤
   if(selMode==='工作日'){renderWorkdayOut();return;}
+
   const p=pwr||(parseInt(document.getElementById('mpow').value)||50);
   const calEvents=document.getElementById('calInput').value.trim();
   const notes=document.getElementById('notes').value.trim();
-  const taskList=getEffectiveTasks().map(t=>t.text).join('、');
   const d=new Date(),dow=d.getDay(),isMon=dow===1,isThu=dow===4,isOut=selLoc==='外出日';
   const closeH=isMon?17:selLoc==='分館'?19:18;
   const close=isOut?'依行程':`${closeH}:00`;
   const lv=p>=80?'Peak(80+)':p>=70?'Stable(70-79)':p>=60?'Caution(60-69)':'Critical(<60)';
+  const taskList=getEffectiveTasks().map((t,i)=>`${i+1}. ${t.text}`).join('\n');
 
-  const sys=`你是 Tina 的私人效能顧問，協助她規劃 Supply Chain 轉職準備的每日行程。
-模式：戰鬥日=深度學習優先；綜合型態=外務空檔見縫插針，30min以下空檔輕任務，60min以上才排深度任務；休息日=低壓恢復。
-外出日=無圖書館時間限制，依 Calendar 行程安排前後空檔。
-體感：疲憊=減少高認知負荷任務，多緩衝；有能量=可拉長深度任務。
-咖啡因：0杯=午後加短休；1杯以上=避免高耐心任務。
+  const sys=`你是 Tina 的私人效能顧問。根據今日三夜加權戰力值，將一日行程切分為數個「精力屬性大時段水管」。不要把任務硬塞入時間軸，只輸出骨架結構。
 
-重要規則：
-1. reviewTasks 必須從任務庫原始名稱中挑選，字串完全一致，不得修改或自創
-2. 未被選入的任務不要出現在 schedule 中
-3. 行程起始時間：最早從 09:30 開始（睡眠數據更新時間）；外出日若 Calendar 有早於 09:30 的行程可提前，否則同樣從 09:30 起排
-4. 每個任務之間至少保留 10 分鐘緩衝，避免行程過於緊湊
+水管類型（type）：
+- high = 深度高能時段（需高專注，適合核心難題）
+- mid  = 穩定中能時段（適合常規學習與輸出）
+- low  = 輕量緩降時段（適合整理、輕任務、反思）
+- rest = 強制休息/蓄能（🔒 不允許置入任何任務）
 
-只輸出 JSON：
-{"summary":"一句話評估（45字內）","schedule":[{"time":"09:30","task":"任務","note":"建議","tag":"high|med|low|break|cal"}],"reviewTasks":["原始任務名1","原始任務名2"]}
-tag：high=重點深度,med=常規,low=輕鬆,break=休息,cal=固定行程
-cal 規則：task 欄填入 Calendar 中的實際行程名稱（如「牙醫」「會議」），絕不能填 "cal"`;
+規則：
+1. 起始時間最早 09:30
+2. 午餐 13:00–14:00 固定為 rest（label: "午休充能"）
+3. 傍晚（17:00 後）至少一段 rest
+4. skipTasks：從任務庫原始名稱挑選今日因戰力不足建議跳過的高耗能任務，字串完全一致
+5. hint 字段寫 AI 建議語（例：💡 適合：核心難題、英文），rest 類型寫「🔒 強制休息，不排任務」
+6. 輸出純 JSON，無 markdown
+
+格式：{"summary":"一句話策略叮嚀（45字內）","pipes":[{"start":"09:30","end":"12:00","type":"high","label":"深度高能","hint":"💡 適合：核心難題、BQ、英文寫作"}],"skipTasks":["原始任務名"]}`;
 
   const usr=`今天：${document.getElementById('hdate').textContent}
 地點：${selLoc}${isOut?'':` 開館${selLoc==='分館'?'08:30':'09:15'} 閉館${close}`}
 模式：${selMode} | 戰力：${p}%（${lv}）
 體感：${selFeel||'未填寫'} | 咖啡因：${selCaf||'未填寫'}
-週四：${isThu?'是，下午必須安排斗數筆記整理+複習':'否'} | 週一：${isMon&&!isOut?'17:00閉館':'否'}
-【今日 Calendar 行程（請以此決定起始時間與空檔）】
-${calEvents||'無，請從開館時間起排'}
-【任務庫（reviewTasks 只能從以下原始名稱挑選）】
-${getEffectiveTasks().map((t,i)=>`${i+1}. ${t.text}`).join('\n')}
-補充：${notes||'無'}
-午餐固定13:00–14:00。`;
+週四：${isThu?'是，需安排斗數筆記整理':'否'} | 週一：${isMon&&!isOut?'17:00閉館':'否'}
+今日 Calendar：
+${calEvents||'（無）'}
+任務庫：
+${taskList}
+補充：${notes||'無'}`;
 
-  // 清除上一次的覆盤反饋和 AI 反饋
   document.getElementById('overallFeedback').value='';
   document.getElementById('aiFbOut').style.display='none';
   document.getElementById('aiFbOut').textContent='';
   document.getElementById('aiFbBtn').disabled=false;
   document.getElementById('aiFbBtn').textContent='✦ 生成 AI 反饋';
   document.getElementById('savedToast').style.display='none';
-
   document.getElementById('ovl').classList.remove('hidden');
+
   try{
-    const resp=await fetch(GROQ,{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${key}`},body:JSON.stringify({model:'llama-3.3-70b-versatile',messages:[{role:'system',content:sys},{role:'user',content:usr}],temperature:0.55,max_tokens:1600,response_format:{type:'json_object'}})});
+    const resp=await fetch(GROQ,{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${key}`},body:JSON.stringify({model:'llama-3.3-70b-versatile',messages:[{role:'system',content:sys},{role:'user',content:usr}],temperature:0.5,max_tokens:900,response_format:{type:'json_object'}})});
     if(!resp.ok){const err=await resp.json().catch(()=>({}));throw new Error(err.error?.message||`HTTP ${resp.status}`);}
     const data=await resp.json();
     const result=JSON.parse((data.choices?.[0]?.message?.content||'').replace(/```json|```/g,'').trim());
     document.getElementById('ovl').classList.add('hidden');
-    renderOut(result);
-  }catch(e){document.getElementById('ovl').classList.add('hidden');alert('生成失敗：'+e.message);}
+    // 若 Groq 回傳舊格式（無 pipes 欄位），自動改用示範資料
+    if(!result.pipes||!result.pipes.length) renderPipeSandbox(getMockPipes(p),true);
+    else renderPipeSandbox(result);
+  }catch(e){
+    document.getElementById('ovl').classList.add('hidden');
+    try{renderPipeSandbox(getMockPipes(p),true);}
+    catch(e2){alert('水管渲染失敗：'+e2.message);}
+  }
 }
 
 function renderWorkdayOut(){
@@ -1271,6 +1314,254 @@ function renderOut(r){
   if(isFri){wr.classList.remove('hidden');renderWeeklyPreview();}
   else{wr.classList.add('hidden');}
 }
+
+/* ═══════════════════════════════════════════════════════
+   PIPE SANDBOX — 雙軌制水管沙盒
+═══════════════════════════════════════════════════════ */
+let _pipes=[], _pipeAssign={}, _skipTasks=[], _selPipeIdx=null, _selBrickText=null;
+
+function getMockPipes(p){
+  const summary=p>=75?'⚡ 示範資料：戰力充足，今日早段衝刺核心難題，午後維持節奏。'
+    :p>=55?'⚖️ 示範資料：穩健配速日，任務上限 3 件，避免午後耗盡。'
+    :'🚨 示範資料：戰力偏低，任務減半，18:00 後禁止燒腦。';
+  const tasks=getEffectiveTasks();
+  if(p>=75){
+    return{summary,pipes:[
+      {start:'09:30',end:'12:00',type:'high',label:'深度高能',hint:'💡 適合：英文練習、BQ 練習、核心難題'},
+      {start:'12:00',end:'13:00',type:'rest',label:'午休充能',hint:'🔒 強制休息，不排任務'},
+      {start:'13:00',end:'15:30',type:'mid', label:'穩定中能',hint:'💡 適合：產業研究、LinkedIn 投遞'},
+      {start:'15:30',end:'17:00',type:'low', label:'輕量緩降',hint:'💡 適合：整理筆記、回顧、輕量瀏覽'},
+      {start:'17:00',end:'19:00',type:'rest',label:'傍晚蓄能',hint:'🔒 禁止燒腦任務，強制充能'},
+    ],skipTasks:[]};
+  }else if(p>=55){
+    return{summary,pipes:[
+      {start:'09:30',end:'11:30',type:'mid', label:'穩定中能',hint:'💡 適合：中度認知任務、產業研究'},
+      {start:'11:30',end:'12:00',type:'low', label:'輕量緩衝',hint:'💡 適合：整理、瀏覽、記錄'},
+      {start:'12:00',end:'13:00',type:'rest',label:'午休充能',hint:'🔒 強制休息，不排任務'},
+      {start:'13:00',end:'15:00',type:'mid', label:'穩定中能',hint:'💡 適合：LinkedIn、輕量英文練習'},
+      {start:'15:00',end:'19:00',type:'rest',label:'傍晚防禦',hint:'🔒 下午後段強制充能，禁止燒腦'},
+    ],skipTasks:tasks.slice(0,1).map(t=>t.text)};
+  }else{
+    return{summary,pipes:[
+      {start:'09:30',end:'11:00',type:'low', label:'輕量起動',hint:'💡 最輕量任務，保存腦力'},
+      {start:'11:00',end:'13:00',type:'rest',label:'提前蓄能',hint:'🔒 強制休息，含午休'},
+      {start:'13:00',end:'14:30',type:'low', label:'輕量輸出',hint:'💡 只排最重要的 1 件任務'},
+      {start:'14:30',end:'19:00',type:'rest',label:'強制充能',hint:'🔒 今日以恢復優先，禁止燒腦'},
+    ],skipTasks:tasks.slice(0,2).map(t=>t.text)};
+  }
+}
+
+function renderPipeSandbox(result,isMock=false){
+  _pipes=result.pipes||[];_skipTasks=result.skipTasks||[];
+  _pipeAssign={};_selPipeIdx=null;_selBrickText=null;
+
+  const sc=document.getElementById('sout');
+  const schedCard=sc?.closest('.card');
+  if(schedCard)schedCard.style.display='';
+  document.getElementById('taskSplitSec').style.display='none';
+
+  const mockNotice=isMock?'<div class="mock-notice">⚠ API 未回應，已載入示範資料。所有互動功能完整可用。</div>':'';
+  const sumHtml=result.summary?`<div class="pipe-summary">${esc(result.summary)}</div>`:'';
+
+  const badgeLabel={high:'高能',mid:'中能',low:'低能',rest:'休息'};
+  const pipesHtml=_pipes.map((p,i)=>{
+    const isRest=p.type==='rest';
+    return`<div class="pipe-item type-${p.type}" id="pipe-${i}" onclick="onPipeClick(${i})">
+      ${isRest?'<span class="pipe-lock-ico">🔒</span>':''}
+      <div class="pipe-hd">
+        <span class="pipe-time-range">${p.start}–${p.end}</span>
+        <span class="pipe-type-badge">${badgeLabel[p.type]||p.type}</span>
+      </div>
+      <div class="pipe-lbl">${esc(p.label)}</div>
+      <div class="pipe-hint">${esc(p.hint)}</div>
+      <div class="pipe-chips" id="pchips-${i}"></div>
+    </div>`;
+  }).join('');
+
+  sc.innerHTML=mockNotice+sumHtml
+    +`<div class="pipe-track">${pipesHtml}</div>`
+    +'<div class="sandbox-hint" id="sandboxHint">👇 點選時段水管，再點下方任務積木放入</div>'
+    +'<div class="brick-pool-sec"><div class="brick-pool-hd">📦 任務積木池</div><div class="brick-pool" id="brickPool"></div></div>';
+
+  renderBrickPool();
+
+  // 存基礎資料到 localStorage
+  const ex=JSON.parse(localStorage.getItem(displayKey)||'{}');
+  localStorage.setItem(displayKey,JSON.stringify({...ex,
+    pipes:_pipes,skipTasks:_skipTasks,pipeAssignments:{},
+    summary:result.summary||'',
+    calEvents:document.getElementById('calInput').value.trim(),
+    taskLibrary:getEffectiveTasks().map(t=>t.text),
+    combatPower:pwr,mode:selMode,feel:selFeel,
+  }));
+
+  renderReview(getEffectiveTasks().map(t=>t.text));
+  const o=document.getElementById('outSec');
+  o.classList.remove('hidden');o.classList.add('fi');
+  setTimeout(()=>o.scrollIntoView({behavior:'smooth',block:'start'}),100);
+  const isFri=new Date().getDay()===5;
+  const wr=document.getElementById('weeklyRecapSec');
+  if(isFri){wr.classList.remove('hidden');renderWeeklyPreview();}else{wr.classList.add('hidden');}
+}
+
+function renderBrickPool(){
+  const pool=document.getElementById('brickPool');if(!pool)return;
+  const tasks=getEffectiveTasks();
+  const assignedSet=new Set(Object.values(_pipeAssign).flat());
+  pool.innerHTML=tasks.map((t,i)=>{
+    const isAssigned=assignedSet.has(t.text);
+    const isSkip=_skipTasks.includes(t.text);
+    const isSel=_selBrickText===t.text;
+    let cls='brick';
+    if(isAssigned)cls+=' assigned';
+    else if(isSel)cls+=' selected';
+    else if(isSkip)cls+=' skip-sug';
+    const dot=isSkip?'<span class="brick-warn-dot">⚡</span>':'';
+    return`<div class="${cls}" id="brick-${i}" onclick="onBrickClick('${t.text.replace(/'/g,"\\'")}',${i})">${dot}${esc(t.text)}</div>`;
+  }).join('');
+}
+
+function onPipeClick(idx){
+  const pipe=_pipes[idx];if(!pipe)return;
+  if(pipe.type==='rest')return; // 鎖死
+  if(_selBrickText){
+    assignBrickToPipe(_selBrickText,idx);
+    _selBrickText=null;_selPipeIdx=null;
+  }else{
+    _selPipeIdx=idx;
+    document.querySelectorAll('.pipe-item').forEach((el,i)=>el.classList.toggle('selected',i===idx));
+    updateSandboxHint();
+  }
+}
+
+function onBrickClick(taskText){
+  const assignedSet=new Set(Object.values(_pipeAssign).flat());
+  if(assignedSet.has(taskText))return;
+  if(_selPipeIdx!==null){
+    assignBrickToPipe(taskText,_selPipeIdx);
+    _selBrickText=null;
+  }else{
+    _selBrickText=taskText;
+    renderBrickPool();
+    updateSandboxHint();
+  }
+}
+
+function assignBrickToPipe(taskText,pipeIdx){
+  if(!_pipeAssign[pipeIdx])_pipeAssign[pipeIdx]=[];
+  if(_pipeAssign[pipeIdx].includes(taskText))return;
+  _pipeAssign[pipeIdx].push(taskText);
+  renderPipeChips(pipeIdx);
+  renderBrickPool();
+  // 配速防禦警告：⚡高耗能任務 → 低能時段
+  const pipe=_pipes[pipeIdx];
+  if(_skipTasks.includes(taskText)&&pipe.type==='low'){
+    const el=document.getElementById(`pipe-${pipeIdx}`);
+    if(el){
+      el.classList.remove('pipe-warn');void el.offsetWidth;el.classList.add('pipe-warn');
+      if(!el.querySelector('.pipe-warn-ico')){
+        const ic=document.createElement('span');
+        ic.className='pipe-warn-ico';ic.title='⚠ 高耗能任務置入低能時段，可能引發意志力透支（紅點）';
+        ic.textContent='⚠️';el.appendChild(ic);
+      }
+    }
+  }
+  savePipeAssignments();
+  deselectSandbox();
+}
+
+function renderPipeChips(pipeIdx){
+  const el=document.getElementById(`pchips-${pipeIdx}`);if(!el)return;
+  el.innerHTML=(_pipeAssign[pipeIdx]||[]).map(txt=>`<div class="pipe-chip" onclick="removeFromPipe('${txt.replace(/'/g,"\\'")}',${pipeIdx})">${esc(txt)}<span class="prm">✕</span></div>`).join('');
+}
+
+function removeFromPipe(taskText,pipeIdx){
+  if(!_pipeAssign[pipeIdx])return;
+  _pipeAssign[pipeIdx]=_pipeAssign[pipeIdx].filter(t=>t!==taskText);
+  if(!_pipeAssign[pipeIdx].length)delete _pipeAssign[pipeIdx];
+  const hasConflict=(_pipeAssign[pipeIdx]||[]).some(t=>_skipTasks.includes(t));
+  if(!hasConflict){
+    const el=document.getElementById(`pipe-${pipeIdx}`);
+    if(el){el.querySelector('.pipe-warn-ico')?.remove();el.classList.remove('pipe-warn');el.title='';}
+  }
+  renderPipeChips(pipeIdx);renderBrickPool();savePipeAssignments();
+}
+
+function deselectSandbox(){
+  _selPipeIdx=null;_selBrickText=null;
+  document.querySelectorAll('.pipe-item').forEach(el=>el.classList.remove('selected'));
+  renderBrickPool();updateSandboxHint();
+}
+
+function updateSandboxHint(){
+  const el=document.getElementById('sandboxHint');if(!el)return;
+  if(_selPipeIdx!==null){
+    const p=_pipes[_selPipeIdx];
+    el.textContent=`✦ ${p.start}–${p.end}「${p.label}」已選定 → 點選下方任務積木放入`;
+    el.style.color='#5a7e9e';
+  }else if(_selBrickText){
+    el.textContent=`✦「${_selBrickText}」已選定 → 點選上方時段水管放入`;
+    el.style.color='#5a7e9e';
+  }else{
+    el.textContent='👇 點選時段水管，再點下方任務積木放入（或反向：先選積木，再選時段）';
+    el.style.color='#9a9088';
+  }
+}
+
+function savePipeAssignments(){
+  const aiScheduled=[];
+  Object.entries(_pipeAssign).forEach(([pi,tasks])=>{
+    const p=_pipes[parseInt(pi)];if(!p)return;
+    tasks.forEach(t=>aiScheduled.push({time:p.start,task:t,note:p.label}));
+  });
+  const ex=JSON.parse(localStorage.getItem(displayKey)||'{}');
+  localStorage.setItem(displayKey,JSON.stringify({...ex,pipeAssignments:_pipeAssign,aiScheduled}));
+}
+
+function renderSavedPipeSandbox(saved){
+  _pipes=saved.pipes||[];_skipTasks=saved.skipTasks||[];
+  _pipeAssign=saved.pipeAssignments||{};_selPipeIdx=null;_selBrickText=null;
+
+  const sc=document.getElementById('sout');
+  const schedCard=sc?.closest('.card');
+  if(schedCard)schedCard.style.display='';
+  document.getElementById('taskSplitSec').style.display='none';
+
+  const sumHtml=saved.summary?`<div class="pipe-summary">${esc(saved.summary)}</div>`:'';
+  const badgeLabel={high:'高能',mid:'中能',low:'低能',rest:'休息'};
+  const pipesHtml=_pipes.map((p,i)=>{
+    const isRest=p.type==='rest';
+    return`<div class="pipe-item type-${p.type}" id="pipe-${i}" onclick="onPipeClick(${i})">
+      ${isRest?'<span class="pipe-lock-ico">🔒</span>':''}
+      <div class="pipe-hd">
+        <span class="pipe-time-range">${p.start}–${p.end}</span>
+        <span class="pipe-type-badge">${badgeLabel[p.type]||p.type}</span>
+      </div>
+      <div class="pipe-lbl">${esc(p.label)}</div>
+      <div class="pipe-hint">${esc(p.hint)}</div>
+      <div class="pipe-chips" id="pchips-${i}"></div>
+    </div>`;
+  }).join('');
+
+  sc.innerHTML=sumHtml
+    +`<div class="pipe-track">${pipesHtml}</div>`
+    +'<div class="sandbox-hint" id="sandboxHint">👇 點選時段水管，再點下方任務積木放入</div>'
+    +'<div class="brick-pool-sec"><div class="brick-pool-hd">📦 任務積木池</div><div class="brick-pool" id="brickPool"></div></div>';
+
+  Object.keys(_pipeAssign).forEach(pi=>renderPipeChips(parseInt(pi)));
+  // 還原警告圖示
+  Object.entries(_pipeAssign).forEach(([pi,tasks])=>{
+    const p=_pipes[parseInt(pi)];if(!p)return;
+    if(p.type==='low'&&tasks.some(t=>_skipTasks.includes(t))){
+      const el=document.getElementById(`pipe-${pi}`);
+      if(el&&!el.querySelector('.pipe-warn-ico')){
+        const ic=document.createElement('span');ic.className='pipe-warn-ico';ic.textContent='⚠️';el.appendChild(ic);
+      }
+    }
+  });
+  renderBrickPool();
+}
+/* ─── end pipe sandbox ─── */
 
 function addToReview(name, rowIdx){
   // add this skipped task into reviewItems and re-render review
@@ -1536,6 +1827,9 @@ function loadSavedReview(key){
     if(schedCard)schedCard.style.display='none';
     document.getElementById('taskSplitSec').style.display='none';
     renderReview(saved.items.map(i=>i.name),true);
+  }else if(saved.pipes&&saved.pipes.length){
+    document.getElementById('outSec').classList.remove('hidden');
+    renderSavedSchedule(saved);
   }else if(saved.fullSchedule&&saved.fullSchedule.length){
     document.getElementById('outSec').classList.remove('hidden');
     renderSavedSchedule(saved);
@@ -1543,6 +1837,14 @@ function loadSavedReview(key){
 }
 
 function renderSavedSchedule(saved){
+  // 新水管格式優先
+  if(saved.pipes&&saved.pipes.length){
+    renderSavedPipeSandbox(saved);
+    const reviewNames=saved.items?saved.items.map(i=>i.name):getEffectiveTasks().map(t=>t.text);
+    renderReview(reviewNames.length?reviewNames:getEffectiveTasks().map(t=>t.text));
+    return;
+  }
+  // ── 以下為舊格式相容 ──
   const tc={high:'t-h',med:'t-m',low:'t-l',break:'t-b',cal:'t-cal'};
   const tl={high:'重點',med:'常規',low:'輕鬆',break:'休息',cal:'行程'};
   const sc=document.getElementById('sout');
