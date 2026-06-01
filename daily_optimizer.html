@@ -297,7 +297,8 @@ input:checked+.js-slider:before{transform:translateX(13px);}
 .pipe-item.type-high{background:rgba(80,105,142,.13);border-color:rgba(80,105,142,.26);}
 .pipe-item.type-mid {background:rgba(80,140,115,.09);border-color:rgba(80,140,115,.22);}
 .pipe-item.type-low {background:rgba(115,148,95,.08);border-color:rgba(115,148,95,.2);}
-.pipe-item.type-rest{background:rgba(132,168,140,.07);border-color:rgba(168,198,172,.28);cursor:default;}
+.pipe-item.type-rest{background:rgba(132,168,140,.07);border-color:rgba(168,198,172,.28);}
+.brick.rest-brick{border-color:#7a9e8a;color:#2e6848;background:rgba(122,158,138,.09);border-style:solid;}
 .pipe-item.selected{box-shadow:0 0 0 2.5px #7a8e9e;border-color:#7a8e9e;}
 .pipe-warn{animation:pWarn 1.5s ease-in-out;}
 @keyframes pWarn{0%,100%{box-shadow:0 0 0 2.5px #7a8e9e}45%{box-shadow:0 0 0 3px #d09018,0 0 16px rgba(208,144,24,.28)}}
@@ -1326,6 +1327,7 @@ function renderOut(r){
    PIPE SANDBOX — 雙軌制水管沙盒
 ═══════════════════════════════════════════════════════ */
 let _pipes=[], _pipeAssign={}, _skipTasks=[], _selPipeIdx=null, _selBrickText=null, _tempBricks=[];
+const REST_BRICKS=['💤 午休蓄能','🌿 傍晚充能','🔋 快充小憩'];
 
 function getMockPipes(p){
   const summary=p>=75?'⚡ 示範資料：戰力充足，今日早段衝刺核心難題，午後維持節奏。'
@@ -1390,10 +1392,8 @@ function renderPipeSandbox(result,isMock=false){
   const badgeLabel={high:'高能',mid:'中能',low:'低能',rest:'休息'};
   const endH=8+Math.floor((pwr||60)/100*14);
   const pipesHtml=_pipes.map((p,i)=>{
-    const isRest=p.type==='rest';
     const ws=pipeWarmthStyle(p.type,p.start,endH);
     return`<div class="pipe-item type-${p.type}" id="pipe-${i}" onclick="onPipeClick(${i})" style="${ws.item}">
-      ${isRest?'<span class="pipe-lock-ico">🔒</span>':''}
       <div class="pipe-hd">
         <span class="pipe-time-range">${p.start}–${p.end}</span>
         <span class="pipe-type-badge" style="${ws.badge}">${badgeLabel[p.type]||p.type}</span>
@@ -1473,12 +1473,17 @@ function renderBrickPool(){
     else if(isSel)cls+=' selected';
     return`<div class="${cls}" id="brick-tmp-${i}" onclick="onBrickClick('${txt.replace(/'/g,"\\'")}',${offset+i})">✦ ${esc(txt)}</div>`;
   }).join('');
-  pool.innerHTML=regularHtml+tempHtml;
+  // 休息積木（固定顯示，可重複置入不鎖灰）
+  const rOff=tasks.length+_tempBricks.length;
+  const restHtml=REST_BRICKS.map((txt,i)=>{
+    const isSel=_selBrickText===txt;
+    return`<div class="brick rest-brick${isSel?' selected':''}" id="brick-rb-${i}" onclick="onBrickClick('${txt.replace(/'/g,"\\'")}',${rOff+i})">${esc(txt)}</div>`;
+  }).join('');
+  pool.innerHTML=regularHtml+tempHtml+restHtml;
 }
 
 function onPipeClick(idx){
   const pipe=_pipes[idx];if(!pipe)return;
-  if(pipe.type==='rest')return; // 鎖死
   if(_selBrickText){
     assignBrickToPipe(_selBrickText,idx);
     _selBrickText=null;_selPipeIdx=null;
@@ -1491,7 +1496,8 @@ function onPipeClick(idx){
 
 function onBrickClick(taskText){
   const assignedSet=new Set(Object.values(_pipeAssign).flat());
-  if(assignedSet.has(taskText))return;
+  // 休息積木可重複置入，不受 assigned 鎖定
+  if(!REST_BRICKS.includes(taskText)&&assignedSet.has(taskText))return;
   if(_selPipeIdx!==null){
     assignBrickToPipe(taskText,_selPipeIdx);
     _selBrickText=null;
@@ -1508,9 +1514,9 @@ function assignBrickToPipe(taskText,pipeIdx){
   _pipeAssign[pipeIdx].push(taskText);
   renderPipeChips(pipeIdx);
   renderBrickPool();
-  // 配速防禦警告：⚡高耗能任務 → 低能時段
+  // 配速防禦警告：⚡高耗能任務 → 低能或休息時段
   const pipe=_pipes[pipeIdx];
-  if(_skipTasks.includes(taskText)&&pipe.type==='low'){
+  if(_skipTasks.includes(taskText)&&!REST_BRICKS.includes(taskText)&&(pipe.type==='low'||pipe.type==='rest')){
     const el=document.getElementById(`pipe-${pipeIdx}`);
     if(el){
       el.classList.remove('pipe-warn');void el.offsetWidth;el.classList.add('pipe-warn');
@@ -1534,7 +1540,7 @@ function removeFromPipe(taskText,pipeIdx){
   if(!_pipeAssign[pipeIdx])return;
   _pipeAssign[pipeIdx]=_pipeAssign[pipeIdx].filter(t=>t!==taskText);
   if(!_pipeAssign[pipeIdx].length)delete _pipeAssign[pipeIdx];
-  const hasConflict=(_pipeAssign[pipeIdx]||[]).some(t=>_skipTasks.includes(t));
+  const hasConflict=(_pipeAssign[pipeIdx]||[]).some(t=>_skipTasks.includes(t)&&!REST_BRICKS.includes(t));
   if(!hasConflict){
     const el=document.getElementById(`pipe-${pipeIdx}`);
     if(el){el.querySelector('.pipe-warn-ico')?.remove();el.classList.remove('pipe-warn');el.title='';}
@@ -1603,10 +1609,8 @@ function renderSavedPipeSandbox(saved){
   const badgeLabel={high:'高能',mid:'中能',low:'低能',rest:'休息'};
   const endH=8+Math.floor((saved.combatPower||pwr||60)/100*14);
   const pipesHtml=_pipes.map((p,i)=>{
-    const isRest=p.type==='rest';
     const ws=pipeWarmthStyle(p.type,p.start,endH);
     return`<div class="pipe-item type-${p.type}" id="pipe-${i}" onclick="onPipeClick(${i})" style="${ws.item}">
-      ${isRest?'<span class="pipe-lock-ico">🔒</span>':''}
       <div class="pipe-hd">
         <span class="pipe-time-range">${p.start}–${p.end}</span>
         <span class="pipe-type-badge" style="${ws.badge}">${badgeLabel[p.type]||p.type}</span>
@@ -1637,7 +1641,7 @@ function renderSavedPipeSandbox(saved){
   // 還原警告圖示
   Object.entries(_pipeAssign).forEach(([pi,tasks])=>{
     const p=_pipes[parseInt(pi)];if(!p)return;
-    if(p.type==='low'&&tasks.some(t=>_skipTasks.includes(t))){
+    if((p.type==='low'||p.type==='rest')&&tasks.some(t=>_skipTasks.includes(t)&&!REST_BRICKS.includes(t))){
       const el=document.getElementById(`pipe-${pi}`);
       if(el&&!el.querySelector('.pipe-warn-ico')){
         const ic=document.createElement('span');ic.className='pipe-warn-ico';ic.textContent='⚠️';el.appendChild(ic);
@@ -1844,19 +1848,22 @@ async function genReviewFeedback(){
   const overloadedPipes=[];
   Object.entries(savedAssign).forEach(([pi,tasks])=>{
     const pipe=savedPipes[parseInt(pi)];
-    if(!pipe||pipe.type==='rest'||!tasks.length)return;
-    // 過載定義：同一時段 ≥3 件，或低能時段塞入 ≥2 件高耗能任務
-    const highCostCount=tasks.filter(t=>(saved.skipTasks||[]).includes(t)).length;
-    if(tasks.length>=3||(pipe.type==='low'&&highCostCount>=2)){
+    if(!pipe||!tasks.length)return;
+    const workTasks=tasks.filter(t=>!REST_BRICKS.includes(t));
+    const highCostCount=workTasks.filter(t=>(saved.skipTasks||[]).includes(t)).length;
+    // 過載定義：休息水管有工作任務；或工作水管 ≥3 件；或低能水管 ≥2 高耗能
+    const isOverload=pipe.type==='rest'?workTasks.length>0
+      :(workTasks.length>=3||(pipe.type==='low'&&highCostCount>=2));
+    if(isOverload){
       // 計算這批任務的實際完成狀況
-      const statuses=tasks.map(t=>{
+      const statuses=workTasks.map(t=>{
         const ri=saved.items?.find(i=>i.name===t);
         return ri?ri.status:'未記錄';
       });
       const doneCount=statuses.filter(s=>s==='done'||s==='part').length;
       overloadedPipes.push({
         range:`${pipe.start}–${pipe.end}`,label:pipe.label,type:pipe.type,
-        tasks,count:tasks.length,doneCount,allDone:doneCount===tasks.length
+        tasks:workTasks,count:workTasks.length,doneCount,allDone:doneCount===workTasks.length
       });
     }
   });
