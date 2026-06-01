@@ -325,7 +325,7 @@ input:checked+.js-slider:before{transform:translateX(13px);}
 .brick:active{transform:scale(.95);}
 .brick.skip-sug{opacity:.5;border-style:dashed;color:#9a9088;}
 .brick.selected{border-color:#7a8e9e!important;background:rgba(122,142,158,.13);color:#4a6e8e;opacity:1!important;border-style:solid!important;}
-.brick.assigned{opacity:.25;cursor:default;text-decoration:line-through;pointer-events:none;}
+.brick-cnt{font-size:9px;font-weight:700;background:rgba(61,106,82,.18);color:#2e6848;border-radius:8px;padding:1px 5px;margin-left:4px;}
 .brick-warn-dot{font-size:9px;color:#d09018;flex-shrink:0;}
 .mock-notice{font-size:11px;color:#a07840;background:rgba(176,140,80,.09);border:1px solid rgba(176,140,80,.22);border-radius:7px;padding:6px 10px;margin-bottom:10px;}
 .temp-brick-row{display:flex;gap:6px;margin-top:10px;}
@@ -1447,31 +1447,31 @@ function renderPipeSandbox(result,isMock=false){
 function renderBrickPool(){
   const pool=document.getElementById('brickPool');if(!pool)return;
   const tasks=getEffectiveTasks();
-  const assignedSet=new Set(Object.values(_pipeAssign).flat());
-  // 一般任務積木（依 getEffectiveTasks 動態篩選頻率）
+  // 計算每個任務被放入幾個 pipe（允許多 pipe 共用同一積木）
+  const cntMap={};
+  Object.values(_pipeAssign).forEach(arr=>arr.forEach(t=>{cntMap[t]=(cntMap[t]||0)+1;}));
+  // 一般任務積木
   const regularHtml=tasks.map((t,i)=>{
-    const isAssigned=assignedSet.has(t.text);
+    const cnt=cntMap[t.text]||0;
     const isSkip=_skipTasks.includes(t.text);
     const isSel=_selBrickText===t.text;
     let cls='brick';
-    if(isAssigned)cls+=' assigned';
-    else if(isSel)cls+=' selected';
+    if(isSel)cls+=' selected';
     else if(isSkip)cls+=' skip-sug';
     const dot=isSkip?'<span class="brick-warn-dot">⚡</span>':'';
-    // 顯示分類標籤
+    const cntBadge=cnt?`<span class="brick-cnt">×${cnt}</span>`:'';
     const cat=taskData.categories.find(c=>c.key===t.catKey);
     const catTag=cat?`<span style="font-size:9px;opacity:.55;margin-left:3px;">[${esc(cat.label)}]</span>`:'';
-    return`<div class="${cls}" id="brick-${i}" onclick="onBrickClick('${t.text.replace(/'/g,"\\'")}',${i})">${dot}${esc(t.text)}${catTag}</div>`;
+    return`<div class="${cls}" id="brick-${i}" onclick="onBrickClick('${t.text.replace(/'/g,"\\'")}',${i})">${dot}${esc(t.text)}${catTag}${cntBadge}</div>`;
   }).join('');
   // 臨時自訂積木
   const offset=tasks.length;
   const tempHtml=_tempBricks.map((txt,i)=>{
-    const isAssigned=assignedSet.has(txt);
+    const cnt=cntMap[txt]||0;
     const isSel=_selBrickText===txt;
-    let cls='brick temp-brick';
-    if(isAssigned)cls+=' assigned';
-    else if(isSel)cls+=' selected';
-    return`<div class="${cls}" id="brick-tmp-${i}" onclick="onBrickClick('${txt.replace(/'/g,"\\'")}',${offset+i})">✦ ${esc(txt)}</div>`;
+    let cls='brick temp-brick'+(isSel?' selected':'');
+    const cntBadge=cnt?`<span class="brick-cnt">×${cnt}</span>`:'';
+    return`<div class="${cls}" id="brick-tmp-${i}" onclick="onBrickClick('${txt.replace(/'/g,"\\'")}',${offset+i})">✦ ${esc(txt)}${cntBadge}</div>`;
   }).join('');
   // 休息積木（固定顯示，可重複置入不鎖灰）
   const rOff=tasks.length+_tempBricks.length;
@@ -1495,9 +1495,6 @@ function onPipeClick(idx){
 }
 
 function onBrickClick(taskText){
-  const assignedSet=new Set(Object.values(_pipeAssign).flat());
-  // 休息積木可重複置入，不受 assigned 鎖定
-  if(!REST_BRICKS.includes(taskText)&&assignedSet.has(taskText))return;
   if(_selPipeIdx!==null){
     assignBrickToPipe(taskText,_selPipeIdx);
     _selBrickText=null;
