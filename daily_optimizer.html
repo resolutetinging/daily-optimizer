@@ -1872,13 +1872,42 @@ async function genReviewFeedback(){
       +overloadedPipes.map(o=>`  ${o.range}「${o.label}」(${o.type})：共 ${o.count} 件任務 [${o.tasks.join('、')}]，完成 ${o.doneCount}/${o.count} 件`).join(NL)
     : '';
 
+  // ── 配速對齊校正：⚠️ 警告任務 × 實際完成 → 一致/不一致 ──
+  const pipeAlignItems=[];
+  Object.entries(savedAssign).forEach(([pi,tasks])=>{
+    const pipe=savedPipes[parseInt(pi)];if(!pipe)return;
+    const warnedTasks=tasks.filter(t=>(saved.skipTasks||[]).includes(t)&&!REST_BRICKS.includes(t));
+    if(!warnedTasks.length)return;
+    if(pipe.type!=='low'&&pipe.type!=='rest')return;
+    warnedTasks.forEach(t=>{
+      const item=saved.items?.find(i=>i.name===t);
+      const done=item&&(item.status==='done'||item.status==='part');
+      pipeAlignItems.push({
+        time:`${pipe.start}–${pipe.end}`,pipeType:pipe.type,pipeLabel:pipe.label,
+        task:t,completion:item?.status||'none',verdict:done?'inconsistent':'consistent'
+      });
+    });
+  });
+  // 寫入 localStorage，供 SAS Hub 三維圖表讀取
+  try{localStorage.setItem('sas_pipe_review',JSON.stringify({
+    date:displayKey.replace('review_',''),combatPower:cp,
+    depletedAt:saved.depleted_at||null,  // 能量低點時刻
+    items:pipeAlignItems
+  }));}catch(e){}
+  const alignSection=pipeAlignItems.length
+    ? NL+'【配速對齊驗證（戰力模型校正信號）】'+NL
+      +pipeAlignItems.map(a=>`  「${a.task}」置入${a.pipeType==='rest'?'休息':'低能'}時段「${a.pipeLabel}」（有 ⚠️ 警告）→ `
+        +(a.completion==='done'?'✓ 完成':a.completion==='part'?'◑ 部分完成':'— 未完成')
+        +' ['+(a.verdict==='inconsistent'?'不一致：模型校正信號':'一致：防禦準確')+']').join(NL)
+    : '';
+
   const prompt='你是我的效能顧問。請根據以下資訊做深度覆盤分析，重點是「戰力狀態 × 計畫 × 實際」三者之間的關係。'+NL
     +'設計背景：AI 精力水管為當日 fixed plan；[人工加入]代表使用者在一天之中根據狀況手動追加。'+NL+NL
     +'日期：'+dateStr+'　模式：'+(saved.mode||'未知')+'　體感：'+(saved.feel||'未知')+NL
     +'今日戰力：'+cp+'% '+cpLabel+NL
     +(saved.depleted_at?'⚡ 能量低點時間：'+saved.depleted_at+'（可推算今日有效工作續航長度）'+NL:'')
     +'戰力期待值：'+cpExpect+NL+NL
-    +planSection+overloadSection+NL+NL
+    +planSection+overloadSection+alignSection+NL+NL
     +'【實際覆盤結果】'+NL+actualItems+missedText+overall+NL+NL
     +'請用繁體中文，以下格式輸出（每段給出真實、有深度的觀察，不要只重述事實）：'+NL+NL
     +'【戰力 × 實際表現分析】'+NL
@@ -1887,6 +1916,12 @@ async function genReviewFeedback(){
       ? '【水管過載防禦分析】'+NL
         +'如果過載且有任務未完成：直接指出規劃落差是水管塞爆造成的，給出下次具體配速調整建議。'+NL
         +'如果過載但全部完成：發出意志力防禦警示——這是在大幅燃燒意志力，需注意滯後疲勞回檔，建議明天主動在水管中置入「強制休息積木」。'+NL+NL
+      : '')
+    +(pipeAlignItems.length
+      ? '【配速對齊校正分析】'+NL
+        +'對有 ⚠️ 警告的任務，逐一給出以下判斷：'+NL
+        +'- 若完成（不一致）：這屬於心流驅動突破，還是疲勞滯後尚未顯現？並指出這是戰力推論模型的校正依據，建議在 SAS Hub 中調整對此類任務的預期。'+NL
+        +'- 若未完成（一致）：直接指出這印證了當日系統防禦配速的準確性，並提醒順應身體節奏排程。'+NL+NL
       : '')
     +'【計畫 vs 實際落差】'+NL
     +(hasAiPlan?'針對 AI 水管配置 vs 實際的落差：預排任務哪些完成/未完成；[人工加入]任務是有餘裕加碼還是修正計畫'
