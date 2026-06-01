@@ -1154,7 +1154,7 @@ async function generate(){
 水管類型（type）：
 - high = 深度高能時段（需高專注，適合核心難題）
 - mid  = 穩定中能時段（適合常規學習與輸出）
-- low  = 輕量緩降時段（適合整理、輕任務、反思）
+- low  = 輕量時段（適合整理、輕任務、反思）
 - rest = 強制休息/蓄能（🔒 不允許置入任何任務）
 
 規則：
@@ -1389,7 +1389,7 @@ function renderPipeSandbox(result,isMock=false){
   const mockNotice=isMock?'<div class="mock-notice">⚠ API 未回應，已載入示範資料。所有互動功能完整可用。</div>':'';
   const sumHtml=result.summary?`<div class="pipe-summary">${esc(result.summary)}</div>`:'';
 
-  const badgeLabel={high:'高能',mid:'中能',low:'低能',rest:'休息'};
+  const badgeLabel={high:'高能',mid:'中能',low:'輕量',rest:'休息'};
   const endH=8+Math.floor((pwr||60)/100*14);
   const pipesHtml=_pipes.map((p,i)=>{
     const ws=pipeWarmthStyle(p.type,p.start,endH);
@@ -1511,7 +1511,7 @@ function assignBrickToPipe(taskText,pipeIdx){
   _pipeAssign[pipeIdx].push(taskText);
   renderPipeChips(pipeIdx);
   renderBrickPool();
-  // 配速防禦警告：⚡高耗能任務 → 低能或休息時段
+  // 配速防禦警告：⚡高耗能任務 → 輕量或休息時段
   const pipe=_pipes[pipeIdx];
   if(_skipTasks.includes(taskText)&&!REST_BRICKS.includes(taskText)&&(pipe.type==='low'||pipe.type==='rest')){
     const el=document.getElementById(`pipe-${pipeIdx}`);
@@ -1519,7 +1519,7 @@ function assignBrickToPipe(taskText,pipeIdx){
       el.classList.remove('pipe-warn');void el.offsetWidth;el.classList.add('pipe-warn');
       if(!el.querySelector('.pipe-warn-ico')){
         const ic=document.createElement('span');
-        ic.className='pipe-warn-ico';ic.title='⚠ 高耗能任務置入低能時段，可能引發意志力透支（紅點）';
+        ic.className='pipe-warn-ico';ic.title='⚠ 高耗能任務置入輕量時段，可能引發意志力透支（紅點）';
         ic.textContent='⚠️';el.appendChild(ic);
       }
     }
@@ -1603,7 +1603,7 @@ function renderSavedPipeSandbox(saved){
   document.getElementById('taskSplitSec').style.display='none';
 
   const sumHtml=saved.summary?`<div class="pipe-summary">${esc(saved.summary)}</div>`:'';
-  const badgeLabel={high:'高能',mid:'中能',low:'低能',rest:'休息'};
+  const badgeLabel={high:'高能',mid:'中能',low:'輕量',rest:'休息'};
   const endH=8+Math.floor((saved.combatPower||pwr||60)/100*14);
   const pipesHtml=_pipes.map((p,i)=>{
     const ws=pipeWarmthStyle(p.type,p.start,endH);
@@ -1848,7 +1848,7 @@ async function genReviewFeedback(){
     if(!pipe||!tasks.length)return;
     const workTasks=tasks.filter(t=>!REST_BRICKS.includes(t));
     const highCostCount=workTasks.filter(t=>(saved.skipTasks||[]).includes(t)).length;
-    // 過載定義：休息水管有工作任務；或工作水管 ≥3 件；或低能水管 ≥2 高耗能
+    // 過載定義：休息水管有工作任務；或工作水管 ≥3 件；或輕量水管 ≥2 高耗能
     const isOverload=pipe.type==='rest'?workTasks.length>0
       :(workTasks.length>=3||(pipe.type==='low'&&highCostCount>=2));
     if(isOverload){
@@ -1893,7 +1893,7 @@ async function genReviewFeedback(){
   }));}catch(e){}
   const alignSection=pipeAlignItems.length
     ? NL+'【配速對齊驗證（戰力模型校正信號）】'+NL
-      +pipeAlignItems.map(a=>`  「${a.task}」置入${a.pipeType==='rest'?'休息':'低能'}時段「${a.pipeLabel}」（有 ⚠️ 警告）→ `
+      +pipeAlignItems.map(a=>`  「${a.task}」置入${a.pipeType==='rest'?'休息':'輕量'}時段「${a.pipeLabel}」（有 ⚠️ 警告）→ `
         +(a.completion==='done'?'✓ 完成':a.completion==='part'?'◑ 部分完成':'— 未完成')
         +' ['+(a.verdict==='inconsistent'?'不一致：模型校正信號':'一致：防禦準確')+']').join(NL)
     : '';
