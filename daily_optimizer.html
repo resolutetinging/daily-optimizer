@@ -300,13 +300,17 @@ input:checked+.js-slider:before{transform:translateX(13px);}
 .dur-type-group:last-of-type{margin-bottom:0;padding-bottom:0;border-bottom:none;}
 .dur-type-hdr{margin-bottom:7px;}
 .dur-type-lbl{font-size:11.5px;font-weight:700;color:#4a4640;}
-.dur-type-tasks{display:flex;flex-direction:column;gap:8px;padding-left:2px;}
+.dur-type-tasks{display:flex;flex-direction:column;gap:9px;padding-left:10px;border-left:2px solid #e2ddd6;margin-left:4px;}
 .dur-task-block{display:flex;flex-direction:column;gap:3px;}
-.dur-task-name{font-size:12px;font-weight:600;color:#38342e;margin-bottom:1px;}
-.dur-sub-row{display:flex;align-items:center;gap:4px;padding-left:6px;}
-.dur-sub-icon{font-size:10px;color:#9a9088;flex-shrink:0;}
-.dur-ideal-min{font-size:11px;color:#9a9088;}
-.dur-actual-min{font-size:11.5px;font-weight:700;color:#4a6858;}
+.dur-task-name{font-size:12px;font-weight:600;color:#38342e;margin-bottom:2px;}
+.dur-sub-row{display:flex;align-items:baseline;gap:4px;padding-left:10px;}
+.dur-sub-icon{font-size:9px;color:#b0a898;flex-shrink:0;line-height:1.6;}
+.dur-ideal-min{font-size:10.5px;color:#9a9088;line-height:1.6;}
+.dur-actual-min{font-size:11px;font-weight:700;color:#4a6858;line-height:1.6;}
+.dur-formula-toggle{font-size:10px;color:#9a9088;cursor:pointer;user-select:none;margin-left:auto;padding:1px 6px;border-radius:8px;border:1px solid #ddd8ce;background:#f0ede7;white-space:nowrap;flex-shrink:0;}
+.dur-formula-toggle:hover{background:#e8e4de;}
+.dur-formula-box{font-size:10.5px;color:#7a7570;background:#f0ede7;border:1px solid #e0dbd2;border-radius:8px;padding:9px 11px;margin-bottom:10px;line-height:1.75;display:none;}
+.dur-formula-box.open{display:block;}
 .dur-buffer{display:flex;align-items:center;gap:6px;margin-top:8px;padding-top:8px;border-top:1px solid #e8e4de;}
 .dur-badge{font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;white-space:nowrap;flex-shrink:0;}
 .dur-badge.dh{background:rgba(80,105,142,.15);color:#3a5878;}
@@ -1420,8 +1424,23 @@ function buildDurCard(p){
         <span style="font-size:10.5px;color:#b0a898;">推算中…</span>
       </div>
     </div>`).join('');
+  const coef=(100/v).toFixed(2);
+  const formulaHtml=`<div class="dur-formula-box" id="dur-formula-box">
+    <b>計算公式說明（戰力 ${v}%）</b><br>
+    • <b>高效續航燃料</b> = 戰力% × 3.4 → ${v} × 3.4 = ${fuel} 分<br>
+    &nbsp;&nbsp;代表今日在最高效狀態下可用的大腦淨專注時間上限（背景對照）<br>
+    • <b>生理安全預算</b> = AI 評估任務在 100% 效率下所需淨時間<br>
+    &nbsp;&nbsp;即完全清醒、高度聚焦時完成該任務的基準時長<br>
+    • <b>現實破碎預期</b> = 生理安全預算 ÷ 戰力%<br>
+    &nbsp;&nbsp;→ 代償係數 ×${coef}（今日每 1 分高效需 ${coef} 分物理時間）<br>
+    &nbsp;&nbsp;→ 例：30 分 ÷ ${v}% = ${Math.round(3000/v)} 分
+  </div>`;
   return`<div class="dur-card">
-    <div class="dur-card-hdr">⏱ 當前能耗配置與代償對照（戰力 ${v}%）</div>
+    <div style="display:flex;align-items:center;gap:6px;margin-bottom:5px;">
+      <div class="dur-card-hdr" style="margin:0;flex:1">⏱ 當前能耗配置與代償對照（戰力 ${v}%）</div>
+      <span class="dur-formula-toggle" onclick="this.textContent=this.textContent.includes('▾')?'公式 ▴':'公式 ▾';document.getElementById('dur-formula-box').classList.toggle('open')">公式 ▾</span>
+    </div>
+    ${formulaHtml}
     <div class="dur-fuel-ref">📊 生理水庫基礎：今日高效續航燃料 ➔ ${fuel} 分鐘（背景對照）</div>
     ${groupsHtml}
     <div class="dur-buffer"><span class="dur-badge dr">⏸ 段間緩衝</span><span class="dur-val">每段至少 ${r} 分</span></div>
