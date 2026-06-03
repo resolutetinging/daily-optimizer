@@ -227,6 +227,8 @@ input:checked+.js-slider:before{transform:translateX(13px);}
 .ri-fb-input{width:100%;padding:9px 11px;border-radius:8px;border:1px solid #cec8bf;background:#ece8e0;font-size:12px;color:#38342e;resize:vertical;min-height:54px;font-family:inherit;outline:none;line-height:1.55;}
 .ri-fb-input::placeholder{color:#b0aaa0;}
 .ri-fb-input:focus{border-color:#7a8e9e;}
+.ri-del{background:none;border:none;color:#c4bfb6;cursor:pointer;font-size:13px;padding:2px 4px;border-radius:5px;flex-shrink:0;line-height:1;transition:color .15s;}
+.ri-del:hover{color:#b07878;}
 
 /* overall note */
 .overall-wrap{margin-top:13px;border-top:1px solid #ddd8d0;padding-top:13px;}
@@ -1881,6 +1883,7 @@ function renderReviewFromItems(){
           <button class="rb" data-val="part" onclick="setStatus(${i},'part')">◑ 部分</button>
           <button class="rb" data-val="skip" onclick="setStatus(${i},'skip')">— 未做</button>
           <button class="rb" data-val="no" onclick="setStatus(${i},'no')">⊘ 不做</button>
+          <button class="ri-del" onclick="deleteReviewItem(${i})" title="從覆盤移除">✕</button>
         </div>
       </div>
       <div class="ri-feedback" id="fb-${i}">
@@ -1895,6 +1898,10 @@ function renderReviewFromItems(){
   });
 }
 
+function deleteReviewItem(idx){
+  reviewItems.splice(idx,1);
+  renderReviewFromItems();
+}
 function setStatus(idx,val){
   reviewItems[idx].status=val;
   applyStatus(idx,val);
