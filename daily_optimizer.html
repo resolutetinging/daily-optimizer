@@ -263,7 +263,7 @@ input:checked+.js-slider:before{transform:translateX(13px);}
 .sp-skip{background:rgba(176,160,144,.18);color:#7a6050;}
 .sp-no{background:rgba(158,138,122,.18);color:#6a5040;}
 /* 2-col card body */
-.hist-card-body{display:grid;grid-template-columns:1fr 2fr;gap:0;border-top:1px solid #ddd8d0;min-height:0;}
+.hist-card-body{display:grid;grid-template-columns:2fr 1fr;gap:0;border-top:1px solid #ddd8d0;min-height:0;}
 /* left: review text */
 .hist-left{padding:10px 13px;min-width:0;}
 /* right: snapshot */
@@ -1947,8 +1947,8 @@ async function saveReview(){
   const target=document.getElementById('sout')?.closest('.card');
   if(target&&window.html2canvas){
     try{
-      const canvas=await html2canvas(target,{scale:0.85,useCORS:true,logging:false,backgroundColor:'#f4f1ec'});
-      const snapshot=canvas.toDataURL('image/jpeg',0.72);
+      const canvas=await html2canvas(target,{scale:2,useCORS:true,logging:false,backgroundColor:'#f4f1ec'});
+      const snapshot=canvas.toDataURL('image/jpeg',0.88);
       const d2=JSON.parse(localStorage.getItem(displayKey)||'{}');
       d2.snapshot=snapshot;
       localStorage.setItem(displayKey,JSON.stringify(d2));
