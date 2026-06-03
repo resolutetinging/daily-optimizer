@@ -295,17 +295,18 @@ input:checked+.js-slider:before{transform:translateX(13px);}
 .pipe-summary{font-size:13px;color:#4a4640;line-height:1.65;padding:10px 13px;border-radius:8px;background:#ece8e0;border:1px solid #cec8bf;margin-bottom:14px;}
 .dur-card{background:#f5f2ec;border:1px solid #ddd8ce;border-radius:10px;padding:11px 14px;margin-bottom:12px;}
 .dur-card-hdr{font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#9a9088;margin-bottom:5px;}
-.dur-fuel-ref{font-size:11px;color:#b0a898;margin-bottom:10px;line-height:1.5;}
-.dur-type-group{margin-bottom:9px;padding-bottom:9px;border-bottom:1px solid #e8e4de;}
+.dur-fuel-ref{font-size:11px;color:#9a9088;margin-bottom:10px;line-height:1.5;font-weight:500;}
+.dur-type-group{margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid #e8e4de;}
 .dur-type-group:last-of-type{margin-bottom:0;padding-bottom:0;border-bottom:none;}
-.dur-type-hdr{margin-bottom:6px;}
+.dur-type-hdr{margin-bottom:7px;}
 .dur-type-lbl{font-size:11.5px;font-weight:700;color:#4a4640;}
-.dur-type-tasks{display:flex;flex-direction:column;gap:6px;padding-left:2px;}
-.dur-task-row{display:grid;grid-template-columns:1fr auto auto auto;align-items:center;gap:5px;}
-.dur-task-name{font-size:11.5px;color:#4a4640;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-.dur-ideal-min{font-size:10.5px;color:#b0a898;white-space:nowrap;}
-.dur-arrow{font-size:10.5px;color:#cec8be;}
-.dur-actual-min{font-size:11.5px;font-weight:600;color:#5a7060;white-space:nowrap;}
+.dur-type-tasks{display:flex;flex-direction:column;gap:8px;padding-left:2px;}
+.dur-task-block{display:flex;flex-direction:column;gap:3px;}
+.dur-task-name{font-size:12px;font-weight:600;color:#38342e;margin-bottom:1px;}
+.dur-sub-row{display:flex;align-items:center;gap:4px;padding-left:6px;}
+.dur-sub-icon{font-size:10px;color:#9a9088;flex-shrink:0;}
+.dur-ideal-min{font-size:11px;color:#9a9088;}
+.dur-actual-min{font-size:11.5px;font-weight:700;color:#4a6858;}
 .dur-buffer{display:flex;align-items:center;gap:6px;margin-top:8px;padding-top:8px;border-top:1px solid #e8e4de;}
 .dur-badge{font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;white-space:nowrap;flex-shrink:0;}
 .dur-badge.dh{background:rgba(80,105,142,.15);color:#3a5878;}
@@ -1348,6 +1349,7 @@ function renderOut(r){
    PIPE SANDBOX — 雙軌制水管沙盒
 ═══════════════════════════════════════════════════════ */
 let _pipes=[], _pipeAssign={}, _skipTasks=[], _selPipeIdx=null, _selBrickText=null, _tempBricks=[];
+let _durEstimates={}; // {taskName:{ideal,actual}} — 供覆盤系統綁定代償分鐘數
 const REST_BRICKS=['💤 午休蓄能','🌿 傍晚充能','🔋 快充小憩'];
 
 function getMockPipes(p){
@@ -1419,8 +1421,8 @@ function buildDurCard(p){
       </div>
     </div>`).join('');
   return`<div class="dur-card">
-    <div class="dur-card-hdr">⏱ 當前能耗預算配置（戰力 ${v}%）</div>
-    <div class="dur-fuel-ref">今日大腦燃料基礎：高效續航共 ${fuel} 分鐘（背景對照）</div>
+    <div class="dur-card-hdr">⏱ 當前能耗配置與代償對照（戰力 ${v}%）</div>
+    <div class="dur-fuel-ref">📊 生理水庫基礎：今日高效續航燃料 ➔ ${fuel} 分鐘（背景對照）</div>
     ${groupsHtml}
     <div class="dur-buffer"><span class="dur-badge dr">⏸ 段間緩衝</span><span class="dur-val">每段至少 ${r} 分</span></div>
   </div>`;
@@ -1446,6 +1448,7 @@ Return ONLY JSON: [{"t":"task name","type":"high","ideal":20},...]`;
     const jm=raw.match(/\[[\s\S]*\]/);
     if(!jm) return;
     const items=JSON.parse(jm[0]);
+    _durEstimates={};
     ['high','mid','low'].forEach(tp=>{
       const el=document.getElementById('dur-tasks-'+tp);
       if(!el) return;
@@ -1453,12 +1456,18 @@ Return ONLY JSON: [{"t":"task name","type":"high","ideal":20},...]`;
       if(!group.length){el.innerHTML='<span style="font-size:10.5px;color:#c0b8b0;">無任務</span>';return;}
       el.innerHTML=group.map(it=>{
         const ideal=Math.max(5,Math.round(it.ideal||20));
-        const actual=Math.round(ideal*100/v); // 磨損係數推算
-        return`<div class="dur-task-row">
+        const actual=Math.round(ideal*100/v);
+        _durEstimates[it.t]={ideal,actual}; // 供覆盤綁定
+        return`<div class="dur-task-block">
           <span class="dur-task-name">${esc(String(it.t||''))}</span>
-          <span class="dur-ideal-min">理想 ${ideal} 分</span>
-          <span class="dur-arrow">→</span>
-          <span class="dur-actual-min">低能耗預估 ${actual} 分</span>
+          <div class="dur-sub-row">
+            <span class="dur-sub-icon">💧</span>
+            <span class="dur-ideal-min">生理安全預算：${ideal} 分（大腦高效淨時間）</span>
+          </div>
+          <div class="dur-sub-row">
+            <span class="dur-sub-icon">🚗</span>
+            <span class="dur-actual-min">現實破碎預期：${actual} 分</span>
+          </div>
         </div>`;
       }).join('');
     });
@@ -1873,7 +1882,11 @@ function applyStatus(idx,val){
 function saveReview(){
   const overall=document.getElementById('overallFeedback').value.trim();
   const existing=JSON.parse(localStorage.getItem(displayKey)||'{}');
-  const data={...existing,items:reviewItems.map(i=>({name:i.name,status:i.status,feedback:i.feedback})),overall,savedAt:new Date().toISOString()};
+  const data={...existing,items:reviewItems.map(i=>{
+    const est=_durEstimates[i.name]||{};
+    return{name:i.name,status:i.status,feedback:i.feedback,
+           idealMin:est.ideal||null,actualMin:est.actual||null};
+  }),overall,savedAt:new Date().toISOString()};
   localStorage.setItem(displayKey,JSON.stringify(data));
   const toast=document.getElementById('savedToast');
   toast.style.display='block';
