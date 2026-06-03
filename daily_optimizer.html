@@ -3,6 +3,7 @@
 <head>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%220.9em%22 font-size=%2290%22>⚡</text></svg>">
 <meta charset="UTF-8">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -250,20 +251,30 @@ input:checked+.js-slider:before{transform:translateX(13px);}
 .hist-back{font-size:13px;color:#7a8e9e;background:none;border:none;cursor:pointer;padding:4px 0;font-weight:500;}
 .hist-title{font-size:18px;font-weight:600;color:#38342e;flex:1;}
 .hist-empty{text-align:center;padding:60px 20px;font-size:14px;color:#9a9088;line-height:1.8;}
-.hist-day{margin:12px 16px;background:#f4f1ec;border:1px solid #cec8bf;border-radius:14px;overflow:hidden;}
-.hist-day-header{display:flex;align-items:center;justify-content:space-between;padding:13px 15px;cursor:pointer;-webkit-tap-highlight-color:transparent;}
-.hist-day-date{font-size:14px;font-weight:600;color:#38342e;}
-.hist-day-meta{font-size:11px;color:#9a9088;margin-top:2px;}
-.hist-day-stats{display:flex;gap:6px;align-items:center;}
+/* ── Journal wall card ── */
+.hist-day{margin:12px 16px;background:#f4f1ec;border:1px solid #cec8bf;border-radius:16px;overflow:hidden;}
+.hist-day-top{display:flex;align-items:center;justify-content:space-between;padding:12px 14px 10px;}
+.hist-day-date{font-size:15px;font-weight:700;color:#38342e;}
+.hist-day-meta{font-size:11px;color:#9a9088;margin-top:1px;}
+.hist-day-stats{display:flex;gap:5px;align-items:center;flex-wrap:wrap;}
 .stat-pill{display:inline-flex;align-items:center;gap:3px;padding:3px 8px;border-radius:20px;font-size:10px;font-weight:600;}
-.sp-done{background:rgba(122,158,138,.15);color:#4a7e5e;}
-.sp-part{background:rgba(142,158,122,.15);color:#5a7e3e;}
-.sp-skip{background:rgba(176,160,144,.15);color:#7a6050;}
-.sp-no{background:rgba(158,138,122,.15);color:#6a5040;}
-.hist-day-body{border-top:1px solid #ddd8d0;padding:0 15px;}
-.hist-item{padding:10px 0;border-bottom:1px solid #ddd8d0;}
+.sp-done{background:rgba(122,158,138,.18);color:#4a7e5e;}
+.sp-part{background:rgba(142,158,122,.18);color:#5a7e3e;}
+.sp-skip{background:rgba(176,160,144,.18);color:#7a6050;}
+.sp-no{background:rgba(158,138,122,.18);color:#6a5040;}
+/* snapshot image */
+.hist-snapshot{display:block;width:100%;border-top:1px solid #ddd8d0;border-bottom:1px solid #ddd8d0;}
+.hist-snapshot img{width:100%;display:block;}
+.hist-snapshot-none{padding:14px 15px;font-size:12px;color:#b0aaa0;border-top:1px solid #ddd8d0;text-align:center;}
+/* collapsible detail */
+.hist-detail-toggle{width:100%;background:none;border:none;padding:9px 14px;font-size:11px;color:#9a9088;cursor:pointer;text-align:left;display:flex;align-items:center;gap:4px;font-family:inherit;}
+.hist-detail-toggle:hover{background:rgba(0,0,0,.03);}
+.hist-chevron{font-size:11px;color:#b0aaa0;transition:transform .2s;}
+.hist-chevron.open{transform:rotate(90deg);}
+.hist-day-body{padding:0 14px 4px;display:none;}
+.hist-item{padding:9px 0;border-bottom:1px solid #ddd8d0;}
 .hist-item:last-child{border-bottom:none;}
-.hist-item-top{display:flex;align-items:center;gap:8px;margin-bottom:4px;}
+.hist-item-top{display:flex;align-items:center;gap:8px;margin-bottom:3px;}
 .hist-item-name{flex:1;font-size:13px;font-weight:500;color:#38342e;}
 .hist-status{font-size:10px;font-weight:600;padding:2px 8px;border-radius:20px;}
 .hs-done{background:rgba(122,158,138,.15);color:#4a7e5e;}
@@ -272,10 +283,11 @@ input:checked+.js-slider:before{transform:translateX(13px);}
 .hs-no{background:rgba(158,138,122,.15);color:#6a5040;}
 .hs-none{background:rgba(200,194,184,.15);color:#9a9088;}
 .hist-item-fb{font-size:12px;color:#7a7570;line-height:1.55;padding-left:2px;white-space:pre-wrap;word-break:break-word;}
-.hist-overall{margin:6px 0 0;padding:8px 12px;border-radius:8px;background:#ece8e0;font-size:12px;color:#6a6660;line-height:1.6;word-break:break-word;}
+.hist-overall{margin:6px 0 8px;padding:8px 12px;border-radius:8px;background:#ece8e0;font-size:12px;color:#6a6660;line-height:1.6;word-break:break-word;}
 .hist-overall-label{font-size:10px;font-weight:600;color:#9a9088;letter-spacing:.06em;text-transform:uppercase;margin-bottom:2px;}
-.hist-chevron{font-size:12px;color:#b0aaa0;transition:transform .2s;}
-.hist-chevron.open{transform:rotate(90deg);}
+/* action buttons */
+.hist-actions{display:flex;gap:6px;padding:0 14px 12px;}
+.hist-act-btn{font-size:11px;border:none;border-radius:7px;padding:4px 9px;cursor:pointer;font-family:inherit;}
 
 .overlay{position:fixed;inset:0;background:rgba(30,26,20,.4);display:flex;align-items:center;justify-content:center;z-index:100;}
 .ocard{background:#f4f1ec;border-radius:14px;padding:28px 36px;text-align:center;max-width:240px;border:1px solid #cec8bf;}
@@ -1917,7 +1929,7 @@ function applyStatus(idx,val){
   });
 }
 
-function saveReview(){
+async function saveReview(){
   const overall=document.getElementById('overallFeedback').value.trim();
   const existing=JSON.parse(localStorage.getItem(displayKey)||'{}');
   const data={...existing,items:reviewItems.map(i=>{
@@ -1929,6 +1941,17 @@ function saveReview(){
   const toast=document.getElementById('savedToast');
   toast.style.display='block';
   setTimeout(()=>toast.style.display='none',2200);
+  // ── snapshot capture ──
+  const target=document.getElementById('sout')?.closest('.card');
+  if(target&&window.html2canvas){
+    try{
+      const canvas=await html2canvas(target,{scale:0.85,useCORS:true,logging:false,backgroundColor:'#f4f1ec'});
+      const snapshot=canvas.toDataURL('image/jpeg',0.72);
+      const d2=JSON.parse(localStorage.getItem(displayKey)||'{}');
+      d2.snapshot=snapshot;
+      localStorage.setItem(displayKey,JSON.stringify(d2));
+    }catch(e){console.warn('snapshot failed',e);}
+  }
 }
 
 async function genReviewFeedback(){
@@ -2332,13 +2355,12 @@ function closeHist(){
 
 function renderHist(){
   const content=document.getElementById('histContent');
-  // collect all review_ keys from localStorage
   const keys=[];
   for(let i=0;i<localStorage.length;i++){
     const k=localStorage.key(i);
     if(k&&k.startsWith('review_'))keys.push(k);
   }
-  keys.sort((a,b)=>b.localeCompare(a)); // newest first
+  keys.sort((a,b)=>b.localeCompare(a));
 
   if(!keys.length){
     content.innerHTML='<div class="hist-empty">還沒有覆盤記錄<br>完成今日行程後，<br>填寫覆盤並儲存就會出現這裡</div>';
@@ -2353,49 +2375,72 @@ function renderHist(){
     const doneCount=items.filter(i=>i.status==='done').length;
     const partCount=items.filter(i=>i.status==='part').length;
     const skipCount=items.filter(i=>i.status==='skip').length;
+    const noCount=items.filter(i=>i.status==='no').length;
 
-    // format date
     const d=new Date(dateStr+'T12:00:00');
     const days=['週日','週一','週二','週三','週四','週五','週六'];
     const dateLabel=`${d.getMonth()+1}月${d.getDate()}日 ${days[d.getDay()]}`;
-
-    const dayDiv=document.createElement('div');
-    dayDiv.className='hist-day';
 
     const statsHtml=[
       doneCount?`<span class="stat-pill sp-done">✓ ${doneCount}</span>`:'',
       partCount?`<span class="stat-pill sp-part">◑ ${partCount}</span>`:'',
       skipCount?`<span class="stat-pill sp-skip">— ${skipCount}</span>`:'',
+      noCount?`<span class="stat-pill sp-no">⊘ ${noCount}</span>`:'',
     ].filter(Boolean).join('');
 
+    const snapshotHtml=data.snapshot
+      ?`<div class="hist-snapshot"><img src="${data.snapshot}" alt="戰術水管快照" loading="lazy"></div>`
+      :`<div class="hist-snapshot-none">（此筆無水管快照，下次儲存覆盤時自動擷取）</div>`;
+
+    const itemsHtml=items.map(item=>`
+      <div class="hist-item">
+        <div class="hist-item-top">
+          <div class="hist-item-name">${esc(item.name||'')}</div>
+          <span class="hist-status ${item.status==='done'?'hs-done':item.status==='part'?'hs-part':item.status==='skip'?'hs-skip':item.status==='no'?'hs-no':'hs-none'}">
+            ${item.status==='done'?'✓ 完成':item.status==='part'?'◑ 部分':item.status==='skip'?'— 未做':item.status==='no'?'⊘ 不做':'未記錄'}
+          </span>
+        </div>
+        ${item.feedback?`<div class="hist-item-fb">${esc(item.feedback)}</div>`:''}
+      </div>`).join('');
+
+    const overallHtml=data.overall
+      ?`<div class="hist-overall"><div class="hist-overall-label">整體反饋</div><div style="white-space:pre-wrap">${esc(data.overall.trim().replace(/\n{2,}/g,'\n'))}</div></div>`:'';
+    const aiFbHtml=data.aiFeedback
+      ?`<div class="hist-overall"><div class="hist-overall-label">AI 反饋</div><div style="white-space:pre-wrap">${esc(data.aiFeedback.trim().replace(/\n{2,}/g,'\n'))}</div></div>`:'';
+
+    const dayDiv=document.createElement('div');
+    dayDiv.className='hist-day';
+    const uid=key.replace(/[^a-z0-9]/gi,'_');
     dayDiv.innerHTML=`
-      <div class="hist-day-header" onclick="toggleHistDay(this)">
+      <div class="hist-day-top">
         <div>
           <div class="hist-day-date">${dateLabel}</div>
-          <div class="hist-day-meta">${items.length} 項任務${data.savedAt?'　·　'+new Date(data.savedAt).toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit'})+'儲存':''}</div>
+          <div class="hist-day-meta">${data.savedAt?new Date(data.savedAt).toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit'})+'儲存':''}</div>
         </div>
-        <div style="display:flex;align-items:center;gap:8px">
-          <div class="hist-day-stats">${statsHtml}</div>
-          <button class="h-rest-sm${data.restMode?' on':''}" onclick="toggleHistRest('${key}',event)">${data.restMode?'✓ 休假':'🌿'}</button>
-          <button style="font-size:11px;background:#e8f0e8;border:none;border-radius:6px;padding:3px 7px;color:#4a7a4a;cursor:pointer" onclick="loadHistEntry('${key}');event.stopPropagation()">✏️ 編輯</button>
-          <button style="font-size:11px;background:#f0e8e8;border:none;border-radius:6px;padding:3px 7px;color:#8a4a4a;cursor:pointer" onclick="deleteHistEntry('${key}',event)">🗑</button>
-          <span class="hist-chevron">›</span>
-        </div>
+        <div class="hist-day-stats">${statsHtml}</div>
       </div>
-      <div class="hist-day-body" style="display:none">
-        ${items.map(item=>`
-          <div class="hist-item">
-            <div class="hist-item-top">
-              <div class="hist-item-name">${esc(item.name||'')}</div>
-              <span class="hist-status ${item.status==='done'?'hs-done':item.status==='part'?'hs-part':item.status==='skip'?'hs-skip':item.status==='no'?'hs-no':'hs-none'}">
-                ${item.status==='done'?'✓ 完成':item.status==='part'?'◑ 部分':item.status==='skip'?'— 未做':item.status==='no'?'⊘ 不做':'未記錄'}
-              </span>
-            </div>
-            ${item.feedback?`<div class="hist-item-fb">${esc(item.feedback)}</div>`:''}
-          </div>`).join('')}
-        ${data.overall?`<div class="hist-overall"><div class="hist-overall-label" style="text-align:left">整體反饋</div><div style="text-align:left;white-space:pre-wrap">${esc(data.overall.trim().replace(/\n{2,}/g,'\n'))}</div></div>`:''}
-        ${data.aiFeedback?`<div class="hist-overall"><div class="hist-overall-label" style="text-align:left">AI 反饋</div><div style="text-align:left;white-space:pre-wrap">${esc(data.aiFeedback.trim().replace(/\n{2,}/g,'\n'))}</div></div>`:''}
+      ${snapshotHtml}
+      <button class="hist-detail-toggle" onclick="toggleHistDay_${uid}(this)">
+        <span class="hist-chevron">›</span> ${items.length} 項覆盤明細
+      </button>
+      <div class="hist-day-body" id="hbody_${uid}">
+        ${itemsHtml}${overallHtml}${aiFbHtml}
+      </div>
+      <div class="hist-actions">
+        <button class="hist-act-btn" style="background:#e8f0e8;color:#4a7a4a" onclick="loadHistEntry('${key}')">✏️ 編輯</button>
+        <button class="hist-act-btn${data.restMode?' on':''}" style="background:#f4f1ec;border:1px solid #cec8bf;color:#7a7570" onclick="toggleHistRest('${key}',event)">${data.restMode?'✓ 休假':'🌿 標記休假'}</button>
+        <button class="hist-act-btn" style="background:#f0e8e8;color:#8a4a4a;margin-left:auto" onclick="deleteHistEntry('${key}',event)">🗑 刪除</button>
       </div>`;
+
+    // attach toggle fn dynamically to avoid closure issues
+    window[`toggleHistDay_${uid}`]=function(btn){
+      const body=document.getElementById(`hbody_${uid}`);
+      const chev=btn.querySelector('.hist-chevron');
+      const open=body.style.display!=='block';
+      body.style.display=open?'block':'none';
+      chev.classList.toggle('open',open);
+    };
+
     content.appendChild(dayDiv);
   });
 }
@@ -2521,13 +2566,7 @@ async function syncFromGist(){
   }catch(err){showGistStatus(`❌ ${err.message}`,'err');}
 }
 
-function toggleHistDay(header){
-  const body=header.nextElementSibling;
-  const chevron=header.querySelector('.hist-chevron');
-  const isOpen=body.style.display!=='none';
-  body.style.display=isOpen?'none':'block';
-  chevron.classList.toggle('open',!isOpen);
-}
+
 function toggleHistRest(key,e){
   e.stopPropagation();
   const data=JSON.parse(localStorage.getItem(key)||'{}');
