@@ -1414,13 +1414,13 @@ async function loadTaskDurations(p){
 Task list:
 ${tasks.map(t=>t.text).join('\n')}
 
-Return ONLY a JSON array with suggested focused session duration (minutes) for each task at this energy level. Shorter durations for lower combat power.
-[{"t":"task name","m":45},...]`;
+Return ONLY a JSON array. For each task, classify energy level (high/mid/low) and suggest focused session minutes.
+[{"t":"task name","type":"high","m":45},...]`;
   try{
     const resp=await fetch(GROQ,{method:'POST',
       headers:{'Content-Type':'application/json','Authorization':`Bearer ${key}`},
       body:JSON.stringify({model:'llama-3.1-8b-instant',
-        messages:[{role:'user',content:prompt}],temperature:0.3,max_tokens:220})});
+        messages:[{role:'user',content:prompt}],temperature:0.3,max_tokens:250})});
     const j=await resp.json();
     const raw=j.choices?.[0]?.message?.content||'';
     const jm=raw.match(/\[[\s\S]*\]/);
@@ -1428,12 +1428,19 @@ Return ONLY a JSON array with suggested focused session duration (minutes) for e
     const items=JSON.parse(jm[0]);
     const el=document.getElementById('dur-task-rows');
     if(!el) return;
-    el.innerHTML=items.map(item=>
-      `<div class="dur-row" style="justify-content:space-between;">
-        <span class="dur-val" style="font-weight:500">${esc(String(item.t||''))}</span>
-        <span class="dur-val" style="color:#7a7570;white-space:nowrap">→ ${item.m} 分</span>
-      </div>`
-    ).join('');
+    const badgeCls={high:'dh',mid:'dm',low:'dl'};
+    const badgeLbl={high:'高能',mid:'中能',low:'輕量'};
+    el.innerHTML=items.map(item=>{
+      const cls=badgeCls[item.type]||'dm';
+      const lbl=badgeLbl[item.type]||item.type;
+      return`<div class="dur-row" style="justify-content:space-between;gap:6px;">
+        <div style="display:flex;align-items:center;gap:5px;min-width:0;">
+          <span class="dur-badge ${cls}" style="flex-shrink:0">${lbl}</span>
+          <span class="dur-val" style="font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(String(item.t||''))}</span>
+        </div>
+        <span class="dur-val" style="color:#7a7570;white-space:nowrap;flex-shrink:0">→ ${item.m} 分</span>
+      </div>`;
+    }).join('');
   }catch(e){
     const el=document.getElementById('dur-task-rows');
     if(el) el.innerHTML='';
@@ -1478,6 +1485,7 @@ function renderPipeSandbox(result,isMock=false){
     +'<div class="brick-pool-sec">'
       +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:9px;">'
         +'<div class="brick-pool-hd" style="margin-bottom:0">📦 任務積木池</div>'
+        +'<span style="font-size:10.5px;color:#9a9088;">⚡ 半透明虛線 = AI 建議今日跳過</span>'
       +'</div>'
       +'<div class="brick-pool" id="brickPool"></div>'
       +'<div class="temp-brick-row">'
@@ -1692,6 +1700,7 @@ function renderSavedPipeSandbox(saved){
     +'<div class="brick-pool-sec">'
       +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:9px;">'
         +'<div class="brick-pool-hd" style="margin-bottom:0">📦 任務積木池</div>'
+        +'<span style="font-size:10.5px;color:#9a9088;">⚡ 半透明虛線 = AI 建議今日跳過</span>'
       +'</div>'
       +'<div class="brick-pool" id="brickPool"></div>'
       +'<div class="temp-brick-row">'
