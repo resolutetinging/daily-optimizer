@@ -263,7 +263,7 @@ input:checked+.js-slider:before{transform:translateX(13px);}
 .sp-skip{background:rgba(176,160,144,.18);color:#7a6050;}
 .sp-no{background:rgba(158,138,122,.18);color:#6a5040;}
 /* 2-col card body */
-.hist-card-body{display:grid;grid-template-columns:1fr 140px;gap:0;border-top:1px solid #ddd8d0;min-height:0;}
+.hist-card-body{display:grid;grid-template-columns:1fr 2fr;gap:0;border-top:1px solid #ddd8d0;min-height:0;}
 /* left: review text */
 .hist-left{padding:10px 13px;min-width:0;}
 /* right: snapshot */
@@ -288,6 +288,8 @@ input:checked+.js-slider:before{transform:translateX(13px);}
 /* action buttons */
 .hist-actions{display:flex;gap:6px;padding:8px 13px 11px;border-top:1px solid #ece8e0;}
 .hist-act-btn{font-size:11px;border:none;border-radius:7px;padding:4px 9px;cursor:pointer;font-family:inherit;}
+.snap-lb{position:fixed;inset:0;background:rgba(20,18,14,.82);z-index:500;display:flex;align-items:center;justify-content:center;cursor:zoom-out;}
+.snap-lb img{max-width:92vw;max-height:88vh;border-radius:10px;box-shadow:0 8px 40px rgba(0,0,0,.5);}
 
 .overlay{position:fixed;inset:0;background:rgba(30,26,20,.4);display:flex;align-items:center;justify-content:center;z-index:100;}
 .ocard{background:#f4f1ec;border-radius:14px;padding:28px 36px;text-align:center;max-width:240px;border:1px solid #cec8bf;}
@@ -2389,7 +2391,7 @@ function renderHist(){
     ].filter(Boolean).join('');
 
     const snapshotHtml=data.snapshot
-      ?`<div class="hist-snapshot"><img src="${data.snapshot}" alt="戰術水管快照" loading="lazy"></div>`
+      ?`<div class="hist-snapshot"><img src="${data.snapshot}" alt="戰術水管快照" loading="lazy" style="cursor:zoom-in" onclick="openSnapshotLightbox(this.src)"></div>`
       :`<div class="hist-snapshot-none">無快照<br>下次儲存<br>自動擷取</div>`;
 
     const itemsHtml=items.map(item=>`
@@ -2440,6 +2442,15 @@ function renderHist(){
 
     content.appendChild(dayDiv);
   });
+}
+
+/* ── Snapshot Lightbox ── */
+function openSnapshotLightbox(src){
+  const lb=document.createElement('div');
+  lb.className='snap-lb';
+  lb.innerHTML=`<img src="${src}" alt="水管快照放大">`;
+  lb.onclick=()=>lb.remove();
+  document.body.appendChild(lb);
 }
 
 /* ── GitHub Gist Sync ── */
