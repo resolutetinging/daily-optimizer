@@ -343,8 +343,12 @@ input:checked+.js-slider:before{transform:translateX(13px);}
 .pipe-item.type-rest{background:rgba(132,168,140,.07);border-color:rgba(168,198,172,.28);}
 .brick.rest-brick{border-color:#7a9e8a;color:#2e6848;background:rgba(122,158,138,.09);border-style:solid;}
 .pipe-item.selected{box-shadow:0 0 0 2.5px #7a8e9e;border-color:#7a8e9e;}
-.pipe-warn{animation:pWarn 1.5s ease-in-out;}
-@keyframes pWarn{0%,100%{box-shadow:0 0 0 2.5px #7a8e9e}45%{box-shadow:0 0 0 3px #d09018,0 0 16px rgba(208,144,24,.28)}}
+.pipe-warn-1{animation:pWarn1 1.6s ease-in-out;}
+.pipe-warn-2{animation:pWarn2 1.1s ease-in-out infinite;}
+.pipe-warn-3{animation:pWarn3 0.7s ease-in-out infinite;}
+@keyframes pWarn1{0%,100%{box-shadow:0 0 0 2px #9a8060}50%{box-shadow:0 0 0 3px #d09018,0 0 14px rgba(208,144,24,.32)}}
+@keyframes pWarn2{0%,100%{box-shadow:0 0 0 2px #a04030}50%{box-shadow:0 0 0 3.5px #c0392b,0 0 18px rgba(192,57,43,.38)}}
+@keyframes pWarn3{0%,100%{box-shadow:0 0 0 2px #800020}40%{box-shadow:0 0 0 4px #e74c3c,0 0 24px rgba(231,76,60,.5)}}
 .pipe-hd{display:flex;align-items:center;gap:8px;margin-bottom:3px;}
 .pipe-time-range{font-size:10.5px;font-weight:600;color:#9a9088;font-variant-numeric:tabular-nums;letter-spacing:.03em;}
 .pipe-type-badge{font-size:10px;font-weight:700;letter-spacing:.04em;padding:2px 7px;border-radius:10px;}
@@ -1657,25 +1661,47 @@ function onBrickClick(taskText){
   }
 }
 
+function calcPressureScore(pipeIdx){
+  const pipe=_pipes[pipeIdx];if(!pipe)return 0;
+  const tasks=(_pipeAssign[pipeIdx]||[]).filter(t=>!REST_BRICKS.includes(t));
+  let score=0;
+  tasks.forEach(t=>{ score+=_skipTasks.includes(t)?2:1; });
+  if((pipe.type==='low'||pipe.type==='rest')&&tasks.length>2) score+=2;
+  return score;
+}
+
+function updatePipeWarnIcon(pipeIdx){
+  const el=document.getElementById(`pipe-${pipeIdx}`);if(!el)return;
+  el.querySelector('.pipe-warn-ico')?.remove();
+  el.classList.remove('pipe-warn-1','pipe-warn-2','pipe-warn-3');
+  el.title='';
+  const score=calcPressureScore(pipeIdx);
+  if(score<=0)return;
+  let emoji,title,cls;
+  if(score>=5){
+    emoji='💥';cls='pipe-warn-3';
+    title='危險：雙重核爆臨界點！今晚覆盤此區塊極大概率全滅，強烈建議手動停損、移回積木池。';
+  }else if(score>=3){
+    emoji='🔥';cls='pipe-warn-2';
+    title='警告：時段任務過載！過多的任務切換將導致大腦卡死，高機率流產。';
+  }else{
+    emoji='⚠️';cls='pipe-warn-1';
+    title='注意：時段能耗配速不對，此任務做起來會較為卡頓，請心理代償準備。';
+  }
+  void el.offsetWidth;
+  el.classList.add(cls);
+  const ic=document.createElement('span');
+  ic.className='pipe-warn-ico';ic.title=title;ic.textContent=emoji;
+  el.appendChild(ic);
+}
+
 function assignBrickToPipe(taskText,pipeIdx){
   if(!_pipeAssign[pipeIdx])_pipeAssign[pipeIdx]=[];
   if(_pipeAssign[pipeIdx].includes(taskText))return;
   _pipeAssign[pipeIdx].push(taskText);
   renderPipeChips(pipeIdx);
   renderBrickPool();
-  // 配速防禦警告：⚡高耗能任務 → 輕量或休息時段
-  const pipe=_pipes[pipeIdx];
-  if(_skipTasks.includes(taskText)&&!REST_BRICKS.includes(taskText)&&(pipe.type==='low'||pipe.type==='rest')){
-    const el=document.getElementById(`pipe-${pipeIdx}`);
-    if(el){
-      el.classList.remove('pipe-warn');void el.offsetWidth;el.classList.add('pipe-warn');
-      if(!el.querySelector('.pipe-warn-ico')){
-        const ic=document.createElement('span');
-        ic.className='pipe-warn-ico';ic.title='⚠ 高耗能任務置入輕量時段，可能引發意志力透支（紅點）';
-        ic.textContent='⚠️';el.appendChild(ic);
-      }
-    }
-  }
+  updatePipeWarnIcon(pipeIdx);
   savePipeAssignments();
   deselectSandbox();
 }
@@ -1689,11 +1715,7 @@ function removeFromPipe(taskText,pipeIdx){
   if(!_pipeAssign[pipeIdx])return;
   _pipeAssign[pipeIdx]=_pipeAssign[pipeIdx].filter(t=>t!==taskText);
   if(!_pipeAssign[pipeIdx].length)delete _pipeAssign[pipeIdx];
-  const hasConflict=(_pipeAssign[pipeIdx]||[]).some(t=>_skipTasks.includes(t)&&!REST_BRICKS.includes(t));
-  if(!hasConflict){
-    const el=document.getElementById(`pipe-${pipeIdx}`);
-    if(el){el.querySelector('.pipe-warn-ico')?.remove();el.classList.remove('pipe-warn');el.title='';}
-  }
+  updatePipeWarnIcon(pipeIdx);
   renderPipeChips(pipeIdx);renderBrickPool();savePipeAssignments();
 }
 
@@ -1789,17 +1811,7 @@ function renderSavedPipeSandbox(saved){
     +'</div>';
 
   loadTaskDurations(saved.combatPower||pwr);
-  Object.keys(_pipeAssign).forEach(pi=>renderPipeChips(parseInt(pi)));
-  // 還原警告圖示
-  Object.entries(_pipeAssign).forEach(([pi,tasks])=>{
-    const p=_pipes[parseInt(pi)];if(!p)return;
-    if((p.type==='low'||p.type==='rest')&&tasks.some(t=>_skipTasks.includes(t)&&!REST_BRICKS.includes(t))){
-      const el=document.getElementById(`pipe-${pi}`);
-      if(el&&!el.querySelector('.pipe-warn-ico')){
-        const ic=document.createElement('span');ic.className='pipe-warn-ico';ic.textContent='⚠️';el.appendChild(ic);
-      }
-    }
-  });
+  Object.keys(_pipeAssign).forEach(pi=>{ renderPipeChips(parseInt(pi)); updatePipeWarnIcon(parseInt(pi)); });
   renderBrickPool();
 }
 /* ─── end pipe sandbox ─── */
