@@ -1211,6 +1211,7 @@ async function generate(){
 4. skipTasks：從任務庫原始名稱挑選今日因戰力不足建議跳過的高耗能任務，字串完全一致
 5. hint 字段寫 AI 建議語（例：💡 適合：核心難題、英文），rest 類型寫「🔒 強制休息，不排任務」
 6. 輸出純 JSON，無 markdown
+7. 【最高優先】今日 Calendar 行程佔用的時段必須逐一轉為獨立 pipe，type 設為 "rest"，label 直接使用行程名稱，hint 寫「📅 行程佔用，不排任務」。這些時段不可與其他 pipe 重疊，也不可被其他 pipe 吞掉。
 
 格式：{"summary":"一句話策略叮嚀（45字內）","pipes":[{"start":"09:30","end":"12:00","type":"high","label":"深度高能","hint":"💡 適合：核心難題、BQ、英文寫作"}],"skipTasks":["原始任務名"]}`;
 
