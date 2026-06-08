@@ -1867,24 +1867,71 @@ function renderReview(names, isRestMode=false, fresh=false){
 
 function renderDepletedRow(){
   const el=document.getElementById('depletedRow');if(!el)return;
+  el.innerHTML='';
   const saved=JSON.parse(localStorage.getItem(displayKey)||'{}');
-  const t=saved.depleted_at||'';
-  if(t){
-    el.innerHTML=`<span class="depleted-pill recorded">⚡ 能量低點 <span class="depleted-time">${t}</span><span class="depleted-clr" onclick="clearDepleted()" title="清除">×</span></span>`;
-  } else {
-    el.innerHTML=`<button class="depleted-pill" onclick="recordDepleted()">⚡ 能量低點 · 記錄當下</button>`;
+  const log=saved.energy_log||[];
+  if(!log.length){
+    const btn=document.createElement('button');
+    btn.className='depleted-pill';
+    btn.textContent='⚡ 能量低點 · 記錄當下';
+    btn.onclick=()=>recordEnergyEvent('low','腦霧');
+    el.appendChild(btn);
+    return;
   }
+  // 顯示事件時間軸
+  const wrap=document.createElement('div');
+  wrap.style.cssText='display:flex;flex-direction:column;gap:4px;';
+  const evRow=document.createElement('div');
+  evRow.style.cssText='display:flex;align-items:center;flex-wrap:wrap;gap:4px;';
+  const icons={low:'⚡',rest:'🌿',recovery:'💚'};
+  const colors={low:'#b07848',rest:'#5e8f7e',recovery:'#5c7a96'};
+  log.forEach(function(evt,i){
+    const tag=document.createElement('span');
+    tag.style.cssText='font-size:10.5px;padding:2px 8px;border-radius:12px;border:1px solid #cec8bf;background:#faf8f4;color:'+(colors[evt.type]||'#7a7570')+';white-space:nowrap;';
+    tag.textContent=(icons[evt.type]||'•')+' '+evt.time+' '+evt.label;
+    evRow.appendChild(tag);
+    if(i<log.length-1){
+      const arr=document.createElement('span');
+      arr.style.cssText='font-size:10px;color:#c0bab0;';
+      arr.textContent='→';
+      evRow.appendChild(arr);
+    }
+  });
+  const clr=document.createElement('span');
+  clr.className='depleted-clr';clr.textContent='×';clr.title='清除';
+  clr.onclick=clearDepleted;
+  evRow.appendChild(clr);
+  wrap.appendChild(evRow);
+  // 新增事件按鈕（只顯示尚未記錄的類型）
+  const types=log.map(e=>e.type);
+  const addRow=document.createElement('div');
+  addRow.style.cssText='display:flex;gap:5px;';
+  [['🌿','小休','rest'],['💚','恢復','recovery']].forEach(function([icon,lbl,type]){
+    if(types.includes(type)) return; // 已記錄則不再顯示
+    const b=document.createElement('button');
+    b.className='depleted-pill';
+    b.style.cssText='font-size:10px;padding:2px 9px;';
+    b.textContent=icon+' '+lbl;
+    b.onclick=()=>recordEnergyEvent(type,lbl);
+    addRow.appendChild(b);
+  });
+  if(addRow.children.length) wrap.appendChild(addRow);
+  el.appendChild(wrap);
 }
-function recordDepleted(){
+function recordEnergyEvent(type,label){
   const now=new Date();
   const t=String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0');
   const ex=JSON.parse(localStorage.getItem(displayKey)||'{}');
-  localStorage.setItem(displayKey,JSON.stringify({...ex,depleted_at:t}));
+  const log=ex.energy_log||[];
+  log.push({time:t,label:label,type:type});
+  const firstLow=log.find(e=>e.type==='low');
+  localStorage.setItem(displayKey,JSON.stringify({...ex,energy_log:log,depleted_at:firstLow?firstLow.time:(ex.depleted_at||null)}));
   renderDepletedRow();
 }
+function recordDepleted(){ recordEnergyEvent('low','腦霧'); }  // backward compat
 function clearDepleted(){
   const ex=JSON.parse(localStorage.getItem(displayKey)||'{}');
-  delete ex.depleted_at;
+  delete ex.depleted_at; delete ex.energy_log;
   localStorage.setItem(displayKey,JSON.stringify(ex));
   renderDepletedRow();
 }
