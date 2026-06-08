@@ -2368,12 +2368,12 @@ function deleteHistEntry(key,e){
   }
   renderHist();
 }
-let _histYears=new Set(), _histMonths=new Set();
+let _histYears=new Set(), _histMonths=new Set(), _histDays=new Set();
 
 function openHist(){
   const panel=document.getElementById('histPanel');
   panel.classList.add('open');
-  _histYears=new Set(); _histMonths=new Set();
+  _histYears=new Set(); _histMonths=new Set(); _histDays=new Set();
   renderHist();
 }
 function closeHist(){
@@ -2429,13 +2429,30 @@ function renderHist(){
     wrap.appendChild(mkRow('年',yearPills));
     // Month row (only if months available)
     if(visMonths.length){
-      const monthPills=[{label:'全月',val:null,set:_histMonths,clear:()=>{_histMonths=new Set();}}];
+      const monthPills=[{label:'全月',val:null,set:_histMonths,clear:()=>{_histMonths=new Set();_histDays=new Set();}}];
       visMonths.forEach(ym=>{
         const m=parseInt(ym.split('-')[1]);
         monthPills.push({label:m+'月',val:ym,set:_histMonths,clear:null});
       });
       wrap.appendChild(mkRow('月',monthPills));
     }
+    // Day-range row（固定三段，可複選）
+    const dayRanges=[{label:'全日',val:null},{label:'1–10',val:'1-10'},{label:'11–20',val:'11-20'},{label:'21–31',val:'21-31'}];
+    const dayPills=dayRanges.map(({label,val})=>({
+      label,val,set:_histDays,clear:val===null?()=>{_histDays=new Set();}:null
+    }));
+    wrap.appendChild(mkRow('日',dayPills));
+  }
+
+  function dayInRange(dateStr){
+    if(_histDays.size===0) return true;
+    const day=parseInt(dateStr.slice(8,10));
+    return [..._histDays].some(r=>{
+      if(r==='1-10')  return day>=1  && day<=10;
+      if(r==='11-20') return day>=11 && day<=20;
+      if(r==='21-31') return day>=21;
+      return false;
+    });
   }
 
   // Apply filter
@@ -2443,7 +2460,7 @@ function renderHist(){
     const d=k.replace('review_','');
     const yearOk=_histYears.size===0||_histYears.has(d.slice(0,4));
     const monthOk=_histMonths.size===0||_histMonths.has(d.slice(0,7));
-    return yearOk&&monthOk;
+    return yearOk&&monthOk&&dayInRange(d);
   });
 
   if(!keys.length){
