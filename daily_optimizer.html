@@ -194,12 +194,12 @@ input:checked+.js-slider:before{transform:translateX(13px);}
 .review-card{background:#f4f1ec;border:1px solid #cec8bf;border-radius:14px;padding:15px 17px;margin:0 16px 9px;}
 .rest-note-display{padding:10px 13px;border-radius:8px;background:#ece8e0;border:1px solid #cec8bf;font-size:13px;color:#6a6660;line-height:1.6;margin-bottom:13px;white-space:pre-wrap;display:none;}
 .rest-note-display.show{display:block;}
-.depleted-row{display:flex;align-items:center;gap:8px;padding:7px 0 8px;border-bottom:1px solid #e4dfd8;margin-bottom:2px;}
-.depleted-lbl{font-size:12px;color:#9a9088;flex:1;}
-.depleted-time{font-size:13px;font-weight:600;color:#b07848;}
-.depleted-rec-btn{font-size:11px;padding:3px 10px;border-radius:8px;border:1px solid #cec8bf;background:transparent;color:#7a7570;cursor:pointer;transition:background .15s;}
-.depleted-rec-btn:hover{background:#ece8e0;}
-.depleted-clr{font-size:13px;color:#c8c2b8;cursor:pointer;padding:0 3px;line-height:1;}
+.depleted-row{display:flex;align-items:center;}
+.depleted-pill{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;padding:4px 12px;border-radius:20px;border:1px solid #cec8bf;background:transparent;color:#7a7570;cursor:pointer;font-family:inherit;transition:background .15s;}
+.depleted-pill:hover{background:#ece8e0;}
+.depleted-pill.recorded{background:#fef6ec;border-color:#d4a87a;cursor:default;}
+.depleted-time{font-weight:600;color:#b07848;}
+.depleted-clr{font-size:12px;color:#c8c2b8;cursor:pointer;padding:0 2px;margin-left:2px;line-height:1;}
 .depleted-clr:hover{color:#a07878;}
 .add-ri-row{display:flex;align-items:center;gap:8px;padding:9px 12px;margin-top:8px;border-radius:9px;background:#ece8e0;border:1px dashed #c4bfb6;}
 .add-ri-input{flex:1;font-size:13px;color:#38342e;background:transparent;border:none;outline:none;font-family:inherit;}
@@ -404,62 +404,6 @@ input:checked+.js-slider:before{transform:translateX(13px);}
     </div>
   </div>
 
-  <div id="keyBanner" class="key-card">
-    <div class="key-title">🔑 Groq API Key（一次設定）</div>
-    <div class="key-row">
-      <input class="key-in" type="password" id="keyInput" placeholder="gsk_…" autocomplete="new-password" autocorrect="off" autocapitalize="none" spellcheck="false">
-      <button onclick="toggleVis('keyInput',this)" style="background:rgba(40,38,32,.07);border:none;border-radius:7px;padding:0 9px;cursor:pointer;font-size:13px;flex-shrink:0;">👁</button>
-      <button class="key-save" onclick="saveKey()">儲存</button>
-    </div>
-    <div class="key-hint">取得：<a href="https://console.groq.com/keys" target="_blank">console.groq.com/keys</a> → Create API Key。免費，Key 只存本機。</div>
-  </div>
-  <div id="keyOk" class="key-ok hidden">
-    <div class="dot dok"></div>
-    <span>Groq Key 已設定（免費）&nbsp;·&nbsp;<a href="#" onclick="clearKey();return false;" style="color:#9a9088">清除</a></span>
-  </div>
-
-  <!-- Gist Sync -->
-  <div class="key-card" id="gistCard">
-    <div class="key-card-hd" id="gistCardHd" onclick="toggleGistCard()">
-      <div class="key-title" style="margin-bottom:0;">☁️ GitHub Gist 雲端同步</div>
-      <span class="chev">▾</span>
-    </div>
-    <div id="gistCardBody" class="key-card-bd">
-    <div id="gist-status-row" style="font-size:12px;color:#9a9088;margin-bottom:10px;"></div>
-    <div id="gist-sync-btns" style="display:none;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
-      <button class="key-save" onclick="syncToGist()">↑ 推送到雲端</button>
-      <button class="key-save" style="background:#8a9e8a;" onclick="syncFromGist()">↓ 從雲端讀取</button>
-    </div>
-    <div id="gist-id-row" style="display:none;margin-bottom:8px;">
-      <div style="font-size:11px;color:#9a9088;margin-bottom:4px;">Gist ID（複製給 iPhone）</div>
-      <div style="display:flex;gap:6px;align-items:center;">
-        <span id="gist-id-label" style="font-family:monospace;font-size:11px;background:#faf8f4;border:1px solid #cec8bf;border-radius:6px;padding:5px 8px;flex:1;word-break:break-all;"></span>
-        <button class="key-save" style="flex-shrink:0;" onclick="copyGistId()">複製</button>
-      </div>
-    </div>
-    <button style="font-size:11px;color:#9a9088;background:none;border:none;cursor:pointer;text-decoration:underline;padding:0;" onclick="toggleGistSetup()">⚙️ 設定 Token / Gist ID</button>
-    <div id="gist-setup-section" style="display:none;margin-top:10px;">
-      <div style="margin-bottom:8px;">
-        <div style="font-size:11px;color:#9a9088;margin-bottom:4px;">GitHub Token（Mac 設定，需 gist 權限）</div>
-        <div class="key-row">
-          <input class="key-in" type="password" id="gist-token-input" placeholder="ghp_…" autocomplete="new-password" autocorrect="off" autocapitalize="none" spellcheck="false">
-          <button onclick="toggleVis('gist-token-input',this)" style="background:rgba(40,38,32,.07);border:none;border-radius:7px;padding:0 9px;cursor:pointer;font-size:13px;flex-shrink:0;">👁</button>
-          <button class="key-save" onclick="saveGistToken()">儲存</button>
-        </div>
-      </div>
-      <div>
-        <div style="font-size:11px;color:#9a9088;margin-bottom:4px;">Gist ID（iPhone 貼入）</div>
-        <div class="key-row">
-          <input class="key-in" type="text" id="gist-id-input" placeholder="貼上 Gist ID…">
-          <button class="key-save" onclick="saveGistId()">套用</button>
-        </div>
-      </div>
-      <button onclick="clearGistSetup()" style="margin-top:8px;font-size:11px;color:#a07070;background:none;border:none;cursor:pointer;text-decoration:underline;padding:0;">清除全部設定</button>
-    </div>
-    <div id="gist-sync-status" class="key-hint" style="margin-top:6px;"></div>
-    </div><!-- /gistCardBody -->
-  </div>
-
   <div class="sbar" id="fbar">
     <div class="dot dspin" id="fdot"></div>
     <span id="ftxt">正在讀取睡眠數據…</span>
@@ -489,6 +433,8 @@ input:checked+.js-slider:before{transform:translateX(13px);}
       <div class="bi"><div class="bl"><span>Core</span><span id="cv">—</span></div><div class="bt"><div class="bf" id="cb" style="width:0%;background:#7a9e8a"></div></div></div>
       <div class="bi"><div class="bl"><span>Awake</span><span id="av">—</span></div><div class="bt"><div class="bf" id="ab" style="width:0%;background:#b09870"></div></div></div>
     </div>
+    <div id="sleep-meta" style="font-size:11px;color:#9a9088;margin-top:8px;padding-top:8px;border-top:1px solid #ece8e0;line-height:1.6;"></div>
+    <div id="depletedRow" style="margin-top:6px;"></div>
   </div>
 
   <div class="hidden wrap" id="mwrap">
@@ -611,7 +557,6 @@ input:checked+.js-slider:before{transform:translateX(13px);}
         <div class="review-title">逐項回顧</div>
       </div>
       <div id="restNoteDisplay" class="rest-note-display"></div>
-      <div class="depleted-row" id="depletedRow"></div>
       <div id="reviewList"></div>
       <div class="add-ri-row">
         <input class="add-ri-input" id="addRiInput" placeholder="＋ 自訂項目（Enter 新增）" onkeydown="addReviewItem(event)">
@@ -642,6 +587,63 @@ input:checked+.js-slider:before{transform:translateX(13px);}
   </div>
 
 
+</div>
+
+<!-- 設定區（Groq Key + Gist 同步） -->
+<div style="padding:0 16px 20px;">
+  <div id="keyBanner" class="key-card">
+    <div class="key-title">🔑 Groq API Key（一次設定）</div>
+    <div class="key-row">
+      <input class="key-in" type="password" id="keyInput" placeholder="gsk_…" autocomplete="new-password" autocorrect="off" autocapitalize="none" spellcheck="false">
+      <button onclick="toggleVis('keyInput',this)" style="background:rgba(40,38,32,.07);border:none;border-radius:7px;padding:0 9px;cursor:pointer;font-size:13px;flex-shrink:0;">👁</button>
+      <button class="key-save" onclick="saveKey()">儲存</button>
+    </div>
+    <div class="key-hint">取得：<a href="https://console.groq.com/keys" target="_blank">console.groq.com/keys</a> → Create API Key。免費，Key 只存本機。</div>
+  </div>
+  <div id="keyOk" class="key-ok hidden">
+    <div class="dot dok"></div>
+    <span>Groq Key 已設定（免費）&nbsp;·&nbsp;<a href="#" onclick="clearKey();return false;" style="color:#9a9088">清除</a></span>
+  </div>
+  <div class="key-card" id="gistCard" style="margin-top:8px;">
+    <div class="key-card-hd" id="gistCardHd" onclick="toggleGistCard()">
+      <div class="key-title" style="margin-bottom:0;">☁️ GitHub Gist 雲端同步</div>
+      <span class="chev">▾</span>
+    </div>
+    <div id="gistCardBody" class="key-card-bd">
+    <div id="gist-status-row" style="font-size:12px;color:#9a9088;margin-bottom:10px;"></div>
+    <div id="gist-sync-btns" style="display:none;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
+      <button class="key-save" onclick="syncToGist()">↑ 推送到雲端</button>
+      <button class="key-save" style="background:#8a9e8a;" onclick="syncFromGist()">↓ 從雲端讀取</button>
+    </div>
+    <div id="gist-id-row" style="display:none;margin-bottom:8px;">
+      <div style="font-size:11px;color:#9a9088;margin-bottom:4px;">Gist ID（複製給 iPhone）</div>
+      <div style="display:flex;gap:6px;align-items:center;">
+        <span id="gist-id-label" style="font-family:monospace;font-size:11px;background:#faf8f4;border:1px solid #cec8bf;border-radius:6px;padding:5px 8px;flex:1;word-break:break-all;"></span>
+        <button class="key-save" style="flex-shrink:0;" onclick="copyGistId()">複製</button>
+      </div>
+    </div>
+    <button style="font-size:11px;color:#9a9088;background:none;border:none;cursor:pointer;text-decoration:underline;padding:0;" onclick="toggleGistSetup()">⚙️ 設定 Token / Gist ID</button>
+    <div id="gist-setup-section" style="display:none;margin-top:10px;">
+      <div style="margin-bottom:8px;">
+        <div style="font-size:11px;color:#9a9088;margin-bottom:4px;">GitHub Token（Mac 設定，需 gist 權限）</div>
+        <div class="key-row">
+          <input class="key-in" type="password" id="gist-token-input" placeholder="ghp_…" autocomplete="new-password" autocorrect="off" autocapitalize="none" spellcheck="false">
+          <button onclick="toggleVis('gist-token-input',this)" style="background:rgba(40,38,32,.07);border:none;border-radius:7px;padding:0 9px;cursor:pointer;font-size:13px;flex-shrink:0;">👁</button>
+          <button class="key-save" onclick="saveGistToken()">儲存</button>
+        </div>
+      </div>
+      <div>
+        <div style="font-size:11px;color:#9a9088;margin-bottom:4px;">Gist ID（iPhone 貼入）</div>
+        <div class="key-row">
+          <input class="key-in" type="text" id="gist-id-input" placeholder="貼上 Gist ID…">
+          <button class="key-save" onclick="saveGistId()">套用</button>
+        </div>
+      </div>
+      <button onclick="clearGistSetup()" style="margin-top:8px;font-size:11px;color:#a07070;background:none;border:none;cursor:pointer;text-decoration:underline;padding:0;">清除全部設定</button>
+    </div>
+    <div id="gist-sync-status" class="key-hint" style="margin-top:6px;"></div>
+    </div>
+  </div>
 </div>
 
 <!-- History Panel -->
@@ -810,14 +812,7 @@ function openRestReview(){
   outSec.scrollIntoView({behavior:'smooth',block:'start'});
 }
 
-window.onload=()=>{
-  setDate();renderT();renderKey();refreshGistUI();fetchSleep();loadSavedReview();initGistCard();renderLocRow();renderCustomFeelBtns();renderCafRow();
-  // 在 iframe 內（SAS Hub）隱藏自身的歷史按鈕，避免與 frame-bar 的按鈕重複
-  if(window.self!==window.top){
-    const hb=document.querySelector('.h-hist');
-    if(hb)hb.style.display='none';
-  }
-};
+window.onload=()=>{setDate();renderT();renderKey();refreshGistUI();fetchSleep();loadSavedReview();initGistCard();renderLocRow();renderCustomFeelBtns();renderCafRow();};
 
 function setDate(){const d=new Date(),w=['週日','週一','週二','週三','週四','週五','週六'];document.getElementById('hdate').textContent=`${d.getMonth()+1}月${d.getDate()}日　${w[d.getDay()]}`;}
 
@@ -891,7 +886,9 @@ function showSleep(s){
   document.getElementById('rb').style.width=Math.min(remPct/25*100,100)+'%';
   document.getElementById('cb').style.width=Math.min(core/totalSleep*100/60*100,100)+'%';
   document.getElementById('ab').style.width=Math.min(awake/60*100,100)+'%';
-  setFS('ok',`數據日期：${e.date}　睡眠 ${fmt(totalDisplay)}　睡眠債 ${debtHours.toFixed(1)}h`);
+  setFS('ok','數據已載入');
+  const meta=document.getElementById('sleep-meta');
+  if(meta) meta.textContent=`數據日期：${e.date}　睡眠 ${fmt(totalDisplay)}　睡眠債 ${debtHours.toFixed(1)}h`;
   document.getElementById('mwrap').classList.add('hidden');
 }
 function setPwr(v,manual=false){
@@ -1875,9 +1872,11 @@ function renderDepletedRow(){
   const el=document.getElementById('depletedRow');if(!el)return;
   const saved=JSON.parse(localStorage.getItem(displayKey)||'{}');
   const t=saved.depleted_at||'';
-  el.innerHTML=t
-    ?`<span class="depleted-lbl">⚡ 能量低點</span><span class="depleted-time">${t}</span><span class="depleted-clr" onclick="clearDepleted()" title="清除">×</span>`
-    :`<span class="depleted-lbl">⚡ 能量低點</span><button class="depleted-rec-btn" onclick="recordDepleted()">記錄當下</button>`;
+  if(t){
+    el.innerHTML=`<span class="depleted-pill recorded">⚡ 能量低點 <span class="depleted-time">${t}</span><span class="depleted-clr" onclick="clearDepleted()" title="清除">×</span></span>`;
+  } else {
+    el.innerHTML=`<button class="depleted-pill" onclick="recordDepleted()">⚡ 能量低點 · 記錄當下</button>`;
+  }
 }
 function recordDepleted(){
   const now=new Date();
