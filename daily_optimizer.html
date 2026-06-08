@@ -810,7 +810,14 @@ function openRestReview(){
   outSec.scrollIntoView({behavior:'smooth',block:'start'});
 }
 
-window.onload=()=>{setDate();renderT();renderKey();refreshGistUI();fetchSleep();loadSavedReview();initGistCard();renderLocRow();renderCustomFeelBtns();renderCafRow();};
+window.onload=()=>{
+  setDate();renderT();renderKey();refreshGistUI();fetchSleep();loadSavedReview();initGistCard();renderLocRow();renderCustomFeelBtns();renderCafRow();
+  // 在 iframe 內（SAS Hub）隱藏自身的歷史按鈕，避免與 frame-bar 的按鈕重複
+  if(window.self!==window.top){
+    const hb=document.querySelector('.h-hist');
+    if(hb)hb.style.display='none';
+  }
+};
 
 function setDate(){const d=new Date(),w=['週日','週一','週二','週三','週四','週五','週六'];document.getElementById('hdate').textContent=`${d.getMonth()+1}月${d.getDate()}日　${w[d.getDay()]}`;}
 
