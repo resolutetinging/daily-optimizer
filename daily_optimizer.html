@@ -247,7 +247,11 @@ input:checked+.js-slider:before{transform:translateX(13px);}
 /* ── History panel ── */
 .hist-panel{position:fixed;inset:0;background:#e8e4de;z-index:200;overflow-y:auto;transform:translateX(100%);transition:transform .3s ease;}
 .hist-panel.open{transform:translateX(0);}
-.hist-header{padding:54px 20px 16px;display:flex;align-items:center;gap:12px;border-bottom:1px solid #cec8bf;background:#e8e3db;position:sticky;top:0;z-index:10;}
+.hist-header{padding:54px 20px 12px;display:flex;align-items:center;gap:12px;background:#e8e3db;position:sticky;top:0;z-index:10;}
+.hist-filter-row{display:flex;gap:6px;align-items:center;overflow-x:auto;padding:8px 16px 10px;background:#e8e3db;border-bottom:1px solid #cec8bf;position:sticky;top:54px;z-index:9;scrollbar-width:none;}
+.hist-filter-row::-webkit-scrollbar{display:none;}
+.hfp{font-size:11.5px;padding:4px 12px;border-radius:20px;border:1px solid #cec8bf;background:transparent;color:#7a7570;cursor:pointer;white-space:nowrap;flex-shrink:0;font-family:inherit;}
+.hfp.active{background:#38342e;color:#f4f1ec;border-color:#38342e;}
 .hist-back{font-size:13px;color:#7a8e9e;background:none;border:none;cursor:pointer;padding:4px 0;font-weight:500;}
 .hist-title{font-size:18px;font-weight:600;color:#38342e;flex:1;}
 .hist-empty{text-align:center;padding:60px 20px;font-size:14px;color:#9a9088;line-height:1.8;}
@@ -644,6 +648,7 @@ input:checked+.js-slider:before{transform:translateX(13px);}
     <button class="hist-back" onclick="closeHist()">← 返回</button>
     <div class="hist-title">歷史覆盤</div>
   </div>
+  <div class="hist-filter-row" id="histFilterRow"></div>
   <div id="histContent"></div>
 </div>
 
@@ -2361,9 +2366,12 @@ function deleteHistEntry(key,e){
   }
   renderHist();
 }
+let _histFilter=new Set();
+
 function openHist(){
   const panel=document.getElementById('histPanel');
   panel.classList.add('open');
+  _histFilter=new Set();
   renderHist();
 }
 function closeHist(){
@@ -2372,15 +2380,49 @@ function closeHist(){
 
 function renderHist(){
   const content=document.getElementById('histContent');
-  const keys=[];
+  const allKeys=[];
   for(let i=0;i<localStorage.length;i++){
     const k=localStorage.key(i);
-    if(k&&k.startsWith('review_'))keys.push(k);
+    if(k&&k.startsWith('review_'))allKeys.push(k);
   }
-  keys.sort((a,b)=>b.localeCompare(a));
+  allKeys.sort((a,b)=>b.localeCompare(a));
+
+  // Build filter pills
+  const filterRow=document.getElementById('histFilterRow');
+  if(filterRow){
+    const months=[...new Set(allKeys.map(k=>k.replace('review_','').slice(0,7)))].sort((a,b)=>b.localeCompare(a));
+    const years=[...new Set(months.map(m=>m.slice(0,4)))];
+    const multiYear=years.length>1;
+    filterRow.innerHTML='';
+    filterRow.innerHTML='';
+    // 全部 pill（清除選取）
+    const allPill=document.createElement('button');
+    allPill.className='hfp'+(_histFilter.size===0?' active':'');
+    allPill.textContent='全部';
+    allPill.onclick=()=>{_histFilter=new Set();renderHist();};
+    filterRow.appendChild(allPill);
+    // 月份 pills（可複選）
+    months.forEach(ym=>{
+      const[y,m]=ym.split('-');
+      const label=multiYear?`${y}/${parseInt(m)}月`:`${parseInt(m)}月`;
+      const b=document.createElement('button');
+      b.className='hfp'+(_histFilter.has(ym)?' active':'');
+      b.textContent=label;
+      b.onclick=()=>{
+        if(_histFilter.has(ym)) _histFilter.delete(ym);
+        else _histFilter.add(ym);
+        renderHist();
+      };
+      filterRow.appendChild(b);
+    });
+  }
+
+  const keys=_histFilter.size>0
+    ?allKeys.filter(k=>[..._histFilter].some(f=>k.replace('review_','').startsWith(f)))
+    :allKeys;
 
   if(!keys.length){
-    content.innerHTML='<div class="hist-empty">還沒有覆盤記錄<br>完成今日行程後，<br>填寫覆盤並儲存就會出現這裡</div>';
+    content.innerHTML='<div class="hist-empty">此時段沒有覆盤記錄</div>';
     return;
   }
 
