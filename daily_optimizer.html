@@ -17,9 +17,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue","PingFang TC"
 .header{padding:54px 20px 16px;display:flex;align-items:flex-end;justify-content:space-between;}
 .h-date{font-size:12px;color:#9a9088;letter-spacing:.05em;margin-bottom:4px;}
 .h-title{font-size:24px;font-weight:600;color:#38342e;letter-spacing:-.3px;}
-.h-reload{font-size:12px;color:#9a9088;background:#f4f1ec;border:1px solid #cec8bf;border-radius:20px;padding:5px 12px;cursor:pointer;}
-.h-hist{font-size:12px;color:#9a9088;background:#f4f1ec;border:1px solid #cec8bf;border-radius:20px;padding:5px 12px;cursor:pointer;}
-.h-rest{font-size:12px;font-weight:500;background:#f4f1ec;border:1px solid #cec8bf;border-radius:20px;padding:5px 12px;cursor:pointer;color:#9a9088;transition:all .2s;}
+.h-reload{font-size:12px;color:#9a9088;background:#f4f1ec;border:1px solid #cec8bf;border-radius:20px;padding:5px 12px;cursor:pointer;white-space:nowrap;}
+.h-hist{font-size:12px;color:#9a9088;background:#f4f1ec;border:1px solid #cec8bf;border-radius:20px;padding:5px 12px;cursor:pointer;white-space:nowrap;}
+.h-rest{font-size:12px;font-weight:500;background:#f4f1ec;border:1px solid #cec8bf;border-radius:20px;padding:5px 12px;cursor:pointer;color:#9a9088;transition:all .2s;white-space:nowrap;}
 .h-rest.on{background:#7a9e8a;border-color:#7a9e8a;color:#fff;}
 .h-rest-sm{font-size:10px;font-weight:500;background:#f4f1ec;border:1px solid #cec8bf;border-radius:20px;padding:2px 8px;cursor:pointer;color:#9a9088;transition:all .2s;line-height:1.6;}
 .h-rest-sm.on{background:#7a9e8a;border-color:#7a9e8a;color:#fff;}
@@ -387,6 +387,11 @@ input:checked+.js-slider:before{transform:translateX(13px);}
 .temp-brick-input::placeholder{color:#b0aaa0;}
 .temp-brick-btn{padding:7px 11px;border-radius:8px;border:none;background:#7a8e9e;color:#fff;font-size:12px;font-weight:500;cursor:pointer;flex-shrink:0;}
 .brick.temp-brick{border-style:dashed;border-color:#7a8e9e;color:#4a6e8e;background:rgba(122,142,158,.06);}
+@media(max-width:430px){
+  .header{padding:20px 16px 14px;}
+  .h-title{font-size:19px;}
+  .h-rest,.h-hist,.h-reload{font-size:11px;padding:4px 9px;}
+}
 </style>
 </head>
 <body>
