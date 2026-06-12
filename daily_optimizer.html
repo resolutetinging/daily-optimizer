@@ -653,16 +653,18 @@ const DASH='https://resolutetinging.github.io/sleep-dashboard/sleep_dashboard_v2
 const PROXIES=[u=>`https://corsproxy.io/?${encodeURIComponent(u)}`,u=>`https://api.allorigins.win/get?url=${encodeURIComponent(u)}`,u=>`https://api.codetabs.com/v1/proxy/?quest=${encodeURIComponent(u)}`];
 const GROQ='https://api.groq.com/openai/v1/chat/completions';
 
-/* ── CJK 正規化：僅替換明確有害字元，避免引入新問題 ── */
-// 只列日文專用字（不存在於繁體中文）及最常見簡體字，避免過度替換造成重複
-const BAD_CJK={
-  '弾':'彈', // 弾→彈（日文專用）
-  '习':'習', // 习→習（簡體）
-  '进':'進', // 进→進（簡體）
-  '说':'說', // 说→說（簡體）
-  '综':'綱', // 综→綜（簡體，部分情況）
-};
+/* ── CJK 正規化：僅替換明確有害字元 ── */
+const BAD_CJK={'弾':'彈','习':'習','进':'進','说':'說'};
 function normalizeCJK(t){return t?t.split('').map(c=>BAD_CJK[c]||c).join(''):t;}
+
+/* ── pipe label 白名單（根本防線，避免 LLM 亂造標題） ── */
+const LABEL_OPTIONS={
+  high:['深度高能','高能衝刺'],
+  mid: ['穩定中能','中能輸出'],
+  low: ['輕量時段','輕量緩降','輕量輸出'],
+  rest:['午休充能','傍晚蓄能','強制充能','強制休息'],
+};
+const LABEL_DEFAULT={high:'深度高能',mid:'穩定中能',low:'輕量時段',rest:'強制充能'};
 
 /* ── 解析 calInput 取得行程名稱集合 ── */
 function parseCalNames(raw){
@@ -672,23 +674,30 @@ function parseCalNames(raw){
     .filter(s=>s.length>1));
 }
 
-/* ── LLM 輸出後處理：強制修正 hint + 正規化字元 ── */
+/* ── LLM 輸出後處理：label 白名單驗證 + hint 格式強制 ── */
 function sanitizePipes(result, calEvents){
   if(!result||!result.pipes)return result;
   const calNames=parseCalNames(calEvents);
   result.pipes=result.pipes.map(p=>{
-    const label=normalizeCJK(p.label||'');
+    let label=normalizeCJK(p.label||'');
     let hint=normalizeCJK(p.hint||'');
+    const isCalEvent=p.type==='rest'&&(calNames.has(label)||calNames.has((p.label||'').trim()));
+
     if(p.type==='rest'){
-      // Calendar 行程 → 固定 hint
-      if(calNames.has(label)||calNames.has((p.label||'').trim()))
+      if(isCalEvent){
         hint='📅 行程佔用，不排任務';
-      else
+      } else {
         hint='🔒 強制休息，不排任務';
+        // rest label 驗證
+        const valid=new Set(LABEL_OPTIONS.rest);
+        if(!valid.has(label))label=LABEL_DEFAULT.rest;
+      }
     } else {
-      // 非 rest pipe：強制 hint 以 💡 開頭並符合格式
+      // non-rest label 驗證（不在白名單則用預設）
+      const valid=new Set(LABEL_OPTIONS[p.type]||[]);
+      if(!valid.has(label))label=LABEL_DEFAULT[p.type]||label;
+      // hint 格式強制以 💡 開頭
       if(!hint.startsWith('💡')){
-        // 取冒號後的有效內容，重組為標準格式
         const content=hint.replace(/^[^：:]*[：:]\s*/,'').trim();
         hint=content?`💡 適合：${content}`:`💡 ${hint}`;
       }
@@ -1208,18 +1217,19 @@ async function generate(){
 
 【語言規定】全程嚴格使用繁體中文（台灣用語）。嚴禁簡體字、中國大陸用語、日文漢字。常見錯誤：任务→任務、强制→強制、纳入→排入、班经→行程；日文漢字如弾（U+5F3E）嚴禁使用，應用繁體彈（U+5F48）。hint 欄位禁止出現任何日文字元或非繁體中文字元。
 
-水管類型（type）：
-- high = 深度高能時段（需高專注，適合核心難題）
-- mid  = 穩定中能時段（適合常規學習與輸出）
-- low  = 輕量時段（適合整理、輕任務、反思）
-- rest = 強制休息/蓄能（不允許置入任何任務）
+水管類型（type）與允許的 label（一字不差，嚴禁自創其他詞彙）：
+- type=high → label 只能是「深度高能」或「高能衝刺」
+- type=mid  → label 只能是「穩定中能」或「中能輸出」
+- type=low  → label 只能是「輕量時段」或「輕量緩降」或「輕量輸出」
+- type=rest（非Calendar行程）→ label 只能是「午休充能」或「傍晚蓄能」或「強制充能」
+- type=rest（Calendar行程）→ label 原封不動用行程名稱
 
 規則：
 1. 起始時間最早 09:30
 2. 午餐 13:00–14:00：若 Calendar 行程未佔用 13:00–14:00，才插入 rest（label:"午休充能"，hint:"🔒 強制休息，不排任務"）；若 Calendar 已覆蓋該時段，完全略過。
 3. 傍晚（17:00 後）至少一段 rest，hint 固定寫「🔒 強制休息，不排任務」
 4. skipTasks：從任務庫原始名稱挑選今日因戰力不足建議跳過的高耗能任務，字串完全一致
-5. AI 生成 pipe 的 hint 寫具體繁體中文建議語，例「💡 適合：核心難題、英文寫作」
+5. AI 生成 pipe 的 hint 格式固定為「💡 適合：任務類型A、任務類型B」，例「💡 適合：核心難題、英文寫作」
 6. 輸出純 JSON，無 markdown
 7. 【最高優先 - Calendar 鎖定】Calendar 每一筆行程必須轉為 pipe，type="rest"，label 原封不動用行程名稱，hint 固定輸出「📅 行程佔用，不排任務」（此字串一字不改，禁止翻譯或替換任何字）。Calendar pipe 排在 pipes 陣列最前面（按時間升序），AI pipe 時間不得與之重疊。
 
