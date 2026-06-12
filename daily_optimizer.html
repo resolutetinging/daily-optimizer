@@ -653,9 +653,16 @@ const DASH='https://resolutetinging.github.io/sleep-dashboard/sleep_dashboard_v2
 const PROXIES=[u=>`https://corsproxy.io/?${encodeURIComponent(u)}`,u=>`https://api.allorigins.win/get?url=${encodeURIComponent(u)}`,u=>`https://api.codetabs.com/v1/proxy/?quest=${encodeURIComponent(u)}`];
 const GROQ='https://api.groq.com/openai/v1/chat/completions';
 
-/* ── CJK 正規化：日文漢字 → 繁體中文 ── */
-const JP_TO_TC={'弾':'彈','体':'體','学':'學','来':'來','国':'國','会':'會','発':'發','変':'變','読':'讀','売':'賣','海':'海'};
-function normalizeCJK(t){return t?t.split('').map(c=>JP_TO_TC[c]||c).join(''):t;}
+/* ── CJK 正規化：僅替換明確有害字元，避免引入新問題 ── */
+// 只列日文專用字（不存在於繁體中文）及最常見簡體字，避免過度替換造成重複
+const BAD_CJK={
+  '弾':'彈', // 弾→彈（日文專用）
+  '习':'習', // 习→習（簡體）
+  '进':'進', // 进→進（簡體）
+  '说':'說', // 说→說（簡體）
+  '综':'綱', // 综→綜（簡體，部分情況）
+};
+function normalizeCJK(t){return t?t.split('').map(c=>BAD_CJK[c]||c).join(''):t;}
 
 /* ── 解析 calInput 取得行程名稱集合 ── */
 function parseCalNames(raw){
@@ -678,6 +685,13 @@ function sanitizePipes(result, calEvents){
         hint='📅 行程佔用，不排任務';
       else
         hint='🔒 強制休息，不排任務';
+    } else {
+      // 非 rest pipe：強制 hint 以 💡 開頭並符合格式
+      if(!hint.startsWith('💡')){
+        // 取冒號後的有效內容，重組為標準格式
+        const content=hint.replace(/^[^：:]*[：:]\s*/,'').trim();
+        hint=content?`💡 適合：${content}`:`💡 ${hint}`;
+      }
     }
     return {...p,label,hint};
   });
