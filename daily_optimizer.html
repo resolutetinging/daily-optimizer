@@ -653,6 +653,38 @@ const DASH='https://resolutetinging.github.io/sleep-dashboard/sleep_dashboard_v2
 const PROXIES=[u=>`https://corsproxy.io/?${encodeURIComponent(u)}`,u=>`https://api.allorigins.win/get?url=${encodeURIComponent(u)}`,u=>`https://api.codetabs.com/v1/proxy/?quest=${encodeURIComponent(u)}`];
 const GROQ='https://api.groq.com/openai/v1/chat/completions';
 
+/* ── CJK 正規化：日文漢字 → 繁體中文 ── */
+const JP_TO_TC={'弾':'彈','体':'體','学':'學','来':'來','国':'國','会':'會','発':'發','変':'變','読':'讀','売':'賣','海':'海'};
+function normalizeCJK(t){return t?t.split('').map(c=>JP_TO_TC[c]||c).join(''):t;}
+
+/* ── 解析 calInput 取得行程名稱集合 ── */
+function parseCalNames(raw){
+  if(!raw)return new Set();
+  return new Set(raw.split('\n')
+    .map(l=>l.replace(/^\s*\d{1,2}[:：]\d{2}\s*[-–—~～]\s*\d{1,2}[:：]\d{2}\s*/,'').trim())
+    .filter(s=>s.length>1));
+}
+
+/* ── LLM 輸出後處理：強制修正 hint + 正規化字元 ── */
+function sanitizePipes(result, calEvents){
+  if(!result||!result.pipes)return result;
+  const calNames=parseCalNames(calEvents);
+  result.pipes=result.pipes.map(p=>{
+    const label=normalizeCJK(p.label||'');
+    let hint=normalizeCJK(p.hint||'');
+    if(p.type==='rest'){
+      // Calendar 行程 → 固定 hint
+      if(calNames.has(label)||calNames.has((p.label||'').trim()))
+        hint='📅 行程佔用，不排任務';
+      else
+        hint='🔒 強制休息，不排任務';
+    }
+    return {...p,label,hint};
+  });
+  if(result.summary)result.summary=normalizeCJK(result.summary);
+  return result;
+}
+
 let selLoc='',selMode='',selFeel='',pwr=0,reviewItems=[];
 
 /* ── Task Library v3 ── */
@@ -1160,7 +1192,7 @@ async function generate(){
 
   const sys=`你是我的私人效能顧問。根據今日三夜加權戰力值，將一日行程切分為數個「精力屬性大時段水管」。不要把任務硬塞入時間軸，只輸出骨架結構。
 
-【語言規定】全程嚴格使用繁體中文（台灣用語）。嚴禁出現任何簡體字或中國大陸用語。常見錯誤範例：任务→任務、强制→強制、纳入→排入、班经→行程。
+【語言規定】全程嚴格使用繁體中文（台灣用語）。嚴禁簡體字、中國大陸用語、日文漢字。常見錯誤：任务→任務、强制→強制、纳入→排入、班经→行程；日文漢字如弾（U+5F3E）嚴禁使用，應用繁體彈（U+5F48）。hint 欄位禁止出現任何日文字元或非繁體中文字元。
 
 水管類型（type）：
 - high = 深度高能時段（需高專注，適合核心難題）
@@ -1202,7 +1234,8 @@ ${taskList}
     const resp=await fetch(GROQ,{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${key}`},body:JSON.stringify({model:'llama-3.3-70b-versatile',messages:[{role:'system',content:sys},{role:'user',content:usr}],temperature:0.5,max_tokens:900,response_format:{type:'json_object'}})});
     if(!resp.ok){const err=await resp.json().catch(()=>({}));throw new Error(err.error?.message||`HTTP ${resp.status}`);}
     const data=await resp.json();
-    const result=JSON.parse((data.choices?.[0]?.message?.content||'').replace(/```json|```/g,'').trim());
+    const raw=JSON.parse((data.choices?.[0]?.message?.content||'').replace(/```json|```/g,'').trim());
+    const result=sanitizePipes(raw,calEvents);
     document.getElementById('ovl').classList.add('hidden');
     // 若 Groq 回傳舊格式（無 pipes 欄位），自動改用示範資料
     if(!result.pipes||!result.pipes.length) renderPipeSandbox(getMockPipes(p),true);
