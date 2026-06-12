@@ -666,6 +666,27 @@ const LABEL_OPTIONS={
 };
 const LABEL_DEFAULT={high:'深度高能',mid:'穩定中能',low:'輕量時段',rest:'強制充能'};
 
+/* ── 從任務庫依 pipe type 組出 hint（取代 LLM 自由發揮） ── */
+function buildHintFromTasks(pipeType, tasks){
+  if(!tasks||!tasks.length)return null;
+  let pool;
+  if(pipeType==='high'){
+    // 深度高能：優先取學習類任務
+    pool=tasks.filter(t=>t.catKey==='learning');
+    if(!pool.length)pool=tasks;
+  } else if(pipeType==='mid'){
+    // 穩定中能：學習 + 求職類
+    pool=tasks.filter(t=>['learning','jobsearch'].includes(t.catKey));
+    if(!pool.length)pool=tasks;
+  } else {
+    // 輕量：日常事務類，或所有任務
+    pool=tasks.filter(t=>t.catKey==='daily_tasks');
+    if(!pool.length)pool=tasks;
+  }
+  const names=pool.slice(0,3).map(t=>t.text);
+  return `💡 適合：${names.join('、')}`;
+}
+
 /* ── 解析 calInput 取得行程名稱集合 ── */
 function parseCalNames(raw){
   if(!raw)return new Set();
@@ -674,33 +695,29 @@ function parseCalNames(raw){
     .filter(s=>s.length>1));
 }
 
-/* ── LLM 輸出後處理：label 白名單驗證 + hint 格式強制 ── */
-function sanitizePipes(result, calEvents){
+/* ── LLM 輸出後處理：label 白名單 + hint 完全由任務庫生成 ── */
+function sanitizePipes(result, calEvents, tasks){
   if(!result||!result.pipes)return result;
   const calNames=parseCalNames(calEvents);
   result.pipes=result.pipes.map(p=>{
     let label=normalizeCJK(p.label||'');
-    let hint=normalizeCJK(p.hint||'');
     const isCalEvent=p.type==='rest'&&(calNames.has(label)||calNames.has((p.label||'').trim()));
+    let hint;
 
     if(p.type==='rest'){
       if(isCalEvent){
         hint='📅 行程佔用，不排任務';
       } else {
         hint='🔒 強制休息，不排任務';
-        // rest label 驗證
         const valid=new Set(LABEL_OPTIONS.rest);
         if(!valid.has(label))label=LABEL_DEFAULT.rest;
       }
     } else {
-      // non-rest label 驗證（不在白名單則用預設）
+      // non-rest label 白名單驗證
       const valid=new Set(LABEL_OPTIONS[p.type]||[]);
       if(!valid.has(label))label=LABEL_DEFAULT[p.type]||label;
-      // hint 格式強制以 💡 開頭
-      if(!hint.startsWith('💡')){
-        const content=hint.replace(/^[^：:]*[：:]\s*/,'').trim();
-        hint=content?`💡 適合：${content}`:`💡 ${hint}`;
-      }
+      // hint 完全由任務庫生成，完全不用 LLM 的值
+      hint=buildHintFromTasks(p.type,tasks)||'💡 請從任務積木中挑選';
     }
     return {...p,label,hint};
   });
@@ -1229,7 +1246,7 @@ async function generate(){
 2. 午餐 13:00–14:00：若 Calendar 行程未佔用 13:00–14:00，才插入 rest（label:"午休充能"，hint:"🔒 強制休息，不排任務"）；若 Calendar 已覆蓋該時段，完全略過。
 3. 傍晚（17:00 後）至少一段 rest，hint 固定寫「🔒 強制休息，不排任務」
 4. skipTasks：從任務庫原始名稱挑選今日因戰力不足建議跳過的高耗能任務，字串完全一致
-5. AI 生成 pipe 的 hint 格式固定為「💡 適合：任務類型A、任務類型B」，例「💡 適合：核心難題、英文寫作」
+5. hint 欄位：留空字串 ""（系統會自動填入，不需 AI 生成）
 6. 輸出純 JSON，無 markdown
 7. 【最高優先 - Calendar 鎖定】Calendar 每一筆行程必須轉為 pipe，type="rest"，label 原封不動用行程名稱，hint 固定輸出「📅 行程佔用，不排任務」（此字串一字不改，禁止翻譯或替換任何字）。Calendar pipe 排在 pipes 陣列最前面（按時間升序），AI pipe 時間不得與之重疊。
 
@@ -1259,7 +1276,7 @@ ${taskList}
     if(!resp.ok){const err=await resp.json().catch(()=>({}));throw new Error(err.error?.message||`HTTP ${resp.status}`);}
     const data=await resp.json();
     const raw=JSON.parse((data.choices?.[0]?.message?.content||'').replace(/```json|```/g,'').trim());
-    const result=sanitizePipes(raw,calEvents);
+    const result=sanitizePipes(raw,calEvents,getEffectiveTasks());
     document.getElementById('ovl').classList.add('hidden');
     // 若 Groq 回傳舊格式（無 pipes 欄位），自動改用示範資料
     if(!result.pipes||!result.pipes.length) renderPipeSandbox(getMockPipes(p),true);
