@@ -335,6 +335,10 @@ input:checked+.js-slider:before{transform:translateX(13px);}
 .dur-formula-box{font-size:10.5px;color:#7a7570;background:#f0ede7;border:1px solid #e0dbd2;border-radius:8px;padding:9px 11px;margin-bottom:10px;line-height:1.75;display:none;}
 .dur-formula-box.open{display:block;}
 .dur-buffer{display:flex;align-items:center;gap:6px;margin-top:8px;padding-top:8px;border-top:1px solid #e8e4de;}
+.dur-card-body{overflow:hidden;max-height:0;transition:max-height 360ms cubic-bezier(0.4,0,0.2,1);}
+.dur-card-body.open{max-height:1600px;}
+.dur-collapse-btn{font-size:11px;color:#9a9088;cursor:pointer;user-select:none;padding:1px 7px;border-radius:8px;border:1px solid #ddd8ce;background:#f0ede7;white-space:nowrap;flex-shrink:0;transition:background 140ms ease;}
+.dur-collapse-btn:hover{background:#e8e4de;}
 .dur-badge{font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;white-space:nowrap;flex-shrink:0;}
 .dur-badge.dh{background:rgba(80,105,142,.15);color:#3a5878;}
 .dur-badge.dm{background:rgba(80,140,115,.15);color:#2a6850;}
@@ -1498,12 +1502,15 @@ function buildDurCard(p){
   return`<div class="dur-card">
     <div style="display:flex;align-items:center;gap:6px;margin-bottom:5px;">
       <div class="dur-card-hdr" style="margin:0;flex:1">⏱ 當前能耗配置與代償對照（戰力 ${v}%）</div>
+      <span class="dur-collapse-btn" onclick="(function(b,btn){var o=b.classList.toggle('open');btn.textContent=o?'▴':'▾';})(document.getElementById('dur-card-body'),this)">▴</span>
       <span class="dur-formula-toggle" onclick="this.textContent=this.textContent.includes('▾')?'公式 ▴':'公式 ▾';document.getElementById('dur-formula-box').classList.toggle('open')">公式 ▾</span>
     </div>
-    ${formulaHtml}
-    <div class="dur-fuel-ref">📊 生理水庫基礎：今日高效續航燃料 ➔ ${fuel} 分鐘（背景對照）</div>
-    ${groupsHtml}
-    <div class="dur-buffer"><span class="dur-badge dr">⏸ 段間緩衝</span><span class="dur-val">每段至少 ${r} 分</span></div>
+    <div class="dur-card-body open" id="dur-card-body">
+      ${formulaHtml}
+      <div class="dur-fuel-ref">📊 生理水庫基礎：今日高效續航燃料 ➔ ${fuel} 分鐘（背景對照）</div>
+      ${groupsHtml}
+      <div class="dur-buffer"><span class="dur-badge dr">⏸ 段間緩衝</span><span class="dur-val">每段至少 ${r} 分</span></div>
+    </div>
   </div>`;
 }
 
