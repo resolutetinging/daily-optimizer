@@ -396,6 +396,17 @@ input:checked+.js-slider:before{transform:translateX(13px);}
   .h-title{font-size:19px;}
   .h-rest,.h-hist,.h-reload{font-size:11px;padding:4px 9px;}
 }
+/* ── 任務能耗設定 ── */
+.energy-row{display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid #ece8e0;}
+.energy-row:last-child{border-bottom:none;}
+.energy-task-name{flex:1;font-size:12px;color:#38342e;line-height:1.3;}
+.energy-cat-tag{font-size:9px;color:#9a9088;margin-left:5px;font-weight:400;}
+.energy-btns{display:flex;gap:4px;flex-shrink:0;}
+.energy-btn{font-size:9.5px;font-weight:600;padding:3px 9px;border-radius:10px;border:1px solid #ddd8d0;cursor:pointer;transition:all .15s;background:#f4f1ec;color:#9a9088;}
+.energy-btn:hover{background:#ece8e0;}
+.energy-btn.e-high{background:rgba(200,80,60,.12);color:#8a3828;border-color:rgba(200,80,60,.3);}
+.energy-btn.e-mid{background:rgba(190,140,50,.12);color:#7a5e20;border-color:rgba(190,140,50,.3);}
+.energy-btn.e-low{background:rgba(90,158,120,.14);color:#2e6a48;border-color:rgba(90,158,120,.3);}
 </style>
 </head>
 <body>
@@ -521,6 +532,14 @@ input:checked+.js-slider:before{transform:translateX(13px);}
     </div>
   </div>
 
+
+  <div class="stitle" style="display:flex;align-items:center;padding-right:16px;">⚡ 任務能耗設定
+    <button onclick="toggleEnergyCfg()" id="energyCfgBtn" style="margin-left:auto;font-size:10.5px;color:#9a9088;background:none;border:none;cursor:pointer;letter-spacing:.02em;">展開</button>
+  </div>
+  <div class="card" id="energyCfgCard" style="display:none;padding:8px 16px 4px;">
+    <div style="font-size:10px;color:#9a9088;margin-bottom:8px;line-height:1.5;">為每個任務標記能量消耗等級，AI 排程時會依此決定 Critical 戰力下跳過哪些任務。</div>
+    <div id="energyCfgList"></div>
+  </div>
 
   <button class="gbtn" onclick="generate()">✦ 生成今日行程</button>
 
@@ -756,6 +775,8 @@ function loadTaskData(){
       // repair: daily_tasks category still ondemand from older migration
       const dtCat=data.categories.find(c=>c.key==='daily_tasks');
       if(dtCat&&dtCat.freq==='ondemand'){dtCat.freq='daily';localStorage.setItem(TASKS_KEY,JSON.stringify(data));}
+      // migration: ensure energy field exists on all tasks
+      if(data.tasks.some(t=>!t.energy)){data.tasks=data.tasks.map(t=>t.energy?t:{...t,energy:'mid'});localStorage.setItem(TASKS_KEY,JSON.stringify(data));}
       return data;
     }catch(e){}
   }
@@ -1157,8 +1178,44 @@ function renderTaskLib(){
     });
   });
   saveTaskData();
+  // 若能耗卡片開著，同步刷新
+  if(document.getElementById('energyCfgCard')?.style.display!=='none') renderEnergySettings();
 }
 const renderT=renderTaskLib;
+
+function toggleEnergyCfg(){
+  const card=document.getElementById('energyCfgCard');
+  const btn=document.getElementById('energyCfgBtn');
+  if(!card||!btn)return;
+  const shown=card.style.display!=='none';
+  card.style.display=shown?'none':'';
+  btn.textContent=shown?'展開':'收合';
+  if(!shown)renderEnergySettings();
+}
+function renderEnergySettings(){
+  const el=document.getElementById('energyCfgList');if(!el)return;
+  el.innerHTML='';
+  const lvs=[['high','高耗能','e-high'],['mid','中耗能','e-mid'],['low','輕量','e-low']];
+  taskData.tasks.forEach(t=>{
+    const row=document.createElement('div');row.className='energy-row';
+    const nm=document.createElement('div');nm.className='energy-task-name';nm.textContent=t.text;
+    const cat=taskData.categories.find(c=>c.key===t.catKey);
+    if(cat){const tag=document.createElement('span');tag.className='energy-cat-tag';tag.textContent=cat.label;nm.appendChild(tag);}
+    const btns=document.createElement('div');btns.className='energy-btns';
+    lvs.forEach(([lv,lbl,cls])=>{
+      const b=document.createElement('button');
+      b.className='energy-btn'+((t.energy||'mid')===lv?' '+cls:'');
+      b.textContent=lbl;
+      b.onclick=()=>setTaskEnergy(t.id,lv);
+      btns.appendChild(b);
+    });
+    row.appendChild(nm);row.appendChild(btns);el.appendChild(row);
+  });
+}
+function setTaskEnergy(id,level){
+  const t=taskData.tasks.find(t=>t.id===id);if(!t)return;
+  t.energy=level;saveTaskData();renderEnergySettings();
+}
 
 const upt=(id,tx)=>{const t=taskData.tasks.find(t=>t.id===id);if(t&&tx){t.text=tx;saveTaskData();}};
 const del=id=>{taskData.tasks=taskData.tasks.filter(t=>t.id!==id);renderTaskLib();};
@@ -1232,10 +1289,12 @@ async function generate(){
   const closeH=isMon?17:selLoc==='分館'?19:18;
   const close=isOut?'依行程':`${closeH}:00`;
   const lv=p>=80?'Peak(80+)':p>=70?'Stable(70-79)':p>=60?'Caution(60-69)':'Critical(<60)';
+  const energyLabel={'high':'高耗能','mid':'中耗能','low':'輕量'};
   const taskList=getEffectiveTasks().map((t,i)=>{
     const cat=taskData.categories.find(c=>c.key===t.catKey);
     const catTag=cat?` [${cat.label}]`:'';
-    return`${i+1}. ${t.text}${catTag}`;
+    const eTag=` [${energyLabel[t.energy||'mid']}]`;
+    return`${i+1}. ${t.text}${catTag}${eTag}`;
   }).join('\n');
 
   const sys=`你是我的私人效能顧問。根據今日三夜加權戰力值，將一日行程切分為數個「精力屬性大時段水管」。不要把任務硬塞入時間軸，只輸出骨架結構。
@@ -1253,11 +1312,11 @@ async function generate(){
 1. 起始時間最早 09:30
 2. 午餐 13:00–14:00：若 Calendar 行程未佔用 13:00–14:00，才插入 rest（label:"午休充能"，hint:"🔒 強制休息，不排任務"）；若 Calendar 已覆蓋該時段，完全略過。
 3. 傍晚（17:00 後）至少一段 rest，hint 固定寫「🔒 強制休息，不排任務」
-4. skipTasks：從任務庫原始名稱挑選今日建議跳過的任務，字串必須完全一致。判斷依據：
-   - [學習] 與 [求職] 類別任務屬高耗能，優先列入考量
-   - Critical(<60%)：必須從 [學習]/[求職] 任務中選出至少 2 項跳過
-   - Caution(60-69%)：選出 1–2 項最吃腦力的 [學習] 任務跳過
+4. skipTasks：從任務庫原始名稱挑選今日建議跳過的任務，字串必須完全一致。任務庫已標記能量等級（[高耗能]/[中耗能]/[輕量]），按以下規則：
+   - Critical(<60%)：必須從 [高耗能] 任務中選出至少 2 項跳過；若 [高耗能] 不足 2 項，再從 [中耗能] 補選
+   - Caution(60-69%)：從 [高耗能] 任務中選出 1–2 項跳過
    - Stable(70-79%) 以上：skipTasks 可為空陣列
+   - [輕量] 任務不應加入 skipTasks
 5. hint 欄位：留空字串 ""（系統會自動填入，不需 AI 生成）
 6. 輸出純 JSON，無 markdown
 7. 【最高優先 - Calendar 鎖定】Calendar 每一筆行程必須轉為 pipe，type="rest"，label 原封不動用行程名稱，hint 固定輸出「📅 行程佔用，不排任務」（此字串一字不改，禁止翻譯或替換任何字）。Calendar pipe 排在 pipes 陣列最前面（按時間升序），AI pipe 時間不得與之重疊。
