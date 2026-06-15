@@ -710,12 +710,31 @@ function buildHintFromTasks(pipeType, tasks){
   return `💡 適合：${names.join('、')}`;
 }
 
-/* ── 解析 calInput 取得行程名稱集合 ── */
+/* ── 解析 calInput 取得行程名稱集合（支援 HH:MM 和 HH:MM-HH:MM 兩種格式）── */
 function parseCalNames(raw){
   if(!raw)return new Set();
   return new Set(raw.split('\n')
-    .map(l=>l.replace(/^\s*\d{1,2}[:：]\d{2}\s*[-–—~～]\s*\d{1,2}[:：]\d{2}\s*/,'').trim())
+    .map(l=>l.replace(/^\s*\d{1,2}[:：]\d{2}\s*(?:[-–—~～]\s*\d{1,2}[:：]\d{2})?\s*/,'').trim())
     .filter(s=>s.length>1));
+}
+
+/* ── 解析 calInput 成結構化陣列（含 start/end/name）供強制注入 ── */
+function parseCalEvents(raw){
+  if(!raw)return [];
+  return raw.split('\n').map(l=>l.trim()).filter(Boolean).map(l=>{
+    // HH:MM-HH:MM name
+    let m=l.match(/^(\d{1,2}[:：]\d{2})\s*[-–—~～]\s*(\d{1,2}[:：]\d{2})\s+(.+)/);
+    if(m)return{start:m[1].replace('：',':'),end:m[2].replace('：',':'),name:m[3].trim()};
+    // HH:MM name（end = start + 1h）
+    m=l.match(/^(\d{1,2}[:：]\d{2})\s+(.+)/);
+    if(m){
+      const s=m[1].replace('：',':');
+      const[h,mi]=s.split(':').map(Number);
+      const eh=String((h+1)%24).padStart(2,'0');
+      return{start:s,end:`${eh}:${String(mi).padStart(2,'0')}`,name:m[2].trim()};
+    }
+    return null;
+  }).filter(Boolean);
 }
 
 /* ── LLM 輸出後處理：label 白名單 + hint 完全由任務庫生成 ── */
@@ -726,7 +745,6 @@ function sanitizePipes(result, calEvents, tasks){
     let label=normalizeCJK(p.label||'');
     const isCalEvent=p.type==='rest'&&(calNames.has(label)||calNames.has((p.label||'').trim()));
     let hint;
-
     if(p.type==='rest'){
       if(isCalEvent){
         hint='📅 行程佔用，不排任務';
@@ -736,14 +754,19 @@ function sanitizePipes(result, calEvents, tasks){
         if(!valid.has(label))label=LABEL_DEFAULT.rest;
       }
     } else {
-      // non-rest label 白名單驗證
       const valid=new Set(LABEL_OPTIONS[p.type]||[]);
       if(!valid.has(label))label=LABEL_DEFAULT[p.type]||label;
-      // hint 完全由任務庫生成，完全不用 LLM 的值
       hint=buildHintFromTasks(p.type,tasks)||'💡 請從任務積木中挑選';
     }
     return {...p,label,hint};
   });
+  /* ── 強制注入 AI 漏掉的 Calendar 行程 ── */
+  parseCalEvents(calEvents).forEach(ev=>{
+    const already=result.pipes.some(p=>p.type==='rest'&&normalizeCJK(p.label)===normalizeCJK(ev.name));
+    if(!already)result.pipes.push({start:ev.start,end:ev.end,type:'rest',label:ev.name,hint:'📅 行程佔用，不排任務'});
+  });
+  /* ── 依時序排序 ── */
+  result.pipes.sort((a,b)=>a.start.localeCompare(b.start));
   if(result.summary)result.summary=normalizeCJK(result.summary);
   return result;
 }
@@ -1301,6 +1324,12 @@ async function generate(){
 
 【語言規定】全程嚴格使用繁體中文（台灣用語）。嚴禁簡體字、中國大陸用語、日文漢字。常見錯誤：任务→任務、强制→強制、纳入→排入、班经→行程；日文漢字如弾（U+5F3E）嚴禁使用，應用繁體彈（U+5F48）。hint 欄位禁止出現任何日文字元或非繁體中文字元。
 
+【最高強制 - Calendar 鎖定，不可違反】
+- 使用者輸入的「今日 Calendar」每一筆行程，不論內容為何，必須全部轉為獨立 pipe。
+- 轉換規則：type 固定為 "rest"，label 原封不動複製行程名稱（禁止翻譯、縮寫或修改任何字），hint 固定輸出「📅 行程佔用，不排任務」（此字串一字不改）。
+- Calendar pipe 必須依照行程時間排入 pipes 陣列，AI 安排的其他 pipe 時間絕對不得與 Calendar 行程時間重疊。
+- 若 Calendar 為（無），此規則不適用。
+
 水管類型（type）與允許的 label（一字不差，嚴禁自創其他詞彙）：
 - type=high → label 只能是「深度高能」或「高能衝刺」
 - type=mid  → label 只能是「穩定中能」或「中能輸出」
@@ -1318,10 +1347,9 @@ async function generate(){
    - Stable(70-79%) 以上：skipTasks 可為空陣列
    - [輕量] 任務不應加入 skipTasks
 5. hint 欄位：留空字串 ""（系統會自動填入，不需 AI 生成）
-6. 輸出純 JSON，無 markdown
-7. 【最高優先 - Calendar 鎖定】Calendar 每一筆行程必須轉為 pipe，type="rest"，label 原封不動用行程名稱，hint 固定輸出「📅 行程佔用，不排任務」（此字串一字不改，禁止翻譯或替換任何字）。Calendar pipe 排在 pipes 陣列最前面（按時間升序），AI pipe 時間不得與之重疊。
+6. 輸出純 JSON，無 markdown；pipes 陣列依 start 時間升序排列
 
-格式：{"summary":"一句話策略叮嚀（45字內）","pipes":[{"start":"09:30","end":"12:00","type":"high","label":"深度高能","hint":"💡 適合：核心難題、英文寫作"}],"skipTasks":["原始任務名"]}`;
+格式：{"summary":"一句話策略叮嚀（45字內）","pipes":[{"start":"09:30","end":"12:00","type":"high","label":"深度高能","hint":""}],"skipTasks":["原始任務名"]}`;
 
   const usr=`今天：${document.getElementById('hdate').textContent}
 地點：${selLoc}${isOut?'':` 開館${selLoc==='分館'?'08:30':'09:15'} 閉館${close}`}
