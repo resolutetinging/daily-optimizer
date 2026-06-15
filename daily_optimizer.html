@@ -1232,7 +1232,11 @@ async function generate(){
   const closeH=isMon?17:selLoc==='分館'?19:18;
   const close=isOut?'依行程':`${closeH}:00`;
   const lv=p>=80?'Peak(80+)':p>=70?'Stable(70-79)':p>=60?'Caution(60-69)':'Critical(<60)';
-  const taskList=getEffectiveTasks().map((t,i)=>`${i+1}. ${t.text}`).join('\n');
+  const taskList=getEffectiveTasks().map((t,i)=>{
+    const cat=taskData.categories.find(c=>c.key===t.catKey);
+    const catTag=cat?` [${cat.label}]`:'';
+    return`${i+1}. ${t.text}${catTag}`;
+  }).join('\n');
 
   const sys=`你是我的私人效能顧問。根據今日三夜加權戰力值，將一日行程切分為數個「精力屬性大時段水管」。不要把任務硬塞入時間軸，只輸出骨架結構。
 
@@ -1249,7 +1253,11 @@ async function generate(){
 1. 起始時間最早 09:30
 2. 午餐 13:00–14:00：若 Calendar 行程未佔用 13:00–14:00，才插入 rest（label:"午休充能"，hint:"🔒 強制休息，不排任務"）；若 Calendar 已覆蓋該時段，完全略過。
 3. 傍晚（17:00 後）至少一段 rest，hint 固定寫「🔒 強制休息，不排任務」
-4. skipTasks：從任務庫原始名稱挑選今日因戰力不足建議跳過的高耗能任務，字串完全一致
+4. skipTasks：從任務庫原始名稱挑選今日建議跳過的任務，字串必須完全一致。判斷依據：
+   - [學習] 與 [求職] 類別任務屬高耗能，優先列入考量
+   - Critical(<60%)：必須從 [學習]/[求職] 任務中選出至少 2 項跳過
+   - Caution(60-69%)：選出 1–2 項最吃腦力的 [學習] 任務跳過
+   - Stable(70-79%) 以上：skipTasks 可為空陣列
 5. hint 欄位：留空字串 ""（系統會自動填入，不需 AI 生成）
 6. 輸出純 JSON，無 markdown
 7. 【最高優先 - Calendar 鎖定】Calendar 每一筆行程必須轉為 pipe，type="rest"，label 原封不動用行程名稱，hint 固定輸出「📅 行程佔用，不排任務」（此字串一字不改，禁止翻譯或替換任何字）。Calendar pipe 排在 pipes 陣列最前面（按時間升序），AI pipe 時間不得與之重疊。
