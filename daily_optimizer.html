@@ -1706,12 +1706,10 @@ function renderPipeSandbox(result,isMock=false){
   sc.innerHTML=mockNotice+sumHtml
     +`<div class="pipe-track">${pipesHtml}</div>`
     +buildDurCard(pwr)
-    +'<div class="sandbox-hint" id="sandboxHint">👇 點選時段水管，再點下方任務積木放入</div>'
     +'<div class="brick-pool-sec">'
-      +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:9px;">'
-        +'<div class="brick-pool-hd" style="margin-bottom:0">📦 任務積木池</div>'
-        +'<span style="font-size:10.5px;color:#9a9088;">⚡ 半透明虛線 = AI 建議今日跳過</span>'
-      +'</div>'
+      +'<div class="brick-pool-hd">📦 任務積木池</div>'
+      +'<div style="font-size:10.5px;color:#9a9088;margin-bottom:4px;">⚡ 半透明虛線 = AI 建議今日跳過</div>'
+      +'<div class="sandbox-hint" id="sandboxHint" style="margin-bottom:10px;">👇 點選時段水管，再點下方任務積木放入（或反向：先選積木，再選時段）</div>'
       +'<div class="brick-pool" id="brickPool"></div>'
       +'<div class="temp-brick-row">'
         +'<input class="temp-brick-input" id="tempBrickInput" placeholder="＋ 自訂臨時任務…" maxlength="30" onkeydown="if(event.key===\'Enter\')addTempBrick(this.value)">'
@@ -1939,12 +1937,10 @@ function renderSavedPipeSandbox(saved){
   sc.innerHTML=sumHtml
     +`<div class="pipe-track">${pipesHtml}</div>`
     +buildDurCard(saved.combatPower||pwr)
-    +'<div class="sandbox-hint" id="sandboxHint">👇 點選時段水管，再點下方任務積木放入</div>'
     +'<div class="brick-pool-sec">'
-      +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:9px;">'
-        +'<div class="brick-pool-hd" style="margin-bottom:0">📦 任務積木池</div>'
-        +'<span style="font-size:10.5px;color:#9a9088;">⚡ 半透明虛線 = AI 建議今日跳過</span>'
-      +'</div>'
+      +'<div class="brick-pool-hd">📦 任務積木池</div>'
+      +'<div style="font-size:10.5px;color:#9a9088;margin-bottom:4px;">⚡ 半透明虛線 = AI 建議今日跳過</div>'
+      +'<div class="sandbox-hint" id="sandboxHint" style="margin-bottom:10px;">👇 點選時段水管，再點下方任務積木放入（或反向：先選積木，再選時段）</div>'
       +'<div class="brick-pool" id="brickPool"></div>'
       +'<div class="temp-brick-row">'
         +'<input class="temp-brick-input" id="tempBrickInput" placeholder="＋ 自訂臨時任務…" maxlength="30" onkeydown="if(event.key===\'Enter\')addTempBrick(this.value)">'
