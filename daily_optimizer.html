@@ -374,9 +374,13 @@ input:checked+.js-slider:before{transform:translateX(13px);}
 .pipe-chip:hover .prm{color:#a07878;}
 .pipe-lock-ico{position:absolute;top:11px;right:13px;font-size:12px;opacity:.38;pointer-events:none;}
 .pipe-warn-ico{position:absolute;bottom:10px;right:12px;font-size:13px;pointer-events:none;}
-.sandbox-hint{font-size:11px;color:#9a9088;text-align:center;padding:6px 0 2px;letter-spacing:.01em;transition:color .15s;}
+.sandbox-hint{font-size:11px;color:#9a9088;padding:0;letter-spacing:.01em;transition:color .15s;display:flex;align-items:flex-start;gap:5px;}
+.sandbox-hint .bph-ic{flex-shrink:0;line-height:1.5;}
 .brick-pool-sec{margin-top:14px;padding-top:13px;border-top:1px solid #ddd8d0;}
-.brick-pool-hd{font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#9a9088;margin-bottom:9px;}
+.brick-pool-hd{font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#9a9088;margin-bottom:9px;display:flex;align-items:center;gap:5px;}
+.brick-pool-hd .bph-ic{flex-shrink:0;letter-spacing:0;text-transform:none;}
+.brick-pool-desc{font-size:10.5px;color:#9a9088;margin-bottom:4px;display:flex;align-items:flex-start;gap:5px;}
+.brick-pool-desc .bph-ic{flex-shrink:0;line-height:1.5;}
 .brick-pool{display:flex;flex-wrap:wrap;gap:7px;}
 .brick{display:inline-flex;align-items:center;gap:4px;padding:7px 11px;border-radius:10px;border:1.5px solid #cec8bf;background:#f4f1ec;font-size:12.5px;font-weight:500;color:#38342e;cursor:pointer;transition:all .15s;-webkit-tap-highlight-color:transparent;user-select:none;}
 .brick:active{transform:scale(.95);}
@@ -1707,9 +1711,9 @@ function renderPipeSandbox(result,isMock=false){
     +`<div class="pipe-track">${pipesHtml}</div>`
     +buildDurCard(pwr)
     +'<div class="brick-pool-sec">'
-      +'<div class="brick-pool-hd">📦 任務積木池</div>'
-      +'<div style="font-size:10.5px;color:#9a9088;margin-bottom:4px;">⚡ 半透明虛線 = AI 建議今日跳過</div>'
-      +'<div class="sandbox-hint" id="sandboxHint" style="margin-bottom:10px;">👇 點選時段水管，再點下方任務積木放入（或反向：先選積木，再選時段）</div>'
+      +'<div class="brick-pool-hd"><span class="bph-ic">📦</span><span>任務積木池</span></div>'
+      +'<div class="brick-pool-desc"><span class="bph-ic">⚡</span><span>半透明虛線 = AI 建議今日跳過</span></div>'
+      +'<div class="sandbox-hint" id="sandboxHint" style="margin-bottom:10px;"><span class="bph-ic">👇</span><span>點選時段水管，再點下方任務積木放入（或反向：先選積木，再選時段）</span></div>'
       +'<div class="brick-pool" id="brickPool"></div>'
       +'<div class="temp-brick-row">'
         +'<input class="temp-brick-input" id="tempBrickInput" placeholder="＋ 自訂臨時任務…" maxlength="30" onkeydown="if(event.key===\'Enter\')addTempBrick(this.value)">'
@@ -1867,15 +1871,20 @@ function deselectSandbox(){
 
 function updateSandboxHint(){
   const el=document.getElementById('sandboxHint');if(!el)return;
+  const spans=el.querySelectorAll('span');
+  const icEl=spans[0],txtEl=spans[1];
   if(_selPipeIdx!==null){
     const p=_pipes[_selPipeIdx];
-    el.textContent=`✦ ${p.start}–${p.end}「${p.label}」已選定 → 點選下方任務積木放入`;
+    if(icEl)icEl.textContent='✦';
+    if(txtEl)txtEl.textContent=`${p.start}–${p.end}「${p.label}」已選定 → 點選下方任務積木放入`;
     el.style.color='#5a7e9e';
   }else if(_selBrickText){
-    el.textContent=`✦「${_selBrickText}」已選定 → 點選上方時段水管放入`;
+    if(icEl)icEl.textContent='✦';
+    if(txtEl)txtEl.textContent=`「${_selBrickText}」已選定 → 點選上方時段水管放入`;
     el.style.color='#5a7e9e';
   }else{
-    el.textContent='👇 點選時段水管，再點下方任務積木放入（或反向：先選積木，再選時段）';
+    if(icEl)icEl.textContent='👇';
+    if(txtEl)txtEl.textContent='點選時段水管，再點下方任務積木放入（或反向：先選積木，再選時段）';
     el.style.color='#9a9088';
   }
 }
@@ -1938,9 +1947,9 @@ function renderSavedPipeSandbox(saved){
     +`<div class="pipe-track">${pipesHtml}</div>`
     +buildDurCard(saved.combatPower||pwr)
     +'<div class="brick-pool-sec">'
-      +'<div class="brick-pool-hd">📦 任務積木池</div>'
-      +'<div style="font-size:10.5px;color:#9a9088;margin-bottom:4px;">⚡ 半透明虛線 = AI 建議今日跳過</div>'
-      +'<div class="sandbox-hint" id="sandboxHint" style="margin-bottom:10px;">👇 點選時段水管，再點下方任務積木放入（或反向：先選積木，再選時段）</div>'
+      +'<div class="brick-pool-hd"><span class="bph-ic">📦</span><span>任務積木池</span></div>'
+      +'<div class="brick-pool-desc"><span class="bph-ic">⚡</span><span>半透明虛線 = AI 建議今日跳過</span></div>'
+      +'<div class="sandbox-hint" id="sandboxHint" style="margin-bottom:10px;"><span class="bph-ic">👇</span><span>點選時段水管，再點下方任務積木放入（或反向：先選積木，再選時段）</span></div>'
       +'<div class="brick-pool" id="brickPool"></div>'
       +'<div class="temp-brick-row">'
         +'<input class="temp-brick-input" id="tempBrickInput" placeholder="＋ 自訂臨時任務…" maxlength="30" onkeydown="if(event.key===\'Enter\')addTempBrick(this.value)">'
