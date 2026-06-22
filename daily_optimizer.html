@@ -2179,6 +2179,7 @@ async function genReviewFeedback(){
   const NL='\n';
   const cp=saved.combatPower||pwr||0;
   const cpLabel=cp>=80?'🔥 Peak（80+）':cp>=70?'⚡ Stable（70-79）':cp>=60?'⚠ Caution（60-69）':'🔴 Critical（<60）';
+  const isVacation=!!saved.restMode;
 
   // ── 計畫層：優先用 aiScheduled，沒有就用任務庫 ──
   const aiScheduled=saved.aiScheduled||[];
@@ -2201,114 +2202,132 @@ async function genReviewFeedback(){
   const actualItems=saved.items.map(i=>{
     const st=i.status==='done'?'✓ 完成':i.status==='part'?'◑ 部分完成':i.status==='skip'?'— 未做':i.status==='no'?'⊘ 不做（有意識決定）':'未記錄';
     let tag='';
-    if(hasAiPlan){
+    if(hasAiPlan&&!isVacation){
       tag=aiScheduled.some(s=>s.task===i.name)?'[預排]':'[人工加入]';
     }
     return '  '+(tag?tag+' ':'')+i.name+'：'+st+(i.feedback?NL+'    → '+i.feedback:'');
   }).join(NL);
 
-  // 預排但未出現在覆盤的任務
-  let missedText='';
-  if(hasAiPlan){
-    const missed=aiScheduled.filter(s=>!reviewedNames.includes(s.task));
-    if(missed.length) missedText=NL+'【預排但未納入覆盤】'+NL+missed.map(s=>'  '+s.time+' '+s.task).join(NL);
-  }
-
   const overall=saved.overall?NL+'【整體反饋（本人填寫）】'+NL+'  '+saved.overall:'';
 
-  // ── 戰力基準期待值說明 ──
-  const cpExpect=cp>=80?'Peak 狀態下，預期可完成所有高優先任務，若有任務未做值得特別追問原因。'
-    :cp>=70?'Stable 狀態下，預期完成 3-4 項常規任務屬正常，若有大量跳過則需分析原因。'
-    :cp>=60?'Caution 狀態下，完成 2-3 項輕中度任務即屬合理，高強度任務跳過可理解。'
-    :'Critical 狀態下，能完成任何任務都值得肯定，重點是識別今日狀態對明日的影響。';
+  // ── 休假模式：完全不帶產出期待標準，走獨立 prompt ──
+  let prompt;
+  if(isVacation){
+    const restNote=saved.restNote?'今日休假備註：'+saved.restNote+NL:'';
+    prompt='你是我的效能顧問。今天是【休假日】，無任何產出標準，不做績效評估。'+NL+NL
+      +'日期：'+dateStr+'　戰力（供睡眠品質參考，非績效基準）：'+cp+'% '+cpLabel+NL
+      +restNote+NL
+      +'【今日活動記錄】'+NL+actualItems+overall+NL+NL
+      +'請用繁體中文，以下格式輸出（語氣溫和直接，不評比產出，不提「應該做更多」）：'+NL+NL
+      +'【今日充電品質】'+NL
+      +'從上方活動看，今天是真正的充電，還是帶著隱性焦慮的假休？給一句直接的觀察。'+NL+NL
+      +'【能量回補評估】'+NL
+      +'根據今天的活動與戰力，推估明天能量是否可能回升，或仍需要保護。（1-2句）'+NL+NL
+      +'【明日一件事建議】'+NL
+      +'一件明天早上可以直接做的具體事，讓開局更穩。不說泛泛建議。'+NL+NL
+      +'休假就是休假，不評估產出，語氣溫和但不過度鼓勵。';
+  } else {
+    // ── 非休假：原有產出期待 + 水管分析流程 ──
 
-  // ── 水管過載分析 ──
-  const savedPipes=saved.pipes||[];
-  const savedAssign=saved.pipeAssignments||{};
-  const overloadedPipes=[];
-  Object.entries(savedAssign).forEach(([pi,tasks])=>{
-    const pipe=savedPipes[parseInt(pi)];
-    if(!pipe||!tasks.length)return;
-    const workTasks=tasks.filter(t=>!REST_BRICKS.includes(t));
-    const highCostCount=workTasks.filter(t=>(saved.skipTasks||[]).includes(t)).length;
-    // 過載定義：休息水管有工作任務；或工作水管 ≥3 件；或輕量水管 ≥2 高耗能
-    const isOverload=pipe.type==='rest'?workTasks.length>0
-      :(workTasks.length>=3||(pipe.type==='low'&&highCostCount>=2));
-    if(isOverload){
-      // 計算這批任務的實際完成狀況
-      const statuses=workTasks.map(t=>{
-        const ri=saved.items?.find(i=>i.name===t);
-        return ri?ri.status:'未記錄';
-      });
-      const doneCount=statuses.filter(s=>s==='done'||s==='part').length;
-      overloadedPipes.push({
-        range:`${pipe.start}–${pipe.end}`,label:pipe.label,type:pipe.type,
-        tasks:workTasks,count:workTasks.length,doneCount,allDone:doneCount===workTasks.length
-      });
+    // 預排但未出現在覆盤的任務
+    let missedText='';
+    if(hasAiPlan){
+      const missed=aiScheduled.filter(s=>!reviewedNames.includes(s.task));
+      if(missed.length) missedText=NL+'【預排但未納入覆盤】'+NL+missed.map(s=>'  '+s.time+' '+s.task).join(NL);
     }
-  });
-  const overloadSection=overloadedPipes.length
-    ? NL+'【水管過載記錄（白天配速記錄）】'+NL
-      +overloadedPipes.map(o=>`  ${o.range}「${o.label}」(${o.type})：共 ${o.count} 件任務 [${o.tasks.join('、')}]，完成 ${o.doneCount}/${o.count} 件`).join(NL)
-    : '';
 
-  // ── 配速對齊校正：⚠️ 警告任務 × 實際完成 → 一致/不一致 ──
-  const pipeAlignItems=[];
-  Object.entries(savedAssign).forEach(([pi,tasks])=>{
-    const pipe=savedPipes[parseInt(pi)];if(!pipe)return;
-    const warnedTasks=tasks.filter(t=>(saved.skipTasks||[]).includes(t)&&!REST_BRICKS.includes(t));
-    if(!warnedTasks.length)return;
-    if(pipe.type!=='low'&&pipe.type!=='rest')return;
-    warnedTasks.forEach(t=>{
-      const item=saved.items?.find(i=>i.name===t);
-      const done=item&&(item.status==='done'||item.status==='part');
-      pipeAlignItems.push({
-        time:`${pipe.start}–${pipe.end}`,pipeType:pipe.type,pipeLabel:pipe.label,
-        task:t,completion:item?.status||'none',verdict:done?'inconsistent':'consistent'
+    // ── 戰力基準期待值說明 ──
+    const cpExpect=cp>=80?'Peak 狀態下，預期可完成所有高優先任務，若有任務未做值得特別追問原因。'
+      :cp>=70?'Stable 狀態下，預期完成 3-4 項常規任務屬正常，若有大量跳過則需分析原因。'
+      :cp>=60?'Caution 狀態下，完成 2-3 項輕中度任務即屬合理，高強度任務跳過可理解。'
+      :'Critical 狀態下，能完成任何任務都值得肯定，重點是識別今日狀態對明日的影響。';
+
+    // ── 水管過載分析 ──
+    const savedPipes=saved.pipes||[];
+    const savedAssign=saved.pipeAssignments||{};
+    const overloadedPipes=[];
+    Object.entries(savedAssign).forEach(([pi,tasks])=>{
+      const pipe=savedPipes[parseInt(pi)];
+      if(!pipe||!tasks.length)return;
+      const workTasks=tasks.filter(t=>!REST_BRICKS.includes(t));
+      const highCostCount=workTasks.filter(t=>(saved.skipTasks||[]).includes(t)).length;
+      const isOverload=pipe.type==='rest'?workTasks.length>0
+        :(workTasks.length>=3||(pipe.type==='low'&&highCostCount>=2));
+      if(isOverload){
+        const statuses=workTasks.map(t=>{
+          const ri=saved.items?.find(i=>i.name===t);
+          return ri?ri.status:'未記錄';
+        });
+        const doneCount=statuses.filter(s=>s==='done'||s==='part').length;
+        overloadedPipes.push({
+          range:`${pipe.start}–${pipe.end}`,label:pipe.label,type:pipe.type,
+          tasks:workTasks,count:workTasks.length,doneCount,allDone:doneCount===workTasks.length
+        });
+      }
+    });
+    const overloadSection=overloadedPipes.length
+      ? NL+'【水管過載記錄（白天配速記錄）】'+NL
+        +overloadedPipes.map(o=>`  ${o.range}「${o.label}」(${o.type})：共 ${o.count} 件任務 [${o.tasks.join('、')}]，完成 ${o.doneCount}/${o.count} 件`).join(NL)
+      : '';
+
+    // ── 配速對齊校正：⚠️ 警告任務 × 實際完成 → 一致/不一致 ──
+    const pipeAlignItems=[];
+    Object.entries(savedAssign).forEach(([pi,tasks])=>{
+      const pipe=savedPipes[parseInt(pi)];if(!pipe)return;
+      const warnedTasks=tasks.filter(t=>(saved.skipTasks||[]).includes(t)&&!REST_BRICKS.includes(t));
+      if(!warnedTasks.length)return;
+      if(pipe.type!=='low'&&pipe.type!=='rest')return;
+      warnedTasks.forEach(t=>{
+        const item=saved.items?.find(i=>i.name===t);
+        const done=item&&(item.status==='done'||item.status==='part');
+        pipeAlignItems.push({
+          time:`${pipe.start}–${pipe.end}`,pipeType:pipe.type,pipeLabel:pipe.label,
+          task:t,completion:item?.status||'none',verdict:done?'inconsistent':'consistent'
+        });
       });
     });
-  });
-  // 寫入 localStorage，供 SAS Hub 三維圖表讀取
-  try{localStorage.setItem('sas_pipe_review',JSON.stringify({
-    date:displayKey.replace('review_',''),combatPower:cp,
-    depletedAt:saved.depleted_at||null,  // 能量低點時刻
-    items:pipeAlignItems
-  }));}catch(e){}
-  const alignSection=pipeAlignItems.length
-    ? NL+'【配速對齊驗證（戰力模型校正信號）】'+NL
-      +pipeAlignItems.map(a=>`  「${a.task}」置入${a.pipeType==='rest'?'休息':'輕量'}時段「${a.pipeLabel}」（有 ⚠️ 警告）→ `
-        +(a.completion==='done'?'✓ 完成':a.completion==='part'?'◑ 部分完成':'— 未完成')
-        +' ['+(a.verdict==='inconsistent'?'不一致：模型校正信號':'一致：防禦準確')+']').join(NL)
-    : '';
+    // 寫入 localStorage，供 SAS Hub 三維圖表讀取
+    try{localStorage.setItem('sas_pipe_review',JSON.stringify({
+      date:displayKey.replace('review_',''),combatPower:cp,
+      depletedAt:saved.depleted_at||null,
+      items:pipeAlignItems
+    }));}catch(e){}
+    const alignSection=pipeAlignItems.length
+      ? NL+'【配速對齊驗證（戰力模型校正信號）】'+NL
+        +pipeAlignItems.map(a=>`  「${a.task}」置入${a.pipeType==='rest'?'休息':'輕量'}時段「${a.pipeLabel}」（有 ⚠️ 警告）→ `
+          +(a.completion==='done'?'✓ 完成':a.completion==='part'?'◑ 部分完成':'— 未完成')
+          +' ['+(a.verdict==='inconsistent'?'不一致：模型校正信號':'一致：防禦準確')+']').join(NL)
+      : '';
 
-  const prompt='你是我的效能顧問。請根據以下資訊做深度覆盤分析，重點是「戰力狀態 × 計畫 × 實際」三者之間的關係。'+NL
-    +'設計背景：AI 精力水管為當日 fixed plan；[人工加入]代表使用者在一天之中根據狀況手動追加。'+NL+NL
-    +'日期：'+dateStr+'　模式：'+(saved.mode||'未知')+'　體感：'+(saved.feel||'未知')+NL
-    +'今日戰力：'+cp+'% '+cpLabel+NL
-    +(saved.depleted_at?'⚡ 能量低點時間：'+saved.depleted_at+'（可推算今日有效工作續航長度）'+NL:'')
-    +'戰力期待值：'+cpExpect+NL+NL
-    +planSection+overloadSection+alignSection+NL+NL
-    +'【實際覆盤結果】'+NL+actualItems+missedText+overall+NL+NL
-    +'請用繁體中文，以下格式輸出（每段給出真實、有深度的觀察，不要只重述事實）：'+NL+NL
-    +'【戰力 × 實際表現分析】'+NL
-    +'以今日戰力（'+cp+'% '+cpLabel+'）為基準，評估實際完成狀況是高於、符合、還是低於預期（1-2句）'+NL+NL
-    +(overloadedPipes.length
-      ? '【水管過載防禦分析】'+NL
-        +'如果過載且有任務未完成：直接指出規劃落差是水管塞爆造成的，給出下次具體配速調整建議。'+NL
-        +'如果過載但全部完成：發出意志力防禦警示——這是在大幅燃燒意志力，需注意滯後疲勞回檔，建議明天主動在水管中置入「強制休息積木」。'+NL+NL
-      : '')
-    +(pipeAlignItems.length
-      ? '【配速對齊校正分析】'+NL
-        +'對有 ⚠️ 警告的任務，逐一給出以下判斷：'+NL
-        +'- 若完成（不一致）：這屬於心流驅動突破，還是疲勞滯後尚未顯現？並指出這是戰力推論模型的校正依據，建議在 SAS Hub 中調整對此類任務的預期。'+NL
-        +'- 若未完成（一致）：直接指出這印證了當日系統防禦配速的準確性，並提醒順應身體節奏排程。'+NL+NL
-      : '')
-    +'【計畫 vs 實際落差】'+NL
-    +(hasAiPlan?'針對 AI 水管配置 vs 實際的落差：預排任務哪些完成/未完成；[人工加入]任務是有餘裕加碼還是修正計畫'
-      :'以任務庫為基準，分析今日實際選擇反映了什麼優先順序或狀態')+NL+NL
-    +'【今日小結】'+NL+'一句話（30字內）'+NL+NL
-    +'【明日具體建議】'+NL+'1-2個明天可直接執行的調整，語氣直接，不說泛泛建議'+NL+NL
-    +'語氣直接，不過度鼓勵，給真實觀察。';
+    prompt='你是我的效能顧問。請根據以下資訊做深度覆盤分析，重點是「戰力狀態 × 計畫 × 實際」三者之間的關係。'+NL
+      +'設計背景：AI 精力水管為當日 fixed plan；[人工加入]代表使用者在一天之中根據狀況手動追加。'+NL+NL
+      +'日期：'+dateStr+'　模式：'+(saved.mode||'未知')+'　體感：'+(saved.feel||'未知')+NL
+      +'今日戰力：'+cp+'% '+cpLabel+NL
+      +(saved.depleted_at?'⚡ 能量低點時間：'+saved.depleted_at+'（可推算今日有效工作續航長度）'+NL:'')
+      +'戰力期待值：'+cpExpect+NL+NL
+      +planSection+overloadSection+alignSection+NL+NL
+      +'【實際覆盤結果】'+NL+actualItems+missedText+overall+NL+NL
+      +'請用繁體中文，以下格式輸出（每段給出真實、有深度的觀察，不要只重述事實）：'+NL+NL
+      +'【戰力 × 實際表現分析】'+NL
+      +'以今日戰力（'+cp+'% '+cpLabel+'）為基準，評估實際完成狀況是高於、符合、還是低於預期（1-2句）'+NL+NL
+      +(overloadedPipes.length
+        ? '【水管過載防禦分析】'+NL
+          +'如果過載且有任務未完成：直接指出規劃落差是水管塞爆造成的，給出下次具體配速調整建議。'+NL
+          +'如果過載但全部完成：發出意志力防禦警示——這是在大幅燃燒意志力，需注意滯後疲勞回檔，建議明天主動在水管中置入「強制休息積木」。'+NL+NL
+        : '')
+      +(pipeAlignItems.length
+        ? '【配速對齊校正分析】'+NL
+          +'對有 ⚠️ 警告的任務，逐一給出以下判斷：'+NL
+          +'- 若完成（不一致）：這屬於心流驅動突破，還是疲勞滯後尚未顯現？並指出這是戰力推論模型的校正依據，建議在 SAS Hub 中調整對此類任務的預期。'+NL
+          +'- 若未完成（一致）：直接指出這印證了當日系統防禦配速的準確性，並提醒順應身體節奏排程。'+NL+NL
+        : '')
+      +'【計畫 vs 實際落差】'+NL
+      +(hasAiPlan?'針對 AI 水管配置 vs 實際的落差：預排任務哪些完成/未完成；[人工加入]任務是有餘裕加碼還是修正計畫'
+        :'以任務庫為基準，分析今日實際選擇反映了什麼優先順序或狀態')+NL+NL
+      +'【今日小結】'+NL+'一句話（30字內）'+NL+NL
+      +'【明日具體建議】'+NL+'1-2個明天可直接執行的調整，語氣直接，不說泛泛建議'+NL+NL
+      +'語氣直接，不過度鼓勵，給真實觀察。';
+  }
 
   try{
     const resp=await fetch(GROQ,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+key},body:JSON.stringify({model:'llama-3.3-70b-versatile',messages:[{role:'user',content:prompt}],temperature:0.5,max_tokens:600})});
