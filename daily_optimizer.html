@@ -285,6 +285,14 @@ input:checked+.js-slider:before{transform:translateX(13px);}
 .mpipe-label{font-size:11px;font-weight:500;color:#38342e;line-height:1.3;}
 .mpipe-chips{margin-top:3px;display:flex;flex-wrap:wrap;gap:3px;}
 .mpipe-chip{font-size:9px;background:#ece8e0;color:#6a6660;padding:1px 5px;border-radius:8px;line-height:1.4;}
+.hist-dur-sec{margin-top:8px;padding-top:7px;border-top:1px solid #e0dbd2;}
+.hist-dur-hdr{font-size:9px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#9a9088;margin-bottom:4px;}
+.hist-dur-cfg{display:flex;flex-wrap:wrap;gap:4px 6px;margin-bottom:6px;}
+.hist-dur-cfg-item{font-size:10px;font-weight:600;}
+.hist-align-row{display:flex;align-items:center;gap:4px;padding:2px 0;min-width:0;}
+.hist-align-badge{font-size:8px;font-weight:700;padding:1px 4px;border-radius:6px;flex-shrink:0;white-space:nowrap;}
+.hist-align-task{flex:1;font-size:10px;color:#4a4640;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.hist-align-status{font-size:11px;font-weight:700;flex-shrink:0;}
 .hist-chevron{font-size:11px;color:#b0aaa0;transition:transform .2s;}
 .hist-chevron.open{transform:rotate(90deg);}
 .hist-item{padding:7px 0;border-bottom:1px solid #ddd8d0;}
@@ -2703,12 +2711,9 @@ function renderHist(){
       noCount?`<span class="stat-pill sp-no">⊘ ${noCount}</span>`:'',
     ].filter(Boolean).join('');
 
-    const validSnap=data.snapshot&&data.snapshot.startsWith('data:image/');
-    const snapshotHtml=validSnap
-      ?`<div class="hist-snapshot"><img src="${data.snapshot}" alt="戰術水管快照" loading="lazy" style="cursor:zoom-in" onclick="openSnapshotLightbox(this.src)"></div>`
-      :(data.pipes&&data.pipes.length)
-        ?`<div class="hist-snapshot">${buildMiniPipeView(data)}</div>`
-        :`<div class="hist-snapshot-none">無水管記錄</div>`;
+    const snapshotHtml=(data.pipes&&data.pipes.length)
+      ?`<div class="hist-snapshot">${buildMiniPipeView(data)}</div>`
+      :`<div class="hist-snapshot-none">無水管記錄</div>`;
 
     const itemsHtml=items.map(item=>`
       <div class="hist-item">
@@ -2764,9 +2769,14 @@ function renderHist(){
 function buildMiniPipeView(data){
   const pipes=data.pipes||[];
   const assign=data.pipeAssignments||{};
+  const items=data.items||[];
+  const cp=data.combatPower||60;
   const tColor={high:'#5a7fa8',mid:'#6a9a6a',low:'#9a8a5a',rest:'#5a9a8a'};
+  const tEmoji={high:'🔥',mid:'☕',low:'🍃',rest:'⏸'};
   const tLabel={high:'高能',mid:'中能',low:'輕量',rest:'休息'};
-  return'<div class="mini-pipe-view">'+pipes.map((p,i)=>{
+
+  // 水管行
+  const pipeRows=pipes.map((p,i)=>{
     const tasks=assign[i]||assign[String(i)]||[];
     const color=tColor[p.type]||'#888888';
     const chipsHtml=tasks.length
@@ -2780,7 +2790,46 @@ function buildMiniPipeView(data){
       <div class="mpipe-label">${esc(p.label||'')}</div>
       ${chipsHtml}
     </div>`;
-  }).join('')+'</div>';
+  }).join('');
+
+  // 能耗配置：各 type 總分鐘數
+  const toMin=t=>{const[h,m]=(t||'0:0').split(':').map(Number);return h*60+(m||0);};
+  const typeMin={};
+  pipes.forEach(p=>{
+    const d=toMin(p.end)-toMin(p.start);
+    if(d>0) typeMin[p.type]=(typeMin[p.type]||0)+d;
+  });
+  const fuel=Math.round(cp*3.4);
+  const cfgHtml=Object.entries(typeMin).filter(([,m])=>m>0)
+    .map(([t,m])=>`<span class="hist-dur-cfg-item" style="color:${tColor[t]}">${tEmoji[t]}${tLabel[t]} ${m}分</span>`)
+    .join('<span style="color:#d0cac0;font-size:10px"> · </span>');
+
+  // 代償對照：各 pipe 的指派任務 × 覆盤狀態
+  const stSym={done:'✓',part:'◑',skip:'—',no:'⊘','':'·'};
+  const stCol={done:'#4a7e5e',part:'#5a7e3e',skip:'#7a6050',no:'#8a4040','':'#b0a898'};
+  const alignRows=pipes.flatMap((p,i)=>{
+    const tasks=assign[i]||assign[String(i)]||[];
+    if(!tasks.length) return[];
+    const color=tColor[p.type]||'#888';
+    return tasks.map(name=>{
+      const it=items.find(x=>x.name===name);
+      const st=it?.status||'';
+      return`<div class="hist-align-row">
+        <span class="hist-align-badge" style="background:${color}1a;color:${color};border:1px solid ${color}33">${tLabel[p.type]}</span>
+        <span class="hist-align-task" title="${esc(name)}">${esc(name)}</span>
+        <span class="hist-align-status" style="color:${stCol[st]||'#b0a898'}">${stSym[st]||'·'}</span>
+      </div>`;
+    });
+  }).join('');
+
+  const durSec=(cfgHtml||alignRows)?`
+    <div class="hist-dur-sec">
+      <div class="hist-dur-hdr">⏱ 能耗配置（戰力 ${cp}%）</div>
+      <div class="hist-dur-cfg">${cfgHtml}<span style="font-size:9px;color:#b0a898;margin-left:2px">燃料 ${fuel}分</span></div>
+      ${alignRows?`<div class="hist-dur-hdr" style="margin-top:4px">📋 代償對照</div>${alignRows}`:''}
+    </div>`:''
+
+  return`<div class="mini-pipe-view">${pipeRows}${durSec}</div>`;
 }
 
 /* ── Snapshot Lightbox ── */
