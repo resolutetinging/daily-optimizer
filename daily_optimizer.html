@@ -2703,7 +2703,8 @@ function renderHist(){
       noCount?`<span class="stat-pill sp-no">⊘ ${noCount}</span>`:'',
     ].filter(Boolean).join('');
 
-    const snapshotHtml=data.snapshot
+    const validSnap=data.snapshot&&data.snapshot.startsWith('data:image/');
+    const snapshotHtml=validSnap
       ?`<div class="hist-snapshot"><img src="${data.snapshot}" alt="戰術水管快照" loading="lazy" style="cursor:zoom-in" onclick="openSnapshotLightbox(this.src)"></div>`
       :(data.pipes&&data.pipes.length)
         ?`<div class="hist-snapshot">${buildMiniPipeView(data)}</div>`
