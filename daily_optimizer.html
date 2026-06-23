@@ -286,13 +286,17 @@ input:checked+.js-slider:before{transform:translateX(13px);}
 .mpipe-chips{margin-top:3px;display:flex;flex-wrap:wrap;gap:3px;}
 .mpipe-chip{font-size:9px;background:#ece8e0;color:#6a6660;padding:1px 5px;border-radius:8px;line-height:1.4;}
 .hist-dur-sec{margin-top:8px;padding-top:7px;border-top:1px solid #e0dbd2;}
-.hist-dur-hdr{font-size:9px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#9a9088;margin-bottom:4px;}
-.hist-dur-cfg{display:flex;flex-wrap:wrap;gap:4px 6px;margin-bottom:6px;}
-.hist-dur-cfg-item{font-size:10px;font-weight:600;}
-.hist-align-row{display:flex;align-items:center;gap:4px;padding:2px 0;min-width:0;}
-.hist-align-badge{font-size:8px;font-weight:700;padding:1px 4px;border-radius:6px;flex-shrink:0;white-space:nowrap;}
-.hist-align-task{flex:1;font-size:10px;color:#4a4640;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-.hist-align-status{font-size:11px;font-weight:700;flex-shrink:0;}
+.hist-dur-hdr{font-size:9px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#9a9088;margin-bottom:5px;}
+.hist-type-group{margin-bottom:7px;}
+.hist-type-group:last-child{margin-bottom:0;}
+.hist-type-hd{display:flex;align-items:baseline;gap:5px;margin-bottom:3px;}
+.hist-type-emoji{font-size:11px;}
+.hist-type-lbl{font-size:11px;font-weight:700;}
+.hist-type-min{font-size:10px;color:#9a9088;}
+.hist-task-row{display:flex;align-items:center;gap:4px;padding:2px 0 2px 14px;min-width:0;}
+.hist-task-name{flex:1;font-size:10px;color:#5a5450;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.hist-task-min{font-size:10px;color:#9a9088;flex-shrink:0;white-space:nowrap;}
+.hist-task-st{font-size:10px;font-weight:700;flex-shrink:0;margin-left:2px;}
 .hist-chevron{font-size:11px;color:#b0aaa0;transition:transform .2s;}
 .hist-chevron.open{transform:rotate(90deg);}
 .hist-item{padding:7px 0;border-bottom:1px solid #ddd8d0;}
@@ -2792,41 +2796,52 @@ function buildMiniPipeView(data){
     </div>`;
   }).join('');
 
-  // 能耗配置：各 type 總分鐘數
+  // 能耗配置 × 代償對照：依 type 分組，任務縮排顯示
   const toMin=t=>{const[h,m]=(t||'0:0').split(':').map(Number);return h*60+(m||0);};
-  const typeMin={};
-  pipes.forEach(p=>{
-    const d=toMin(p.end)-toMin(p.start);
-    if(d>0) typeMin[p.type]=(typeMin[p.type]||0)+d;
-  });
-  const fuel=Math.round(cp*3.4);
-  const cfgHtml=Object.entries(typeMin).filter(([,m])=>m>0)
-    .map(([t,m])=>`<span class="hist-dur-cfg-item" style="color:${tColor[t]}">${tEmoji[t]}${tLabel[t]} ${m}分</span>`)
-    .join('<span style="color:#d0cac0;font-size:10px"> · </span>');
-
-  // 代償對照：各 pipe 的指派任務 × 覆盤狀態
   const stSym={done:'✓',part:'◑',skip:'—',no:'⊘','':'·'};
   const stCol={done:'#4a7e5e',part:'#5a7e3e',skip:'#7a6050',no:'#8a4040','':'#b0a898'};
-  const alignRows=pipes.flatMap((p,i)=>{
-    const tasks=assign[i]||assign[String(i)]||[];
-    if(!tasks.length) return[];
-    const color=tColor[p.type]||'#888';
-    return tasks.map(name=>{
+
+  // 建立 type → {totalMin, tasks[]} 對照
+  const typeOrder=['high','mid','low','rest'];
+  const typeGroups={};
+  pipes.forEach((p,i)=>{
+    const dur=toMin(p.end)-toMin(p.start);
+    if(dur<=0) return;
+    if(!typeGroups[p.type]) typeGroups[p.type]={totalMin:0,tasks:[]};
+    typeGroups[p.type].totalMin+=dur;
+    const pTasks=assign[i]||assign[String(i)]||[];
+    const perTask=pTasks.length?Math.round(dur/pTasks.length):0;
+    pTasks.forEach(name=>{
       const it=items.find(x=>x.name===name);
-      const st=it?.status||'';
-      return`<div class="hist-align-row">
-        <span class="hist-align-badge" style="background:${color}1a;color:${color};border:1px solid ${color}33">${tLabel[p.type]}</span>
-        <span class="hist-align-task" title="${esc(name)}">${esc(name)}</span>
-        <span class="hist-align-status" style="color:${stCol[st]||'#b0a898'}">${stSym[st]||'·'}</span>
-      </div>`;
+      typeGroups[p.type].tasks.push({
+        name, min:it?.idealMin||perTask, status:it?.status||''
+      });
     });
+  });
+
+  const groupsHtml=typeOrder.filter(t=>typeGroups[t]).map(t=>{
+    const g=typeGroups[t];
+    const color=tColor[t];
+    const taskRows=g.tasks.map(tk=>`
+      <div class="hist-task-row">
+        <span class="hist-task-name" title="${esc(tk.name)}">${esc(tk.name)}</span>
+        ${tk.min?`<span class="hist-task-min">${tk.min}分</span>`:''}
+        <span class="hist-task-st" style="color:${stCol[tk.status]||'#b0a898'}">${stSym[tk.status]||'·'}</span>
+      </div>`).join('');
+    return`<div class="hist-type-group">
+      <div class="hist-type-hd">
+        <span class="hist-type-emoji">${tEmoji[t]}</span>
+        <span class="hist-type-lbl" style="color:${color}">${tLabel[t]}</span>
+        <span class="hist-type-min">${g.totalMin}分</span>
+      </div>
+      ${taskRows}
+    </div>`;
   }).join('');
 
-  const durSec=(cfgHtml||alignRows)?`
+  const durSec=groupsHtml?`
     <div class="hist-dur-sec">
-      <div class="hist-dur-hdr">⏱ 能耗配置（戰力 ${cp}%）</div>
-      <div class="hist-dur-cfg">${cfgHtml}<span style="font-size:9px;color:#b0a898;margin-left:2px">燃料 ${fuel}分</span></div>
-      ${alignRows?`<div class="hist-dur-hdr" style="margin-top:4px">📋 代償對照</div>${alignRows}`:''}
+      <div class="hist-dur-hdr">⏱ 能耗配置 × 代償對照（戰力 ${cp}%）</div>
+      ${groupsHtml}
     </div>`:''
 
   return`<div class="mini-pipe-view">${pipeRows}${durSec}</div>`;
