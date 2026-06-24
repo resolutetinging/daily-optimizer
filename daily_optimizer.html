@@ -2236,18 +2236,17 @@ async function genReviewFeedback(){
   let prompt;
   if(isVacation){
     const restNote=saved.restNote?'今日休假備註：'+saved.restNote+NL:'';
-    prompt='你是我的效能顧問。今天是【休假日】，無任何產出標準，不做績效評估。'+NL+NL
-      +'日期：'+dateStr+'　戰力（供睡眠品質參考，非績效基準）：'+cp+'% '+cpLabel+NL
-      +restNote+NL
+    prompt='你是我的效能顧問。今天是【休假日】，不做績效評估，只看充電品質。'+NL+NL
+      +'日期：'+dateStr+'　戰力：'+cp+'% '+cpLabel+NL
+      +restNote
       +'【今日活動記錄】'+NL+actualItems+overall+NL+NL
-      +'請用繁體中文，以下格式輸出（語氣溫和直接，不評比產出，不提「應該做更多」）：'+NL+NL
-      +'【今日充電品質】'+NL
-      +'從上方活動看，今天是真正的充電，還是帶著隱性焦慮的假休？給一句直接的觀察。'+NL+NL
-      +'【能量回補評估】'+NL
-      +'根據今天的活動與戰力，推估明天能量是否可能回升，或仍需要保護。（1-2句）'+NL+NL
-      +'【明日一件事建議】'+NL
-      +'一件明天早上可以直接做的具體事，讓開局更穩。不說泛泛建議。'+NL+NL
-      +'休假就是休假，不評估產出，語氣溫和但不過度鼓勵。';
+      +'請用繁體中文，嚴格按以下兩段格式輸出：'+NL+NL
+      +'【充電診斷】'+NL
+      +'一句話直接判斷：今天是真正充電還是隱性焦慮的假休？並說出明天能量會回升還是仍需保護，原因一句話。'+NL+NL
+      +'【明日啟動行動】'+NL
+      +'給 1-2 個帶序號的具體行動，格式：① 時間＋具體事項（不說「可以」、「建議」等模糊詞）。'+NL
+      +'讓明天開局更穩，且符合目前能量狀態。'+NL+NL
+      +'語氣溫和直接，不評產出，不過度鼓勵。';
   } else {
     // ── 非休假：原有產出期待 + 水管分析流程 ──
 
@@ -2321,38 +2320,30 @@ async function genReviewFeedback(){
           +' ['+(a.verdict==='inconsistent'?'不一致：模型校正信號':'一致：防禦準確')+']').join(NL)
       : '';
 
-    prompt='你是我的效能顧問。請根據以下資訊做深度覆盤分析，重點是「戰力狀態 × 計畫 × 實際」三者之間的關係。'+NL
-      +'設計背景：AI 精力水管為當日 fixed plan；[人工加入]代表使用者在一天之中根據狀況手動追加。'+NL+NL
+    prompt='你是我的效能顧問，給精準、簡短的覆盤。禁止重述事實，只給判斷和行動。'+NL
+      +'設計背景：AI 精力水管為當日 fixed plan；[人工加入]代表使用者手動追加。'+NL+NL
       +'日期：'+dateStr+'　模式：'+(saved.mode||'未知')+'　體感：'+(saved.feel||'未知')+NL
-      +'今日戰力：'+cp+'% '+cpLabel+NL
-      +(saved.depleted_at?'⚡ 能量低點時間：'+saved.depleted_at+'（可推算今日有效工作續航長度）'+NL:'')
-      +'戰力期待值：'+cpExpect+NL+NL
+      +'今日戰力：'+cp+'% '+cpLabel+'　期待基準：'+cpExpect+NL
+      +(saved.depleted_at?'⚡ 能量低點：'+saved.depleted_at+NL:'')
       +planSection+overloadSection+alignSection+NL+NL
       +'【實際覆盤結果】'+NL+actualItems+missedText+overall+NL+NL
-      +'請用繁體中文，以下格式輸出（每段給出真實、有深度的觀察，不要只重述事實）：'+NL+NL
-      +'【戰力 × 實際表現分析】'+NL
-      +'以今日戰力（'+cp+'% '+cpLabel+'）為基準，評估實際完成狀況是高於、符合、還是低於預期（1-2句）'+NL+NL
-      +(overloadedPipes.length
-        ? '【水管過載防禦分析】'+NL
-          +'如果過載且有任務未完成：直接指出規劃落差是水管塞爆造成的，給出下次具體配速調整建議。'+NL
-          +'如果過載但全部完成：發出意志力防禦警示——這是在大幅燃燒意志力，需注意滯後疲勞回檔，建議明天主動在水管中置入「強制休息積木」。'+NL+NL
-        : '')
-      +(pipeAlignItems.length
-        ? '【配速對齊校正分析】'+NL
-          +'對有 ⚠️ 警告的任務，逐一給出以下判斷：'+NL
-          +'- 若完成（不一致）：這屬於心流驅動突破，還是疲勞滯後尚未顯現？並指出這是戰力推論模型的校正依據，建議在 SAS Hub 中調整對此類任務的預期。'+NL
-          +'- 若未完成（一致）：直接指出這印證了當日系統防禦配速的準確性，並提醒順應身體節奏排程。'+NL+NL
-        : '')
-      +'【計畫 vs 實際落差】'+NL
-      +(hasAiPlan?'針對 AI 水管配置 vs 實際的落差：預排任務哪些完成/未完成；[人工加入]任務是有餘裕加碼還是修正計畫'
-        :'以任務庫為基準，分析今日實際選擇反映了什麼優先順序或狀態')+NL+NL
-      +'【今日小結】'+NL+'一句話（30字內）'+NL+NL
-      +'【明日具體建議】'+NL+'1-2個明天可直接執行的調整，語氣直接，不說泛泛建議'+NL+NL
-      +'語氣直接，不過度鼓勵，給真實觀察。';
+      +'請用繁體中文，嚴格按以下三段格式輸出，每段不超過 3 句：'+NL+NL
+      +'【狀態快照】'+NL
+      +'以戰力 '+cp+'% 為基準，一句話說今日完成率是高於／符合／低於預期，點出最關鍵原因。'
+      +(overloadedPipes.length?' 水管過載的話直接說是塞爆還是燃意志力。':'')+NL+NL
+      +'【今日診斷】'+NL
+      +(hasAiPlan
+        ? 'AI 水管 vs 實際：說出最大落差點是什麼，原因是計畫問題還是當日狀態問題。'
+        : '今日任務選擇反映了什麼？最值得追問的一個決策。')
+      +(pipeAlignItems.length?' ⚠️ 警告任務若完成，直接判斷是心流突破還是疲勞滯後未顯；若未完成，確認防禦準確。':'')+NL+NL
+      +'【明日行動清單】'+NL
+      +'給 2-3 個帶序號的具體行動，格式：① 時間或場景＋具體事項（不說「可以考慮」、「建議」等模糊詞）。'+NL
+      +'例：① 09:30 前完成一組英文練習（30分），② 午休後置入強制休息積木再接高能任務。'+NL+NL
+      +'語氣直接，不鼓勵，不重述事實。';
   }
 
   try{
-    const resp=await fetch(GROQ,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+key},body:JSON.stringify({model:'llama-3.3-70b-versatile',messages:[{role:'user',content:prompt}],temperature:0.5,max_tokens:600})});
+    const resp=await fetch(GROQ,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+key},body:JSON.stringify({model:'llama-3.3-70b-versatile',messages:[{role:'user',content:prompt}],temperature:0.5,max_tokens:450})});
     if(!resp.ok) throw new Error('HTTP '+resp.status);
     const data=await resp.json();
     const fbText=data.choices?.[0]?.message?.content||'';
