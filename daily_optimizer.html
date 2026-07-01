@@ -985,6 +985,7 @@ function parseSleep(html){
   showSleep(d.summary);return true;
 }
 function isWeekendDate(dateStr){const d=new Date(dateStr+'T12:00:00');return d.getDay()===0||d.getDay()===6;}
+function calcNightRawOpt(d){const ts=d.deep_min+d.rem_min+d.core_min;if(!ts)return 0;return Math.min(d.deep_min/ts*100/18*100,100)*0.7+Math.min(d.rem_min/ts*100/22.5*100,100)*0.3;}
 function showSleep(s){
   const fd=x=>x.toISOString().slice(0,10);
   const t=new Date(),y=new Date(Date.now()-864e5);
@@ -1009,9 +1010,19 @@ function showSleep(s){
   const debtHours=totalDebtMin/60;
   const debtPenalty=Math.max(0, debtHours-3)*2;
   const singleV=Math.min(100,Math.max(0,Math.round(rawScore-debtPenalty)));
-  // 平日：用自己算的（已排除週末債）；週末：沿用 dashboard 的加權值
-  const weighted=parseInt(localStorage.getItem('sas_combat_weighted')||'');
-  const v=todayIsWeekend&&(!isNaN(weighted)&&weighted>0)?weighted:singleV;
+  // 平日：對齊 sleep_dashboard_v2「3夜加權」公式，取最後 3 個平日夜晚 × [0.1,0.3,0.6]
+  // 週末：沿用 dashboard 寫入的 sas_combat_weighted（含週末夜晚，但休假 flag 蓋掉）
+  let v;
+  if(todayIsWeekend){
+    const weighted=parseInt(localStorage.getItem('sas_combat_weighted')||'');
+    v=(!isNaN(weighted)&&weighted>0)?weighted:singleV;
+  }else{
+    const wdNights=s.filter(r=>!isWeekendDate(r.date));
+    const rec3=wdNights.slice(-3);
+    const wts3=rec3.length>=3?[0.1,0.3,0.6]:rec3.length===2?[0.4,0.6]:[1.0];
+    const raw3=rec3.reduce((sum,r,i)=>sum+calcNightRawOpt(r)*wts3[i],0);
+    v=Math.round(Math.max(0,raw3-debtPenalty));
+  }
 
   setPwr(v);
   const fmt=m=>m>=60?`${(m/60).toFixed(1)}h`:`${m}min`;
