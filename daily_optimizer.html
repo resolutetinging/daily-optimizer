@@ -984,6 +984,7 @@ function parseSleep(html){
   if(!d||!Array.isArray(d.summary)||!d.summary.length)return false;
   showSleep(d.summary);return true;
 }
+function isWeekendDate(dateStr){const d=new Date(dateStr+'T12:00:00');return d.getDay()===0||d.getDay()===6;}
 function showSleep(s){
   const fd=x=>x.toISOString().slice(0,10);
   const t=new Date(),y=new Date(Date.now()-864e5);
@@ -1000,14 +1001,17 @@ function showSleep(s){
   const remScore  = Math.min(remPct/22.5*100,  100);   // AASM rem  建議 22.5%
   const rawScore  = deepScore*0.7 + remScore*0.3;
 
-  // 睡眠債：取最後 7 筆（含今天），以 total_min 計算，目標 480min/night
-  const l7=s.slice(-7);
+  // 睡眠債：平日取最後 7 個「平日夜晚」；週末用全部（反正休假 flag 會蓋掉）
+  const todayIsWeekend=isWeekendDate(fd(t));
+  const debtPool=todayIsWeekend?s:s.filter(r=>!isWeekendDate(r.date));
+  const l7=debtPool.slice(-7);
   const totalDebtMin=l7.reduce((sum,r)=>sum+Math.max(0,480-(r.total_min||0)),0);
   const debtHours=totalDebtMin/60;
   const debtPenalty=Math.max(0, debtHours-3)*2;
   const singleV=Math.min(100,Math.max(0,Math.round(rawScore-debtPenalty)));
+  // 平日：用自己算的（已排除週末債）；週末：沿用 dashboard 的加權值
   const weighted=parseInt(localStorage.getItem('sas_combat_weighted')||'');
-  const v=(!isNaN(weighted)&&weighted>0)?weighted:singleV;
+  const v=todayIsWeekend&&(!isNaN(weighted)&&weighted>0)?weighted:singleV;
 
   setPwr(v);
   const fmt=m=>m>=60?`${(m/60).toFixed(1)}h`:`${m}min`;
