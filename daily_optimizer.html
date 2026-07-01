@@ -1187,7 +1187,8 @@ function renderTaskLib(){
       if(inactive)d.style.opacity='0.4';
       const isJobCat=cat.freq==='mode_jobsearch';
       const isOn=tfreq!=='ondemand'&&!(tfreq==='mode_jobsearch'&&!jobsearchMode);
-      const toggleHtml=isJobCat?'':`<label class="ti-onoff" title="${isOn?'點擊：從行程移除':'點擊：加入行程'}"><input type="checkbox" ${isOn?'checked':''} onchange="toggleTaskActive(${t.id},this.checked)"><span class="ti-onoff-sl"></span></label>`;
+      const jobToggleTitle=isOn?'點擊：改為按需（不自動排入）':'點擊：改為每日（模式開啟時自動排入）';
+      const toggleHtml=`<label class="ti-onoff" title="${isJobCat?jobToggleTitle:(isOn?'點擊：從行程移除':'點擊：加入行程')}"><input type="checkbox" ${isOn?'checked':''} onchange="toggleTaskActive(${t.id},this.checked)"><span class="ti-onoff-sl"></span></label>`;
       d.innerHTML=`<div class="ti-dot"></div>
         <div contenteditable="true" class="tt" onblur="upt(${t.id},this.textContent.trim())" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur()}">${esc(t.text)}</div>
         ${toggleHtml}<span class="dh">⠿</span><span class="db" onclick="del(${t.id})">×</span>`;
