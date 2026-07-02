@@ -2850,8 +2850,10 @@ function buildMiniPipeView(data){
   const durSec=groupsHtml?`
     <div class="hist-dur-sec">
       <div class="hist-overall">
-        <div class="hist-overall-label">⏱ 能耗配置 × 代償對照（戰力 ${cp}%）</div>
-        ${groupsHtml}
+        <div class="hist-overall-label" style="cursor:pointer;user-select:none" onclick="var b=this.nextElementSibling;b.style.display=b.style.display==='block'?'none':'block';this.querySelector('.dur-tog').textContent=b.style.display==='block'?'▾':'▸'">
+          ⏱ 能耗配置 × 代償對照（戰力 ${cp}%）<span class="dur-tog" style="margin-left:4px;font-size:8px;color:#b0a89a">▸</span>
+        </div>
+        <div style="display:none">${groupsHtml}</div>
       </div>
     </div>`:''
 
