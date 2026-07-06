@@ -2869,7 +2869,7 @@ function openSnapshotLightbox(src){
 const GIST_TOKEN_KEY_DO='do_gist_token';
 const GIST_ID_KEY_DO='do_gist_id';
 const GIST_FILENAME_DO='daily_optimizer_sync.json';
-function getGistToken(){return localStorage.getItem(GIST_TOKEN_KEY_DO)||'';}
+function getGistToken(){return localStorage.getItem('gh_pat')||localStorage.getItem(GIST_TOKEN_KEY_DO)||'';}
 function getGistId(){return localStorage.getItem(GIST_ID_KEY_DO)||'';}
 
 function saveGistToken(){
