@@ -2173,18 +2173,34 @@ async function saveReview(){
   const toast=document.getElementById('savedToast');
   toast.style.display='block';
   setTimeout(()=>toast.style.display='none',2200);
-  // ── snapshot capture ──
-  const target=document.getElementById('sout')?.closest('.card');
-  if(target&&window.html2canvas){
-    try{
-      const canvas=await html2canvas(target,{scale:2,useCORS:true,logging:false,backgroundColor:'#f4f1ec'});
-      const snapshot=canvas.toDataURL('image/jpeg',0.88);
-      const d2=JSON.parse(localStorage.getItem(displayKey)||'{}');
-      d2.snapshot=snapshot;
-      localStorage.setItem(displayKey,JSON.stringify(d2));
-    }catch(e){console.warn('snapshot failed',e);}
-  }
+  // ── snapshot capture 已移除（2026-07-07）──
+  // 歷史頁已改用 buildMiniPipeView 依 pipes 即時重繪，snapshot 欄位無任何讀取端；
+  // 舊機制每天寫入數百 KB 死圖片是 localStorage 肥大主因之一，勿恢復。
 }
+
+// ── 一次性清理：移除歷史 review_* 內的死 snapshot 欄位（2026-07-07）──
+// 冪等：清完後每次載入掃描皆無命中，成本極低；pipes 資料不動，歷史顯示不受影響。
+(function stripDeadSnapshots(){
+  try{
+    let cleaned=0,freedChars=0;
+    for(let i=localStorage.length-1;i>=0;i--){
+      const k=localStorage.key(i);
+      if(!k||!k.startsWith('review_'))continue;
+      const raw=localStorage.getItem(k)||'';
+      if(raw.indexOf('"snapshot"')===-1)continue;
+      try{
+        const d=JSON.parse(raw);
+        if(d&&typeof d==='object'&&'snapshot' in d){
+          delete d.snapshot;
+          const slim=JSON.stringify(d);
+          localStorage.setItem(k,slim);
+          cleaned++;freedChars+=raw.length-slim.length;
+        }
+      }catch(e){}
+    }
+    if(cleaned)console.log('[cleanup] 已移除 '+cleaned+' 筆覆盤的死截圖欄位，釋放約 '+(freedChars*2/1048576).toFixed(1)+' MB');
+  }catch(e){}
+})();
 
 async function genReviewFeedback(){
   const key=getKey();
