@@ -1402,7 +1402,9 @@ ${taskList}
     if(!resp.ok){const err=await resp.json().catch(()=>({}));throw new Error(err.error?.message||`HTTP ${resp.status}`);}
     const data=await resp.json();
     const raw=JSON.parse((data.choices?.[0]?.message?.content||'').replace(/```json|```/g,'').trim());
-    const result=sanitizePipes(raw,calEvents,getEffectiveTasks());
+    // 繁中保底：cc_zht.js 為外部非同步載入的共用檔，未就緒時原樣顯示不報錯
+    const zhSafe=(typeof s2tDeep==='function')?s2tDeep(raw):raw;
+    const result=sanitizePipes(zhSafe,calEvents,getEffectiveTasks());
     document.getElementById('ovl').classList.add('hidden');
     // 若 Groq 回傳舊格式（無 pipes 欄位），自動改用示範資料
     if(!result.pipes||!result.pipes.length) renderPipeSandbox(getMockPipes(p),true);
@@ -1658,7 +1660,8 @@ Return ONLY JSON: [{"t":"task name","type":"high","ideal":30},...]`;
     const raw=j.choices?.[0]?.message?.content||'';
     const jm=raw.match(/\[[\s\S]*\]/);
     if(!jm) return;
-    const items=JSON.parse(jm[0]);
+    const parsedItems=JSON.parse(jm[0]);
+    const items=(typeof s2tDeep==='function')?s2tDeep(parsedItems):parsedItems;
 
     // 前端強制正規化：確保 ideal 加總 = fuel（修正 Groq 可能的偏差）
     const rawSum=items.reduce((s,it)=>s+(it.ideal||0),0);
@@ -2256,7 +2259,7 @@ async function genReviewFeedback(){
       +'日期：'+dateStr+'　戰力：'+cp+'% '+cpLabel+NL
       +restNote
       +'【今日活動記錄】'+NL+actualItems+overall+NL+NL
-      +'請用繁體中文，嚴格按以下兩段格式輸出：'+NL+NL
+      +'請務必使用繁體中文（台灣正體）作答，嚴禁簡體字，嚴禁日文（含漢字新字體與假名），嚴格按以下兩段格式輸出：'+NL+NL
       +'【充電診斷】'+NL
       +'一句話直接判斷：今天是真正充電還是隱性焦慮的假休？並說出明天能量會回升還是仍需保護，原因一句話。'+NL+NL
       +'【明日啟動行動】'+NL
@@ -2346,7 +2349,7 @@ async function genReviewFeedback(){
       +(saved.depleted_at?'⚡ 能量低點：'+saved.depleted_at+NL:'')
       +planSection+overloadSection+alignSection+NL+NL
       +'【實際覆盤結果】'+NL+actualItems+missedText+overall+NL+NL
-      +'請用繁體中文，嚴格按以下三段格式輸出，每段不超過 3 句：'+NL+NL
+      +'請務必使用繁體中文（台灣正體）作答，嚴禁簡體字，嚴禁日文（含漢字新字體與假名），嚴格按以下三段格式輸出，每段不超過 3 句：'+NL+NL
       +'【狀態快照】'+NL
       +'以戰力 '+cp+'% 為基準，一句話說今日完成率是高於／符合／低於預期，點出最關鍵原因，必須與【實際覆盤結果】的完成狀態一致，不可與實際完成情況矛盾。'
       +(overloadedPipes.length
@@ -2369,7 +2372,9 @@ async function genReviewFeedback(){
     const resp=await fetch(GROQ,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+key},body:JSON.stringify({model:'llama-3.3-70b-versatile',messages:[{role:'user',content:prompt}],temperature:0.5,max_tokens:450})});
     if(!resp.ok) throw new Error('HTTP '+resp.status);
     const data=await resp.json();
-    const fbText=data.choices?.[0]?.message?.content||'';
+    const rawFbText=data.choices?.[0]?.message?.content||'';
+    // 繁中保底：cc_zht.js 為外部非同步載入的共用檔，未就緒時原樣顯示不報錯
+    const fbText=(typeof s2t==='function')?s2t(rawFbText):rawFbText;
     out.textContent=fbText;
     out.style.display='block';
     const ex=JSON.parse(localStorage.getItem(displayKey)||'{}');
@@ -2547,7 +2552,7 @@ async function genWeeklyRecap(){
 【本週覆盤記錄】
 ${weekSummary}
 
-請用繁體中文，以下格式輸出：
+請務必使用繁體中文（台灣正體）作答，嚴禁簡體字，嚴禁日文（含漢字新字體與假名），以下格式輸出：
 
 【本週總結】
 一段話描述本週整體表現（50字以內）
@@ -2567,7 +2572,9 @@ ${weekSummary}
     const resp=await fetch(GROQ,{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${key}`},body:JSON.stringify({model:'llama-3.3-70b-versatile',messages:[{role:'user',content:prompt}],temperature:0.5,max_tokens:600})});
     if(!resp.ok) throw new Error(`HTTP ${resp.status}`);
     const data=await resp.json();
-    out.textContent=data.choices?.[0]?.message?.content||'';
+    const rawRecap=data.choices?.[0]?.message?.content||'';
+    // 繁中保底：cc_zht.js 為外部非同步載入的共用檔，未就緒時原樣顯示不報錯
+    out.textContent=(typeof s2t==='function')?s2t(rawRecap):rawRecap;
     out.style.display='block';
   }catch(e){
     out.textContent='生成失敗：'+e.message;
@@ -3011,6 +3018,7 @@ function toggleHistRest(key,e){
   renderHist();
 }
 </script>
+<script src="https://resolutetinging.github.io/control-center/cc_zht.js"></script>
 <script src="https://resolutetinging.github.io/control-center/cc_track.js" data-cc-key="optimizer" data-cc-label="Daily Optimizer"></script>
 </body>
 </html>
