@@ -1,0 +1,50 @@
+Claude Development Log — Daily Optimizer — 2026-07-09
+================================================================
+
+SESSION SUMMARY
+- Session: 2026-07-09
+- Version: v2.12
+- File: Desktop/Claude Project/Daily Optimization/daily_optimizer.html
+- Spec: Desktop/Claude Project/Spec/daily-optimizer-spec-v1.0.md
+
+----------------------------------------------------------------
+重構：水管壓力判定改為「能量加權密度制」（取代 v1.1 calcPressureScore）
+----------------------------------------------------------------
+問題：
+  舊制 calcPressureScore(pipeIdx)（約1833行）每任務一律 +1 分、不看時段長度。
+  09:30-12:00（2.5hr）高能時段塞 5 件任務被判 💥 核爆，實則平均每件 30 分鐘
+  完全合理；同樣 5 件塞進 1 小時（真正過載）分數卻相同。AI 反饋
+  overloadedPipes（約2289行）吃同一判定，偏差傳染到每日能量敘事。
+
+修正：
+  新函式 calcPipePressure(pipe,tasks,skipTasks) 為單一事實來源，回傳
+  {density,level,weight,hours}：
+  - 任務權重：high=1.5／mid=1.0／low=0.5（energy 查無資料預設 mid，
+    來源 taskData.tasks[].energy，透過 getTaskEnergyMap() name→energy map）
+  - 曾 skip 任務權重 ×2
+  - 密度 = Σ權重 ÷ max(pipeHours(pipe), 0.5)；pipeHours() 換算 'HH:MM'
+    時段長度，end<=start 防呆為最短 0.5hr
+  - 門檻：≥4.5→💥(3)｜≥3→🔥(2)｜≥1.5→⚠️(1)｜否則 0
+  - 獨立規則：low/rest 時段塞 >2 件工作任務 → 警示等級至少 🔥（不受密度影響）
+
+  updatePipeWarnIcon(pipeIdx)（約1867行）改吃 calcPipePressure，title 附註
+  「密度 X.X件/hr」。AI 反饋 overloadedPipes 收集（約2290行起）同步改吃
+  同一函式：非 rest 水管 level>=2 才算過載；rest 水管維持「有工作任務即過載」
+  （強制充能被侵犯），overloadSection 文字附註密度數字。
+
+  舊 calcPressureScore 移除（無其他呼叫點）。
+
+驗證：
+  node --check 通過（單一 script block 抽出檢查）
+  五案例 mock 實測（獨立 node script 跑同邏輯）：
+    案例1 2.5h高能5件(2h+3m,無skip)  → density 2.4  level 1 ⚠️（不再💥）
+    案例2 1h 3件mid                  → density 3    level 2 🔥
+    案例3 1h 3件high含1 skip         → density 6    level 3 💥
+    案例4 low時段3件low              → density 1    level 2 🔥（獨立規則生效）
+    案例5 30分鐘1件mid               → density 2    level 1 ⚠️（下限防呆生效）
+  五案例全數與鎖定設計預期相符。
+
+殘留風險：
+  taskData.tasks[].energy 若使用者事後修改任務能量分類，歷史覆盤的
+  overloadedPipes 密度會用「當下」energy 重算，非當日快照值，可能與
+  記錄當時的實際感受略有落差（機率低，energy 欄位變動不頻繁）。

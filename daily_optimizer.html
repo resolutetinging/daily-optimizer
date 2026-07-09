@@ -1543,6 +1543,7 @@ function renderOut(r){
 let _pipes=[], _pipeAssign={}, _skipTasks=[], _selPipeIdx=null, _selBrickText=null, _tempBricks=[];
 let _durEstimates={}; // {taskName:{ideal,actual}} — 供覆盤系統綁定代償分鐘數
 const REST_BRICKS=['💤 午休蓄能','🌿 傍晚充能','🔋 快充小憩'];
+const TASK_WEIGHT={high:1.5,mid:1.0,low:0.5};
 
 function getMockPipes(p){
   const summary=p>=75?'⚡ 示範資料：戰力充足，今日早段衝刺核心難題，午後維持節奏。'
@@ -1830,13 +1831,37 @@ function onBrickClick(taskText){
   }
 }
 
-function calcPressureScore(pipeIdx){
-  const pipe=_pipes[pipeIdx];if(!pipe)return 0;
-  const tasks=(_pipeAssign[pipeIdx]||[]).filter(t=>!REST_BRICKS.includes(t));
-  let score=0;
-  tasks.forEach(t=>{ score+=_skipTasks.includes(t)?2:1; });
-  if((pipe.type==='low'||pipe.type==='rest')&&tasks.length>2) score+=2;
-  return score;
+// 能量加權密度制（取代舊「每任務+1」不看時長的 calcPressureScore）
+// 任務權重：high=1.5／mid=1.0／low=0.5（曾跳過的任務權重 ×2）
+// 密度＝Σ權重 ÷ max(時段小時數,0.5)；門檻：≥4.5→💥(3)｜≥3→🔥(2)｜≥1.5→⚠️(1)｜否則 0
+// 獨立規則：低能/休息時段塞 >2 件工作任務 → 警示等級至少 🔥(2)，不受密度除法影響
+function getTaskEnergyMap(){
+  const m={};
+  taskData.tasks.forEach(t=>{ m[t.text]=t.energy||'mid'; });
+  return m;
+}
+function pipeHours(pipe){
+  if(!pipe||!pipe.start||!pipe.end)return 0.5;
+  const[sh,sm]=pipe.start.split(':').map(Number);
+  const[eh,em]=pipe.end.split(':').map(Number);
+  let mins=(eh*60+em)-(sh*60+sm);
+  if(mins<=0)mins=30; // 防呆：end<=start（含誤植的跨日情況）視為最短 0.5hr，避免除以 0/負值
+  return mins/60;
+}
+function calcPipePressure(pipe,tasks,skipTasks){
+  const workTasks=(tasks||[]).filter(t=>!REST_BRICKS.includes(t));
+  const energyMap=getTaskEnergyMap();
+  skipTasks=skipTasks||[];
+  let weight=0;
+  workTasks.forEach(t=>{
+    const w=TASK_WEIGHT[energyMap[t]||'mid'];
+    weight+=skipTasks.includes(t)?w*2:w;
+  });
+  const hours=Math.max(pipeHours(pipe),0.5);
+  const density=weight/hours;
+  let level=density>=4.5?3:density>=3?2:density>=1.5?1:0;
+  if(pipe&&(pipe.type==='low'||pipe.type==='rest')&&workTasks.length>2&&level<2)level=2;
+  return {density,level,weight,hours,tasks:workTasks};
 }
 
 function updatePipeWarnIcon(pipeIdx){
@@ -1844,18 +1869,20 @@ function updatePipeWarnIcon(pipeIdx){
   el.querySelector('.pipe-warn-ico')?.remove();
   el.classList.remove('pipe-warn-1','pipe-warn-2','pipe-warn-3');
   el.title='';
-  const score=calcPressureScore(pipeIdx);
-  if(score<=0)return;
+  const pipe=_pipes[pipeIdx];if(!pipe)return;
+  const{density,level}=calcPipePressure(pipe,_pipeAssign[pipeIdx]||[],_skipTasks);
+  if(level<=0)return;
+  const densityTxt=`（密度 ${density.toFixed(1)}件/hr）`;
   let emoji,title,cls;
-  if(score>=5){
+  if(level>=3){
     emoji='💥';cls='pipe-warn-3';
-    title='危險：雙重核爆臨界點！今晚覆盤此區塊極大概率全滅，強烈建議手動停損、移回積木池。';
-  }else if(score>=3){
+    title='危險：雙重核爆臨界點！今晚覆盤此區塊極大概率全滅，強烈建議手動停損、移回積木池。'+densityTxt;
+  }else if(level===2){
     emoji='🔥';cls='pipe-warn-2';
-    title='警告：時段任務過載！過多的任務切換將導致大腦卡死，高機率流產。';
+    title='警告：時段任務過載！過多的任務切換將導致大腦卡死，高機率流產。'+densityTxt;
   }else{
     emoji='⚠️';cls='pipe-warn-1';
-    title='注意：時段能耗配速不對，此任務做起來會較為卡頓，請心理代償準備。';
+    title='注意：時段能耗配速不對，此任務做起來會較為卡頓，請心理代償準備。'+densityTxt;
   }
   void el.offsetWidth;
   el.classList.add(cls);
@@ -2291,9 +2318,10 @@ async function genReviewFeedback(){
       const pipe=savedPipes[parseInt(pi)];
       if(!pipe||!tasks.length)return;
       const workTasks=tasks.filter(t=>!REST_BRICKS.includes(t));
-      const highCostCount=workTasks.filter(t=>(saved.skipTasks||[]).includes(t)).length;
-      const isOverload=pipe.type==='rest'?workTasks.length>0
-        :(workTasks.length>=3||(pipe.type==='low'&&highCostCount>=2));
+      if(!workTasks.length)return;
+      const pressure=calcPipePressure(pipe,workTasks,saved.skipTasks||[]);
+      // rest 時段：只要塞了工作任務就算過載（強制充能被侵犯）；其餘時段吃統一密度判定（🔥以上）
+      const isOverload=pipe.type==='rest'?workTasks.length>0:pressure.level>=2;
       if(isOverload){
         const statuses=workTasks.map(t=>{
           const ri=saved.items?.find(i=>i.name===t);
@@ -2302,13 +2330,14 @@ async function genReviewFeedback(){
         const doneCount=statuses.filter(s=>s==='done'||s==='part').length;
         overloadedPipes.push({
           range:`${pipe.start}–${pipe.end}`,label:pipe.label,type:pipe.type,
-          tasks:workTasks,count:workTasks.length,doneCount,allDone:doneCount===workTasks.length
+          tasks:workTasks,count:workTasks.length,doneCount,allDone:doneCount===workTasks.length,
+          density:pressure.density
         });
       }
     });
     const overloadSection=overloadedPipes.length
       ? NL+'【水管過載記錄（白天配速記錄）】'+NL
-        +overloadedPipes.map(o=>`  ${o.range}「${o.label}」(${o.type})：共 ${o.count} 件任務 [${o.tasks.join('、')}]，完成 ${o.doneCount}/${o.count} 件`).join(NL)
+        +overloadedPipes.map(o=>`  ${o.range}「${o.label}」(${o.type})：共 ${o.count} 件任務 [${o.tasks.join('、')}]，密度 ${o.density.toFixed(1)}件/hr，完成 ${o.doneCount}/${o.count} 件`).join(NL)
       : '';
     const allOverloadDone=overloadedPipes.length>0&&overloadedPipes.every(o=>o.allDone);
 
