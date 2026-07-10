@@ -478,11 +478,7 @@ input:checked+.js-slider:before{transform:translateX(13px);}
     <div id="depletedRow" style="margin-top:6px;"></div>
   </div>
 
-  <div class="hidden wrap" id="mwrap">
-    <div style="font-size:11px;color:#9a9088;padding:0 2px 6px;font-weight:600;text-transform:uppercase;letter-spacing:.07em">手動輸入戰力值 (%)</div>
-    <input type="number" class="minput" id="mpow" min="0" max="100" placeholder="例：72" oninput="onManual()">
-  </div>
-
+  <!-- 手動輸入戰力已於 2026-07-10 移除：戰力一律讀 localStorage（sas_combat_weekday→weighted→rawScore），遠端睡眠明細抓不到時只影響明細顯示 -->
 
   <!-- 休假模式卡片 -->
   <div class="rest-card" id="restCard">
@@ -975,8 +971,11 @@ async function fetchSleep(){
   setFS('load','正在讀取睡眠數據…');
   try{const r=await fetch(DASH);if(r.ok){const h=await r.text();if(parseSleep(h))return;}}catch(e){}
   for(const px of PROXIES){try{const r=await fetch(px(DASH));const j=await r.json();const h=j.contents||j;if(typeof h==='string'&&parseSleep(h))return;}catch(e){}}
-  setFS('err','無法自動讀取 · 請手動輸入戰力值');
-  document.getElementById('mwrap').classList.remove('hidden');setPwr(50,true);
+  /* 睡眠明細抓不到時，戰力仍走 localStorage 同一條 fallback 鏈（不再要求手動輸入） */
+  setFS('err','無法讀取睡眠明細 · 戰力已改用本機快取值');
+  const _wd=parseInt(localStorage.getItem('sas_combat_weekday')||'');
+  const _wt=parseInt(localStorage.getItem('sas_combat_weighted')||'');
+  setPwr((!isNaN(_wd)&&_wd>0)?_wd:(!isNaN(_wt)&&_wt>0)?_wt:50);
 }
 function parseSleep(html){
   const m=html.match(/const RAW = (\{[\s\S]+?\});\s*\n/);if(!m)return false;
@@ -1021,11 +1020,10 @@ function showSleep(s){
   setFS('ok','數據已載入');
   const meta=document.getElementById('sleep-meta');
   if(meta) meta.textContent=`數據日期：${e.date}　睡眠 ${fmt(totalDisplay)}　睡眠債 ${debtHours.toFixed(1)}h`;
-  document.getElementById('mwrap').classList.add('hidden');
 }
-function setPwr(v,manual=false){
+function setPwr(v){
   pwr=v;
-  // 完全對齊 sleep-dashboard 顏色與標籤
+  // 完全對齊 sleep-dashboard 顏色與標籤（手動模式已於 2026-07-10 移除，戰力一律來自查詢值）
   let rc,lvLabel,lvDesc;
   if(v>=80)     {rc='#5e8f7e';lvLabel='🔥 Peak';    lvDesc='深度任務全開，今日最佳狀態';}
   else if(v>=70){rc='#5c7a96';lvLabel='⚡ Stable';  lvDesc='穩定能量，適合常規學習任務';}
@@ -1033,14 +1031,13 @@ function setPwr(v,manual=false){
   else          {rc='#c0392b';lvLabel='🔴 Critical';lvDesc='嚴重睡眠不足，今日以輕任務為主';}
   const ring=document.getElementById('rfg');
   setTimeout(()=>{ring.style.strokeDashoffset=(188.5*(1-v/100)).toFixed(2);ring.style.stroke=rc;},120);
-  document.getElementById('pnum').textContent=manual?'?':v;
-  document.getElementById('pnum').style.color=manual?'':rc;
+  document.getElementById('pnum').textContent=v;
+  document.getElementById('pnum').style.color=rc;
   const ps=document.getElementById('pstatus');
-  ps.textContent=manual?'手動模式':lvLabel;
-  ps.style.color=manual?'':rc;
-  document.getElementById('pdesc').textContent=manual?'請輸入今日戰力值':lvDesc;
+  ps.textContent=lvLabel;
+  ps.style.color=rc;
+  document.getElementById('pdesc').textContent=lvDesc;
 }
-function onManual(){const v=parseInt(document.getElementById('mpow').value)||0;setPwr(Math.min(100,Math.max(0,v)));}
 function setFS(st,txt){
   const fdot=document.getElementById('fdot'),ftxt=document.getElementById('ftxt');
   if(fdot)fdot.className='dot '+(st==='load'?'dspin':st==='ok'?'dok':'derr');
@@ -1332,7 +1329,7 @@ async function generate(){
   if(!selMode){alert('請選擇今日模式');return;}
   if(selMode==='工作日'){renderWorkdayOut();return;}
 
-  const p=pwr||(parseInt(document.getElementById('mpow').value)||50);
+  const p=pwr||50;
   const calEvents=document.getElementById('calInput').value.trim();
   const notes=document.getElementById('notes').value.trim();
   const d=new Date(),dow=d.getDay(),isMon=dow===1,isThu=dow===4,isOut=selLoc==='外出日';
