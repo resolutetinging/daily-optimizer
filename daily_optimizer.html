@@ -1624,10 +1624,10 @@ function buildDurCard(p){
   return`<div class="dur-card">
     <div style="display:flex;align-items:center;gap:6px;margin-bottom:5px;">
       <div class="dur-card-hdr" style="margin:0;flex:1">⏱ 當前能耗配置與代償對照（戰力 ${v}%）</div>
-      <span class="dur-collapse-btn" onclick="(function(b,btn){var o=b.classList.toggle('open');btn.textContent=o?'▴':'▾';})(document.getElementById('dur-card-body'),this)">▴</span>
+      <span class="dur-collapse-btn" onclick="(function(b,btn){var o=b.classList.toggle('open');btn.textContent=o?'▴':'▾';})(document.getElementById('dur-card-body'),this)">▾</span>
       <span class="dur-formula-toggle" onclick="this.textContent=this.textContent.includes('▾')?'公式 ▴':'公式 ▾';document.getElementById('dur-formula-box').classList.toggle('open')">公式 ▾</span>
     </div>
-    <div class="dur-card-body open" id="dur-card-body">
+    <div class="dur-card-body" id="dur-card-body">
       ${formulaHtml}
       <div class="dur-fuel-ref">📊 生理水庫基礎：今日高效續航燃料 ➔ ${fuel} 分鐘（背景對照）</div>
       ${groupsHtml}
