@@ -760,7 +760,7 @@ function parseCalEvents(raw){
 }
 
 /* ── LLM 輸出後處理：label 白名單 + hint 完全由任務庫生成 ── */
-function sanitizePipes(result, calEvents, tasks){
+function sanitizePipes(result, calEvents, tasks, pwr){
   if(!result||!result.pipes)return result;
   const calNames=parseCalNames(calEvents);
   result.pipes=result.pipes.map(p=>{
@@ -790,6 +790,31 @@ function sanitizePipes(result, calEvents, tasks){
   /* ── 依時序排序 ── */
   const toMin=t=>{const[h,m]=(t||'0:0').split(':').map(Number);return h*60+(m||0);};
   result.pipes.sort((a,b)=>toMin(a.start)-toMin(b.start));
+
+  /* ── 段間緩衝強制修正：AI排定的相鄰水管若分秒緊貼(gap<=0)，且兩側都不是Calendar鎖定行程，
+     從前一段末尾切出緩衝時間插入一段「段間緩衝」rest pipe，不完全依賴LLM遵守prompt指示；
+     bufferMin(pwr) 沿用「能耗配置」卡片既有公式，原本只當顯示文字用，這裡才是真正接進生成結果 ── */
+  const buf=bufferMin(pwr||50);
+  const withBuffer=[];
+  for(let i=0;i<result.pipes.length;i++){
+    const cur=result.pipes[i];
+    withBuffer.push(cur);
+    const next=result.pipes[i+1];
+    if(!next)continue;
+    const curEnd=toMin(cur.end),nextStart=toMin(next.start);
+    if(nextStart-curEnd>0)continue; // 已有間隔，不重複插入
+    const curIsCal=cur.type==='rest'&&calNames.has(normalizeCJK(cur.label));
+    const nextIsCal=next.type==='rest'&&calNames.has(normalizeCJK(next.label));
+    if(curIsCal||nextIsCal)continue; // Calendar鎖定行程前後不強加緩衝
+    const newEndMin=curEnd-buf;
+    if(newEndMin<=toMin(cur.start))continue; // 該段本身太短，硬縮會消失或變負值，跳過
+    const fmt=m=>String(Math.floor(m/60)).padStart(2,'0')+':'+String(m%60).padStart(2,'0');
+    const origEnd=cur.end;
+    cur.end=fmt(newEndMin);
+    withBuffer.push({start:cur.end,end:origEnd,type:'rest',label:'段間緩衝',hint:'⏸ 短暫緩衝，不排任務'});
+  }
+  result.pipes=withBuffer;
+
   if(result.summary)result.summary=normalizeCJK(result.summary);
   return result;
 }
@@ -1372,6 +1397,8 @@ async function generate(){
    - [輕量] 任務不應加入 skipTasks
 5. hint 欄位：留空字串 ""（系統會自動填入，不需 AI 生成）
 6. 輸出純 JSON，無 markdown；pipes 陣列依 start 時間升序排列
+7. 單一水管（非Calendar行程）建議不超過2小時；同屬性任務需求時間更長時，拆成兩段水管，中間插入短暫rest緩衝
+8. AI排定的相鄰水管之間（不含Calendar鎖定行程前後）應留數分鐘緩衝，不必分秒緊貼相接
 
 格式：{"summary":"一句話策略叮嚀（45字內）","pipes":[{"start":"09:30","end":"12:00","type":"high","label":"深度高能","hint":""}],"skipTasks":["原始任務名"]}`;
 
@@ -1401,7 +1428,7 @@ ${taskList}
     const raw=JSON.parse((data.choices?.[0]?.message?.content||'').replace(/```json|```/g,'').trim());
     // 繁中保底：cc_zht.js 為外部非同步載入的共用檔，未就緒時原樣顯示不報錯
     const zhSafe=(typeof s2tDeep==='function')?s2tDeep(raw):raw;
-    const result=sanitizePipes(zhSafe,calEvents,getEffectiveTasks());
+    const result=sanitizePipes(zhSafe,calEvents,getEffectiveTasks(),p);
     document.getElementById('ovl').classList.add('hidden');
     // 若 Groq 回傳舊格式（無 pipes 欄位），自動改用示範資料
     if(!result.pipes||!result.pipes.length) renderPipeSandbox(getMockPipes(p),true);
