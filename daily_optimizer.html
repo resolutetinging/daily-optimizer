@@ -375,6 +375,10 @@ input:checked+.js-slider:before{transform:translateX(13px);}
 .pipe-item.type-rest{background:rgba(132,168,140,.07);border-color:rgba(168,198,172,.28);}
 .brick.rest-brick{border-color:#7a9e8a;color:#2e6848;background:rgba(122,158,138,.09);border-style:solid;}
 .pipe-item.selected{box-shadow:0 0 0 2.5px #7a8e9e;border-color:#7a8e9e;}
+.pipe-item.pipe-now{box-shadow:0 0 0 2.5px #4a7fa5;border-color:#4a7fa5;}
+.pipe-now-badge{display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:700;color:#2f5878;background:rgba(74,127,165,.16);padding:2px 8px;border-radius:10px;margin-left:auto;letter-spacing:.02em;}
+.pipe-now-dot{width:6px;height:6px;border-radius:50%;background:#4a7fa5;flex-shrink:0;animation:pipeNowPulse 1.6s ease-in-out infinite;}
+@keyframes pipeNowPulse{0%,100%{opacity:1}50%{opacity:.3}}
 .pipe-warn-1{animation:pWarn1 1.6s ease-in-out;}
 .pipe-warn-2{animation:pWarn2 1.1s ease-in-out infinite;}
 .pipe-warn-3{animation:pWarn3 0.7s ease-in-out infinite;}
@@ -966,7 +970,7 @@ function openRestReview(){
   outSec.scrollIntoView({behavior:'smooth',block:'start'});
 }
 
-window.onload=()=>{setDate();renderT();renderKey();refreshGistUI();fetchSleep();loadSavedReview();initGistCard();renderLocRow();renderCustomFeelBtns();};
+window.onload=()=>{setDate();renderT();renderKey();refreshGistUI();fetchSleep();loadSavedReview();initGistCard();renderLocRow();renderCustomFeelBtns();setInterval(()=>highlightCurrentPipe(false),60000);};
 
 function setDate(){const d=new Date(),w=['週日','週一','週二','週三','週四','週五','週六'];document.getElementById('hdate').textContent=`${d.getMonth()+1}月${d.getDate()}日　${w[d.getDay()]}`;}
 
@@ -1792,6 +1796,7 @@ function renderPipeSandbox(result,isMock=false){
   const isFri=new Date().getDay()===5;
   const wr=document.getElementById('weeklyRecapSec');
   if(isFri){wr.classList.remove('hidden');renderWeeklyPreview();}else{wr.classList.add('hidden');}
+  highlightCurrentPipe(false); // 剛生成時已有捲到 outSec 的動作，不再搶著捲到當前方塊
 }
 
 function renderBrickPool(){
@@ -1871,6 +1876,30 @@ function pipeHours(pipe){
   let mins=(eh*60+em)-(sh*60+sm);
   if(mins<=0)mins=30; // 防呆：end<=start（含誤植的跨日情況）視為最短 0.5hr，避免除以 0/負值
   return mins/60;
+}
+// 標示目前所在的時段水管，scrollTo=true 時（首次渲染後）自動捲動到該方塊
+function highlightCurrentPipe(scrollTo){
+  document.querySelectorAll('.pipe-now-badge').forEach(el=>el.remove());
+  document.querySelectorAll('.pipe-item.pipe-now').forEach(el=>el.classList.remove('pipe-now'));
+  if(!_pipes||!_pipes.length)return;
+  const toMin=t=>{if(!t)return NaN;const[h,m]=t.split(':').map(Number);return h*60+m;};
+  const nowMin=new Date().getHours()*60+new Date().getMinutes();
+  const idx=_pipes.findIndex(p=>{
+    const s=toMin(p.start),e=toMin(p.end);
+    return !isNaN(s)&&!isNaN(e)&&nowMin>=s&&nowMin<e;
+  });
+  if(idx<0)return;
+  const el=document.getElementById(`pipe-${idx}`);
+  if(!el)return;
+  el.classList.add('pipe-now');
+  const hd=el.querySelector('.pipe-hd');
+  if(hd){
+    const badge=document.createElement('span');
+    badge.className='pipe-now-badge';
+    badge.innerHTML='<span class="pipe-now-dot"></span>現在';
+    hd.appendChild(badge);
+  }
+  if(scrollTo)setTimeout(()=>el.scrollIntoView({behavior:'smooth',block:'center'}),150);
 }
 function calcPipePressure(pipe,tasks,skipTasks){
   const workTasks=(tasks||[]).filter(t=>!REST_BRICKS.includes(t));
@@ -2036,6 +2065,7 @@ function renderSavedPipeSandbox(saved){
   loadTaskDurations(saved.combatPower||pwr);
   Object.keys(_pipeAssign).forEach(pi=>{ renderPipeChips(parseInt(pi)); updatePipeWarnIcon(parseInt(pi)); });
   renderBrickPool();
+  highlightCurrentPipe(true); // 回來查看已存排程時直接捲到當前方塊，省得手動找
 }
 /* ─── end pipe sandbox ─── */
 
