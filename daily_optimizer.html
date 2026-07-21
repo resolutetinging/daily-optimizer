@@ -2496,7 +2496,9 @@ function loadSavedReview(key){
       ?allNames.map(n=>`<div class="t-in-row"><div class="t-dot-in"></div>${esc(n)}</div>`).join('')
       :'<div style="font-size:12px;color:#9a9088;padding:4px 0">（任務庫為空）</div>';
     document.getElementById('tasksOutWrap').classList.add('hidden');
-    renderReview(saved.items?saved.items.map(i=>i.name):allNames);
+    // 每次載入都用即時 getEffectiveTasks()（非凍結的 saved.items），讓事後才切換成「每日」的任務能補進覆盤；
+    // renderReview 內建的還原邏輯會把舊 saved.items 裡沒出現在 allNames 的項目（含 custom）加回來，不會丟資料
+    renderReview(allNames);
   } else if(saved.restMode&&saved.items&&saved.items.length){
     restMode=true;
     const btn=document.getElementById('restBtn');
@@ -2522,8 +2524,9 @@ function renderSavedSchedule(saved){
   // 新水管格式優先
   if(saved.pipes&&saved.pipes.length){
     renderSavedPipeSandbox(saved);
-    const reviewNames=saved.items?saved.items.map(i=>i.name):getEffectiveTasks().map(t=>t.text);
-    renderReview(reviewNames.length?reviewNames:getEffectiveTasks().map(t=>t.text));
+    // 每次載入都用即時 getEffectiveTasks()（非凍結的 saved.items），讓事後才切換成「每日」的任務能補進覆盤；
+    // renderReview 內建的還原邏輯會把舊 saved.items 裡沒出現在此清單的項目（含 custom／臨時積木）加回來，不會丟資料
+    renderReview(getEffectiveTasks().map(t=>t.text));
     return;
   }
   // ── 以下為舊格式相容 ──
