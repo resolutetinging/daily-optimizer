@@ -788,12 +788,43 @@ function sanitizePipes(result, calEvents, tasks, pwr){
     return {...p,label,hint};
   });
   /* ── 強制注入 AI 漏掉的 Calendar 行程 ── */
-  parseCalEvents(calEvents).forEach(ev=>{
+  const parsedCal=parseCalEvents(calEvents);
+  parsedCal.forEach(ev=>{
     const already=result.pipes.some(p=>p.type==='rest'&&normalizeCJK(p.label)===normalizeCJK(ev.name));
     if(!already)result.pipes.push({start:ev.start,end:ev.end,type:'rest',label:ev.name,hint:'📅 行程佔用，不排任務'});
   });
   /* ── 依時序排序 ── */
   const toMin=t=>{const[h,m]=(t||'0:0').split(':').map(Number);return h*60+(m||0);};
+  const fmtMin=m=>String(Math.floor(m/60)).padStart(2,'0')+':'+String(m%60).padStart(2,'0');
+
+  /* ── 午餐 13:00–14:00 強制校正（07-28）：AI偶爾未照prompt規則2把午休排在13:00-14:00
+     （例如排到11:30-12:20），完全依賴prompt文字沒有code層防護，跟Calendar行程一樣補一道
+     強制校正。Calendar已佔用該區間則完全略過（比照prompt規則2）；已有rest管與該區間重疊
+     視為AI已安排午休不強制；否則把佔用該區間的水管切成前後兩段，中間插入強制午休 ── */
+  const LUNCH_S=toMin('13:00'), LUNCH_E=toMin('14:00');
+  const calOverlapsLunch=parsedCal.some(ev=>{
+    const s=toMin(ev.start), e=toMin(ev.end);
+    return s<LUNCH_E && e>LUNCH_S;
+  });
+  if(!calOverlapsLunch){
+    const hasLunchRest=result.pipes.some(p=>{
+      if(p.type!=='rest')return false;
+      const s=toMin(p.start), e=toMin(p.end);
+      return s<LUNCH_E && e>LUNCH_S;
+    });
+    if(!hasLunchRest){
+      const rebuilt=[];
+      result.pipes.forEach(p=>{
+        const s=toMin(p.start), e=toMin(p.end);
+        if(e<=LUNCH_S||s>=LUNCH_E){ rebuilt.push(p); return; } // 完全不重疊，原樣保留
+        if(s<LUNCH_S) rebuilt.push({...p,end:fmtMin(LUNCH_S)});   // 保留午餐前的部分
+        if(e>LUNCH_E) rebuilt.push({...p,start:fmtMin(LUNCH_E)}); // 保留午餐後的部分
+        // 該水管完全落在13:00-14:00內：前後都不留，整段被午休取代
+      });
+      rebuilt.push({start:'13:00',end:'14:00',type:'rest',label:'午休充能',hint:'🔒 強制休息，不排任務'});
+      result.pipes=rebuilt;
+    }
+  }
   result.pipes.sort((a,b)=>toMin(a.start)-toMin(b.start));
 
   /* ── 段間緩衝強制修正：AI排定的相鄰水管若分秒緊貼(gap<=0)，且兩側都不是Calendar鎖定行程，
