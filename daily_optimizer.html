@@ -716,6 +716,16 @@ const LABEL_OPTIONS={
 };
 const LABEL_DEFAULT={high:'深度高能',mid:'穩定中能',low:'輕量時段',rest:'強制充能'};
 
+/* ── Fisher-Yates 洗牌後取前 n 個，供 buildHintFromTasks 隨機挑選建議任務用 ── */
+function _shufflePick(arr, n){
+  const a=arr.slice();
+  for(let i=a.length-1;i>0;i--){
+    const j=Math.floor(Math.random()*(i+1));
+    [a[i],a[j]]=[a[j],a[i]];
+  }
+  return a.slice(0,n);
+}
+
 /* ── 從任務庫依 pipe type 組出 hint（取代 LLM 自由發揮） ── */
 function buildHintFromTasks(pipeType, tasks){
   if(!tasks||!tasks.length)return null;
@@ -733,7 +743,7 @@ function buildHintFromTasks(pipeType, tasks){
     pool=tasks.filter(t=>t.catKey==='daily_tasks');
     if(!pool.length)pool=tasks;
   }
-  const names=pool.slice(0,3).map(t=>t.text);
+  const names=_shufflePick(pool,3).map(t=>t.text);
   return `💡 適合：${names.join('、')}`;
 }
 
