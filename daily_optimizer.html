@@ -1947,9 +1947,18 @@ function calcPipePressure(pipe,tasks,skipTasks){
   const workTasks=(tasks||[]).filter(t=>!REST_BRICKS.includes(t));
   const energyMap=getTaskEnergyMap();
   skipTasks=skipTasks||[];
+  // 讀SAS Hub算好的高強度任務校正係數（連續3+天提早斷電觸發，08-04接上）——
+  // 之前這個係數只在SAS Hub顯示「已校正」但排程從未真的套用過，見cc_energy_weights寫入端
+  let hiMult=1.0;
+  try{
+    const ew=JSON.parse(localStorage.getItem('cc_energy_weights')||'{}');
+    if(ew.highIntensity) hiMult=ew.highIntensity;
+  }catch(e){}
   let weight=0;
   workTasks.forEach(t=>{
-    const w=TASK_WEIGHT[energyMap[t]||'mid'];
+    const lvl=energyMap[t]||'mid';
+    let w=TASK_WEIGHT[lvl];
+    if(lvl==='high') w*=hiMult;
     weight+=skipTasks.includes(t)?w*2:w;
   });
   const hours=Math.max(pipeHours(pipe),0.5);
