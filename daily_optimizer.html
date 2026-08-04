@@ -730,18 +730,16 @@ function _shufflePick(arr, n){
 function buildHintFromTasks(pipeType, tasks){
   if(!tasks||!tasks.length)return null;
   let pool;
-  if(pipeType==='high'){
-    // 深度高能：優先取學習類任務
-    pool=tasks.filter(t=>t.catKey==='learning');
-    if(!pool.length)pool=tasks;
-  } else if(pipeType==='mid'){
-    // 穩定中能：學習 + 求職類
-    pool=tasks.filter(t=>['learning','jobsearch'].includes(t.catKey));
+  // 08-04修正：原本用catKey（學習/求職/日常事務）篩選，但使用者實際用「任務能耗設定」
+  // 頁面標的是energy（高耗能/中耗能/輕量），跟pipeType(high/mid/low)是同一套分類。
+  // catKey篩選會選出「類別對但能耗標記不符」的任務（例如英文練習標學習但能耗是輕量，
+  // 卻可能被建議進高強度時段），改用energy篩選才對齊使用者的實際標記，也才對齊
+  // calcPipePressure()算水管壓力時用的同一套energy欄位。
+  if(pipeType==='high'||pipeType==='mid'||pipeType==='low'){
+    pool=tasks.filter(t=>(t.energy||'mid')===pipeType);
     if(!pool.length)pool=tasks;
   } else {
-    // 輕量：日常事務類，或所有任務
-    pool=tasks.filter(t=>t.catKey==='daily_tasks');
-    if(!pool.length)pool=tasks;
+    pool=tasks;
   }
   const names=_shufflePick(pool,3).map(t=>t.text);
   return `💡 適合：${names.join('、')}`;
