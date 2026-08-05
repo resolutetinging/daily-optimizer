@@ -1997,6 +1997,8 @@ function computeOverloadInfo(saved){
 
 // 跨天過載頻率記錄：saveReview() 每天自動寫入，不依賴「生成AI反饋」按鈕，避免沒點按鈕的日子留下空缺
 const OVERLOAD_LOG_KEY='sas_overload_log';
+// 跨天配速對齊記錄（rolling array，上限 30 筆），供 SAS Hub 算「近14天無視警告率」
+const PIPE_REVIEW_KEY='sas_pipe_review';
 function logOverloadDay(saved,dateStr){
   if(saved.restMode)return; // 休假不計分母
   if(!saved.pipes||!saved.pipes.length)return; // 當天沒生成水管排程，無從判定過載
@@ -2484,12 +2486,18 @@ async function genReviewFeedback(){
         });
       });
     });
-    // 寫入 localStorage，供 SAS Hub 三維圖表讀取
-    try{localStorage.setItem('sas_pipe_review',JSON.stringify({
-      date:displayKey.replace('review_',''),combatPower:cp,
-      depletedAt:saved.depleted_at||null,
-      items:pipeAlignItems
-    }));}catch(e){}
+    // 寫入 localStorage，供 SAS Hub 三維圖表讀取（rolling array，格式比照 logOverloadDay）
+    try{
+      const prDate=displayKey.replace('review_','');
+      let prLog=JSON.parse(localStorage.getItem(PIPE_REVIEW_KEY)||'[]');
+      // 08-05 前為單一物件舊格式：包成一筆歷史繼續累積（勿丟棄，SAS Hub 讀得到就不該消失）；徹底損壞的值才重新開始
+      if(!Array.isArray(prLog))prLog=(prLog&&typeof prLog==='object'&&prLog.date)?[prLog]:[];
+      prLog=prLog.filter(e=>e&&e.date!==prDate); // 防 null 元素拋 TypeError 被外層 catch 吞掉導致靜默不記錄
+      prLog.push({date:prDate,combatPower:cp,depletedAt:saved.depleted_at||null,items:pipeAlignItems});
+      prLog.sort((a,b)=>a.date.localeCompare(b.date));
+      if(prLog.length>30)prLog=prLog.slice(-30);
+      localStorage.setItem(PIPE_REVIEW_KEY,JSON.stringify(prLog));
+    }catch(e){}
     const alignSection=pipeAlignItems.length
       ? NL+'【配速對齊驗證（戰力模型校正信號）】'+NL
         +pipeAlignItems.map(a=>`  「${a.task}」置入${a.pipeType==='rest'?'休息':'輕量'}時段「${a.pipeLabel}」（有 ⚠️ 警告）→ `
