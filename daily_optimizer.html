@@ -1472,15 +1472,17 @@ ${taskList}
   document.getElementById('ovl').classList.remove('hidden');
 
   try{
-    // 08-17實測抓到的真實bug：Groq官方推薦替代model openai/gpt-oss-120b在強制
-    // response_format:{type:'json_object'}的嚴格JSON模式下不穩定，Groq自己的
-    // 社群論壇有多筆回報同一個「json_validate_failed」錯誤，疑似跟這個model偶爾
-    // 把reasoning token（思考過程）混進輸出內容有關，導致Groq伺服器端的JSON schema
-    // 驗證直接擋掉整個請求（連message.content都拿不到，是HTTP層就失敗，不是拿到
-    // 內容後才解析失敗）。拿掉強制JSON模式，改靠prompt本身的「輸出純JSON」指示，
-    // 解析端也加寬容：先試\`\`\`json圍欄清除，抓不到有效JSON時再用正規表示式抓出
-    // 第一個{到最後一個}之間的內容當備援（防reasoning token文字混在JSON前後）
-    const resp=await fetch(GROQ,{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${key}`},body:JSON.stringify({model:'openai/gpt-oss-120b',messages:[{role:'system',content:sys},{role:'user',content:usr}],temperature:0.5,max_tokens:900})});
+    // 08-17實測抓到的真實bug（分兩階段修）：Groq官方推薦替代model
+    // openai/gpt-oss-120b是reasoning model，第一版拿掉response_format:json_object
+    // 後改回「json_validate_failed」變成「Unexpected end of JSON input」——回應被
+    // 截斷了。查證Groq官方文件（console.groq.com/docs/reasoning）：這個model會先
+    // 輸出隱藏的推理過程（reasoning tokens）才給最終答案，max_tokens:900被推理過程
+    // 吃掉大半，真正的JSON答案被切斷。修法：加reasoning_format:'hidden'完全關掉
+    // 推理輸出（官方文件也提到JSON模式底下reasoning_format必須是parsed或hidden，
+    // 用raw會直接400——這也解釋了第一階段的json_validate_failed其實跟reasoning
+    // token混進輸出是同一個根因），max_tokens全部留給真正的答案；順便拉高到1500
+    // 當安全邊際，避免場次多時JSON內容本身較長還是被切斷
+    const resp=await fetch(GROQ,{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${key}`},body:JSON.stringify({model:'openai/gpt-oss-120b',messages:[{role:'system',content:sys},{role:'user',content:usr}],temperature:0.5,max_tokens:1500,reasoning_format:'hidden'})});
     if(!resp.ok){const err=await resp.json().catch(()=>({}));throw new Error(err.error?.message||`HTTP ${resp.status}`);}
     const data=await resp.json();
     let content=(data.choices?.[0]?.message?.content||'').replace(/```json|```/g,'').trim();
