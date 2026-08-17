@@ -1472,17 +1472,21 @@ ${taskList}
   document.getElementById('ovl').classList.remove('hidden');
 
   try{
-    // 08-17實測抓到的真實bug（分兩階段修）：Groq官方推薦替代model
+    // 08-17實測抓到的真實bug（分三階段修）：Groq官方推薦替代model
     // openai/gpt-oss-120b是reasoning model，第一版拿掉response_format:json_object
     // 後改回「json_validate_failed」變成「Unexpected end of JSON input」——回應被
     // 截斷了。查證Groq官方文件（console.groq.com/docs/reasoning）：這個model會先
     // 輸出隱藏的推理過程（reasoning tokens）才給最終答案，max_tokens:900被推理過程
-    // 吃掉大半，真正的JSON答案被切斷。修法：加reasoning_format:'hidden'完全關掉
-    // 推理輸出（官方文件也提到JSON模式底下reasoning_format必須是parsed或hidden，
-    // 用raw會直接400——這也解釋了第一階段的json_validate_failed其實跟reasoning
-    // token混進輸出是同一個根因），max_tokens全部留給真正的答案；順便拉高到1500
-    // 當安全邊際，避免場次多時JSON內容本身較長還是被切斷
-    const resp=await fetch(GROQ,{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${key}`},body:JSON.stringify({model:'openai/gpt-oss-120b',messages:[{role:'system',content:sys},{role:'user',content:usr}],temperature:0.5,max_tokens:1500,reasoning_format:'hidden'})});
+    // 吃掉大半，真正的JSON答案被切斷。加reasoning_format:'hidden'關掉推理輸出、
+    // max_tokens拉到1500後，第三階段又實測到「Expected ',' or ']' after array
+    // element」——拿掉response_format後model自由輸出、偶爾在陣列中間漏逗號等
+    // 語法小錯，brace-extraction救不了語法錯誤本身。查證官方文件：reasoning_format
+    // 只要是parsed或hidden就能跟JSON模式並用（跟raw並用才會400），所以第一階段
+    // 的json_validate_failed其實是reasoning token混進輸出汙染了schema驗證，不是
+    // response_format本身有問題；現在reasoning_format已固定為hidden，把
+    // response_format:json_object加回來，靠Groq端的constrained decoding保證輸出
+    // 一定是合法JSON語法，直接防堵漏逗號這類問題；brace-extraction備援保留兜底
+    const resp=await fetch(GROQ,{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${key}`},body:JSON.stringify({model:'openai/gpt-oss-120b',response_format:{type:'json_object'},messages:[{role:'system',content:sys},{role:'user',content:usr}],temperature:0.5,max_tokens:1500,reasoning_format:'hidden'})});
     if(!resp.ok){const err=await resp.json().catch(()=>({}));throw new Error(err.error?.message||`HTTP ${resp.status}`);}
     const data=await resp.json();
     let content=(data.choices?.[0]?.message?.content||'').replace(/```json|```/g,'').trim();
