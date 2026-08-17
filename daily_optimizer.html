@@ -769,12 +769,18 @@ function parseCalEvents(raw){
       return{start:s,end:`${eh}:${String(mi).padStart(2,'0')}`,name:m[2].trim()};
     }
     return null;
-  }).filter(Boolean);
+  }).filter(Boolean).filter(ev=>ev.start!==ev.end); // 08-17實測抓到的bug：Google Calendar
+  // 貼上來的「移動時間」有時會是起訖同一時刻（例如「09:00-09:00 移動」），HH:MM-HH:MM
+  // 那個分支不會驗證起訖是否有效區間，0分鐘的「行程」被強制注入進pipes後會在畫面上
+  // 生出一張時間長度是0的卡片，不是真的行程佔用，直接濾掉這種零長度列
 }
 
 /* ── LLM 輸出後處理：label 白名單 + hint 完全由任務庫生成 ── */
 function sanitizePipes(result, calEvents, tasks, pwr){
   if(!result||!result.pipes)return result;
+  // 08-17：不管零長度水管是AI自己生成還是後面Calendar強制注入產生，一律先濾掉，
+  // 不要讓「時間長度是0」的卡片出現在畫面上
+  result.pipes=result.pipes.filter(p=>p.start!==p.end);
   const calNames=parseCalNames(calEvents);
   result.pipes=result.pipes.map(p=>{
     let label=normalizeCJK(p.label||'');
