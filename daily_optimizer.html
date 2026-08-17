@@ -1472,10 +1472,25 @@ ${taskList}
   document.getElementById('ovl').classList.remove('hidden');
 
   try{
-    const resp=await fetch(GROQ,{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${key}`},body:JSON.stringify({model:'openai/gpt-oss-120b',messages:[{role:'system',content:sys},{role:'user',content:usr}],temperature:0.5,max_tokens:900,response_format:{type:'json_object'}})});
+    // 08-17實測抓到的真實bug：Groq官方推薦替代model openai/gpt-oss-120b在強制
+    // response_format:{type:'json_object'}的嚴格JSON模式下不穩定，Groq自己的
+    // 社群論壇有多筆回報同一個「json_validate_failed」錯誤，疑似跟這個model偶爾
+    // 把reasoning token（思考過程）混進輸出內容有關，導致Groq伺服器端的JSON schema
+    // 驗證直接擋掉整個請求（連message.content都拿不到，是HTTP層就失敗，不是拿到
+    // 內容後才解析失敗）。拿掉強制JSON模式，改靠prompt本身的「輸出純JSON」指示，
+    // 解析端也加寬容：先試\`\`\`json圍欄清除，抓不到有效JSON時再用正規表示式抓出
+    // 第一個{到最後一個}之間的內容當備援（防reasoning token文字混在JSON前後）
+    const resp=await fetch(GROQ,{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${key}`},body:JSON.stringify({model:'openai/gpt-oss-120b',messages:[{role:'system',content:sys},{role:'user',content:usr}],temperature:0.5,max_tokens:900})});
     if(!resp.ok){const err=await resp.json().catch(()=>({}));throw new Error(err.error?.message||`HTTP ${resp.status}`);}
     const data=await resp.json();
-    const raw=JSON.parse((data.choices?.[0]?.message?.content||'').replace(/```json|```/g,'').trim());
+    let content=(data.choices?.[0]?.message?.content||'').replace(/```json|```/g,'').trim();
+    let raw;
+    try{ raw=JSON.parse(content); }
+    catch(parseErr){
+      const braceStart=content.indexOf('{'),braceEnd=content.lastIndexOf('}');
+      if(braceStart===-1||braceEnd===-1||braceEnd<=braceStart) throw parseErr;
+      raw=JSON.parse(content.slice(braceStart,braceEnd+1));
+    }
     // 繁中保底：cc_zht.js 為外部非同步載入的共用檔，未就緒時原樣顯示不報錯
     const zhSafe=(typeof s2tDeep==='function')?s2tDeep(raw):raw;
     const result=sanitizePipes(zhSafe,calEvents,getEffectiveTasks(),p);
