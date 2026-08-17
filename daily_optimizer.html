@@ -1472,31 +1472,33 @@ ${taskList}
   document.getElementById('ovl').classList.remove('hidden');
 
   try{
-    // 08-17實測抓到的真實bug（分三階段修）：Groq官方推薦替代model
-    // openai/gpt-oss-120b是reasoning model，第一版拿掉response_format:json_object
-    // 後改回「json_validate_failed」變成「Unexpected end of JSON input」——回應被
-    // 截斷了。查證Groq官方文件（console.groq.com/docs/reasoning）：這個model會先
-    // 輸出隱藏的推理過程（reasoning tokens）才給最終答案，max_tokens:900被推理過程
-    // 吃掉大半，真正的JSON答案被切斷。加reasoning_format:'hidden'關掉推理輸出、
-    // max_tokens拉到1500後，第三階段又實測到「Expected ',' or ']' after array
-    // element」——拿掉response_format後model自由輸出、偶爾在陣列中間漏逗號等
-    // 語法小錯，brace-extraction救不了語法錯誤本身。查證官方文件：reasoning_format
-    // 只要是parsed或hidden就能跟JSON模式並用（跟raw並用才會400），所以第一階段
-    // 的json_validate_failed其實是reasoning token混進輸出汙染了schema驗證，不是
-    // response_format本身有問題；現在reasoning_format已固定為hidden，把
-    // response_format:json_object加回來，靠Groq端的constrained decoding保證輸出
-    // 一定是合法JSON語法，直接防堵漏逗號這類問題；brace-extraction備援保留兜底
-    const resp=await fetch(GROQ,{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${key}`},body:JSON.stringify({model:'openai/gpt-oss-120b',response_format:{type:'json_object'},messages:[{role:'system',content:sys},{role:'user',content:usr}],temperature:0.5,max_tokens:1500,reasoning_format:'hidden'})});
-    if(!resp.ok){const err=await resp.json().catch(()=>({}));throw new Error(err.error?.message||`HTTP ${resp.status}`);}
-    const data=await resp.json();
-    let content=(data.choices?.[0]?.message?.content||'').replace(/```json|```/g,'').trim();
-    let raw;
-    try{ raw=JSON.parse(content); }
-    catch(parseErr){
-      const braceStart=content.indexOf('{'),braceEnd=content.lastIndexOf('}');
-      if(braceStart===-1||braceEnd===-1||braceEnd<=braceStart) throw parseErr;
-      raw=JSON.parse(content.slice(braceStart,braceEnd+1));
+    // 08-17實測抓到的真實bug（分四階段修，第四階段推翻了第三階段的假設）：
+    // openai/gpt-oss-120b原本用response_format:json_object會json_validate_failed；
+    // 拿掉後配reasoning_format:'hidden'+max_tokens:1500一度只剩「陣列漏逗號」
+    // 這種語法小錯；當時以為reasoning_format:hidden能讓response_format安全並用
+    // （官方文件寫兩者相容），加回response_format實測——結果json_validate_failed
+    // 原樣重現，證明是model本身跟response_format:json_object組合不穩定（跟社群
+    // 回報的已知問題一致），不是reasoning_format沒設好能解的。改回不用
+    // response_format，靠reasoning_format:'hidden'關掉推理干擾；語法小錯是
+    // 隨機性問題（同一份prompt重試多半就過），改加自動重試最多2次取代死磕
+    // 單次結果的brace-extraction救援
+    let raw,lastErr;
+    for(let attempt=0;attempt<2;attempt++){
+      try{
+        const resp=await fetch(GROQ,{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${key}`},body:JSON.stringify({model:'openai/gpt-oss-120b',messages:[{role:'system',content:sys},{role:'user',content:usr}],temperature:0.5,max_tokens:1500,reasoning_format:'hidden'})});
+        if(!resp.ok){const err=await resp.json().catch(()=>({}));throw new Error(err.error?.message||`HTTP ${resp.status}`);}
+        const data=await resp.json();
+        let content=(data.choices?.[0]?.message?.content||'').replace(/```json|```/g,'').trim();
+        try{ raw=JSON.parse(content); }
+        catch(parseErr){
+          const braceStart=content.indexOf('{'),braceEnd=content.lastIndexOf('}');
+          if(braceStart===-1||braceEnd===-1||braceEnd<=braceStart) throw parseErr;
+          raw=JSON.parse(content.slice(braceStart,braceEnd+1));
+        }
+        break;
+      }catch(e){lastErr=e;raw=undefined;}
     }
+    if(raw===undefined) throw lastErr||new Error('重試2次仍失敗');
     // 繁中保底：cc_zht.js 為外部非同步載入的共用檔，未就緒時原樣顯示不報錯
     const zhSafe=(typeof s2tDeep==='function')?s2tDeep(raw):raw;
     const result=sanitizePipes(zhSafe,calEvents,getEffectiveTasks(),p);
