@@ -1481,11 +1481,12 @@ ${taskList}
     const result=sanitizePipes(zhSafe,calEvents,getEffectiveTasks(),p);
     document.getElementById('ovl').classList.add('hidden');
     // 若 Groq 回傳舊格式（無 pipes 欄位），自動改用示範資料
-    if(!result.pipes||!result.pipes.length) renderPipeSandbox(getMockPipes(p),true);
+    if(!result.pipes||!result.pipes.length) renderPipeSandbox(getMockPipes(p),true,'Groq回傳內容缺少pipes欄位（格式異常，非連線失敗）');
     else renderPipeSandbox(result);
   }catch(e){
     document.getElementById('ovl').classList.add('hidden');
-    try{renderPipeSandbox(getMockPipes(p),true);}
+    console.error('generate() 失敗：',e);
+    try{renderPipeSandbox(getMockPipes(p),true,e.message);}
     catch(e2){alert('水管渲染失敗：'+e2.message);}
   }
 }
@@ -1776,7 +1777,7 @@ Return ONLY JSON: [{"t":"task name","type":"high","ideal":30},...]`;
   }
 }
 
-function renderPipeSandbox(result,isMock=false){
+function renderPipeSandbox(result,isMock=false,errMsg=''){
   _pipes=result.pipes||[];_skipTasks=result.skipTasks||[];
   _pipeAssign={};_selPipeIdx=null;_selBrickText=null;
 
@@ -1785,7 +1786,10 @@ function renderPipeSandbox(result,isMock=false){
   if(schedCard)schedCard.style.display='';
   document.getElementById('taskSplitSec').style.display='none';
 
-  const mockNotice=isMock?'<div class="mock-notice">⚠ API 未回應，已載入示範資料。所有互動功能完整可用。</div>':'';
+  // 08-17：原本錯誤訊息被catch區塊整個吞掉，使用者完全看不到API失敗的實際原因，
+  // 只能看到「API未回應」這句話，連判斷是model問題、key問題還是rate limit都做不到。
+  // 改成把e.message一併顯示出來，之後每次失敗都能直接看到具體錯誤
+  const mockNotice=isMock?`<div class="mock-notice">⚠ API 未回應，已載入示範資料。所有互動功能完整可用。${errMsg?`<div style="margin-top:4px;font-size:12px;opacity:.85;">錯誤訊息：${esc(errMsg)}</div>`:''}</div>`:'';
   const sumHtml=result.summary?`<div class="pipe-summary">${esc(result.summary)}</div>`:'';
 
   const badgeLabel={high:'高能',mid:'中能',low:'輕量',rest:'休息'};
