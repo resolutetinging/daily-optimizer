@@ -962,10 +962,10 @@ function initGistCard(){
 
 /* key */
 function toggleVis(id,btn){const el=document.getElementById(id);if(!el)return;el.type=el.type==='password'?'text':'password';btn.textContent=el.type==='password'?'👁':'🙈';}
-function saveKey(){const k=document.getElementById('keyInput').value.trim();if(!k.startsWith('gsk_')){alert('Groq Key 應以 gsk_ 開頭');return;}localStorage.setItem('tina_groq',k);renderKey();}
-function clearKey(){localStorage.removeItem('tina_groq');document.getElementById('keyInput').value='';renderKey();}
-function renderKey(){const has=!!localStorage.getItem('tina_groq');document.getElementById('keyBanner').classList.toggle('hidden',has);document.getElementById('keyOk').classList.toggle('hidden',!has);}
-const getKey=()=>localStorage.getItem('tina_groq')||'';
+function saveKey(){const k=document.getElementById('keyInput').value.trim();if(!k.startsWith('gsk_')){alert('Groq Key 應以 gsk_ 開頭');return;}localStorage.setItem('groq_key',k);renderKey();}
+function clearKey(){localStorage.removeItem('groq_key');localStorage.removeItem('tina_groq');localStorage.removeItem('oasis_groq_key');document.getElementById('keyInput').value='';renderKey();}
+function renderKey(){const has=!!getKey();document.getElementById('keyBanner').classList.toggle('hidden',has);document.getElementById('keyOk').classList.toggle('hidden',!has);}
+const getKey=()=>localStorage.getItem('groq_key')||localStorage.getItem('tina_groq')||localStorage.getItem('oasis_groq_key')||'';
 
 /* ── Rest Mode ── */
 let restMode=false;
