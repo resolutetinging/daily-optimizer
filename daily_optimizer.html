@@ -1770,10 +1770,11 @@ The sum of ALL "ideal" values MUST equal EXACTLY ${fuel}.
 Also classify each task as high/mid/low energy demand.
 Return ONLY JSON: [{"t":"task name","type":"high","ideal":30},...]`;
   try{
+    // 08-18：gpt-oss-20b跟120b同屬reasoning model系列，同樣補reasoning_format
     const resp=await fetch(GROQ,{method:'POST',
       headers:{'Content-Type':'application/json','Authorization':`Bearer ${key}`},
       body:JSON.stringify({model:'openai/gpt-oss-20b',
-        messages:[{role:'user',content:prompt}],temperature:0.3,max_tokens:280})});
+        messages:[{role:'user',content:prompt}],temperature:0.3,max_tokens:600,reasoning_format:'hidden'})});
     const j=await resp.json();
     const raw=j.choices?.[0]?.message?.content||'';
     const jm=raw.match(/\[[\s\S]*\]/);
@@ -2585,7 +2586,12 @@ async function genReviewFeedback(){
   }
 
   try{
-    const resp=await fetch(GROQ,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+key},body:JSON.stringify({model:'openai/gpt-oss-120b',messages:[{role:'user',content:prompt}],temperature:0.5,max_tokens:450})});
+    // 08-18：跟generate()踩過同一個坑——openai/gpt-oss-120b是reasoning model，
+    // 沒設reasoning_format時隱藏推理會吃掉max_tokens預算，這裡是純文字輸出
+    // 沒有JSON.parse會拋錯，後果是靜默輸出空字串或被截斷的半句話，使用者
+    // 看到的就是「反饋跑不出來」而非明確錯誤。加reasoning_format:'hidden'+
+    // 拉高max_tokens解法比照generate()
+    const resp=await fetch(GROQ,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+key},body:JSON.stringify({model:'openai/gpt-oss-120b',messages:[{role:'user',content:prompt}],temperature:0.5,max_tokens:1200,reasoning_format:'hidden'})});
     if(!resp.ok) throw new Error('HTTP '+resp.status);
     const data=await resp.json();
     const rawFbText=data.choices?.[0]?.message?.content||'';
@@ -2788,7 +2794,9 @@ ${weekSummary}
 語氣直接，不過度鼓勵，給出真實觀察。`;
 
   try{
-    const resp=await fetch(GROQ,{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${key}`},body:JSON.stringify({model:'openai/gpt-oss-120b',messages:[{role:'user',content:prompt}],temperature:0.5,max_tokens:600})});
+    // 08-18：同generate()/genReviewFeedback()的reasoning token坑，加
+    // reasoning_format:'hidden'+拉高max_tokens
+    const resp=await fetch(GROQ,{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${key}`},body:JSON.stringify({model:'openai/gpt-oss-120b',messages:[{role:'user',content:prompt}],temperature:0.5,max_tokens:1500,reasoning_format:'hidden'})});
     if(!resp.ok) throw new Error(`HTTP ${resp.status}`);
     const data=await resp.json();
     const rawRecap=data.choices?.[0]?.message?.content||'';
