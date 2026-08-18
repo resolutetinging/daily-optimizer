@@ -568,7 +568,7 @@ input:checked+.js-slider:before{transform:translateX(13px);}
     <div id="energyCfgList"></div>
   </div>
 
-  <button class="gbtn" onclick="generate()">✦ 生成今日行程</button>
+  <button class="gbtn" id="genBtn" onclick="generate()">✦ 生成今日行程</button>
 
   </div><!-- /planSec -->
 
@@ -688,6 +688,11 @@ input:checked+.js-slider:before{transform:translateX(13px);}
     <div class="hist-title">歷史覆盤</div>
   </div>
   <div class="hist-filter-wrap" id="histFilterWrap"></div>
+  <div style="display:flex;align-items:center;gap:8px;padding:10px 16px;border-bottom:1px solid #e8e2d8;">
+    <span style="font-size:12px;color:#6b5a42;flex-shrink:0;">📅 補生成過去日期</span>
+    <input type="date" id="backfillDateInput" style="flex:1;font-size:13px;padding:6px 8px;border:1.5px solid #cec8bf;border-radius:8px;background:#f4f1ec;color:#38342e;">
+    <button onclick="backfillDate()" style="font-size:12px;background:#8a9e8a;color:#fff;border:none;border-radius:8px;padding:6px 12px;cursor:pointer;flex-shrink:0;">前往</button>
+  </div>
   <div id="histContent"></div>
 </div>
 
@@ -1024,6 +1029,7 @@ function setDate(){const d=new Date(),w=['週日','週一','週二','週三','�
 async function reloadCombat(){
   // 重置為今日 key，並隱藏歷史編輯 banner
   displayKey=todayKey();
+  updateGenBtnLabel();
   const banner=document.getElementById('editingBanner');
   if(banner)banner.style.display='none';
   // 清除覆盤區，避免殘留昨日資料
@@ -1404,10 +1410,22 @@ async function generate(){
   if(!selMode){alert('請選擇今日模式');return;}
   if(selMode==='工作日'){renderWorkdayOut();return;}
 
-  const p=pwr||50;
+  // 08-18新增：補生成過去日期時，displayKey會是review_YYYY-MM-DD（非今天），
+  // 這裡一律從displayKey反推日期（而非new Date()），星期幾/閉館時間/prompt裡
+  // 的「今天」欄位才會對到真正要生成的那天，不會誤用即時系統日期；戰力值也優先
+  // 讀該天既有存檔的combatPower（若有），沒有才退回目前pwr（例如當天第一次生成）
+  const isBackfill=displayKey!==todayKey();
+  const d=new Date(displayKey.replace('review_','')+'T12:00:00');
+  const wDays=['週日','週一','週二','週三','週四','週五','週六'];
+  const dateLabel=`${d.getMonth()+1}月${d.getDate()}日　${wDays[d.getDay()]}`;
+  const backfillPwr=isBackfill?JSON.parse(localStorage.getItem(displayKey)||'{}').combatPower:null;
+  const p=backfillPwr||pwr||50;
+  // renderPipeSandbox()存檔時讀的是全域pwr（combatPower:pwr），同步成p才不會
+  // 把補生成當天算出的正確歷史戰力值，存檔時被目前(今天)的即時pwr覆蓋掉
+  pwr=p;
   const calEvents=document.getElementById('calInput').value.trim();
   const notes=document.getElementById('notes').value.trim();
-  const d=new Date(),dow=d.getDay(),isMon=dow===1,isThu=dow===4,isOut=selLoc==='外出日';
+  const dow=d.getDay(),isMon=dow===1,isThu=dow===4,isOut=selLoc==='外出日';
   const closeH=isMon?17:selLoc==='分館'?19:18;
   const close=isOut?'依行程':`${closeH}:00`;
   const lv=p>=80?'Peak(80+)':p>=70?'Stable(70-79)':p>=60?'Caution(60-69)':'Critical(<60)';
@@ -1452,7 +1470,7 @@ async function generate(){
 
 格式：{"summary":"一句話策略叮嚀（45字內）","pipes":[{"start":"09:30","end":"12:00","type":"high","label":"深度高能","hint":""}],"skipTasks":["原始任務名"]}`;
 
-  const usr=`今天：${document.getElementById('hdate').textContent}
+  const usr=`今天：${dateLabel}
 地點：${selLoc}${isOut?'':` 開館${selLoc==='分館'?'08:30':'09:15'} 閉館${close}`}
 模式：${selMode} | 戰力：${p}%（${lv}）
 體感：${selFeel||'未填寫'}
@@ -2805,7 +2823,27 @@ function loadHistEntry(key){
   document.getElementById('editingBannerText').textContent=`📅 正在編輯 ${d.getMonth()+1}月${d.getDate()}日（${days[d.getDay()]}）記錄`;
   banner.style.display='flex';
   loadSavedReview(key);
+  updateGenBtnLabel();
   setTimeout(()=>document.getElementById('outSec').scrollIntoView({behavior:'smooth',block:'start'}),100);
+}
+// 08-18新增：補生成過去日期。日期選擇器選了哪天，就沿用既有的loadHistEntry
+// 切換displayKey到那天的review_key（不存在也沒關係，loadSavedReview對缺key
+// 已有{}預設值的容錯），使用者再點「生成」即可補生成該天行程
+function backfillDate(){
+  const v=document.getElementById('backfillDateInput').value;
+  if(!v){alert('請先選擇日期');return;}
+  const todayStr=todayKey().replace('review_','');
+  if(v>=todayStr){alert('補生成只能選過去日期，今天請直接用上方生成');return;}
+  loadHistEntry('review_'+v);
+}
+// 依displayKey是否為今天，切換生成按鈕文字，避免使用者搞混究竟在生成哪一天
+function updateGenBtnLabel(){
+  const btn=document.getElementById('genBtn');
+  if(!btn)return;
+  if(displayKey===todayKey()){btn.textContent='✦ 生成今日行程';return;}
+  const dateStr=displayKey.replace('review_','');
+  const d=new Date(dateStr+'T12:00:00');
+  btn.textContent=`✦ 補生成 ${d.getMonth()+1}/${d.getDate()} 行程`;
 }
 function deleteHistEntry(key,e){
   e.stopPropagation();
