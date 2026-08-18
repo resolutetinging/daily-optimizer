@@ -850,6 +850,7 @@ function sanitizePipes(result, calEvents, tasks, pwr){
      從前一段末尾切出緩衝時間插入一段「段間緩衝」rest pipe，不完全依賴LLM遵守prompt指示；
      bufferMin(pwr) 沿用「能耗配置」卡片既有公式，原本只當顯示文字用，這裡才是真正接進生成結果 ── */
   const buf=bufferMin(pwr||50);
+  const fmt=m=>String(Math.floor(m/60)).padStart(2,'0')+':'+String(m%60).padStart(2,'0');
   const withBuffer=[];
   for(let i=0;i<result.pipes.length;i++){
     const cur=result.pipes[i];
@@ -857,13 +858,18 @@ function sanitizePipes(result, calEvents, tasks, pwr){
     const next=result.pipes[i+1];
     if(!next)continue;
     const curEnd=toMin(cur.end),nextStart=toMin(next.start);
-    if(nextStart-curEnd>0)continue; // 已有間隔，不重複插入
+    if(nextStart-curEnd>0){
+      // 08-18教訓：AI漏排一段時間，跟AI自己留白，程式碼分不出來，過去這裡直接continue
+      // 當「已有間隔」放過不管，結果那段時間在畫面上完全消失、連卡片都不會出現。
+      // 不管是AI真的漏排還是刻意留白，畫面都必須有東西可以顯示，補一段可見的空檔pipe蓋住。
+      withBuffer.push({start:cur.end,end:next.start,type:'rest',label:'彈性時間',hint:'⏸ 這段AI未排定，可自由運用或補任務'});
+      continue;
+    }
     const curIsCal=cur.type==='rest'&&calNames.has(normalizeCJK(cur.label));
     const nextIsCal=next.type==='rest'&&calNames.has(normalizeCJK(next.label));
     if(curIsCal||nextIsCal)continue; // Calendar鎖定行程前後不強加緩衝
     const newEndMin=curEnd-buf;
     if(newEndMin<=toMin(cur.start))continue; // 該段本身太短，硬縮會消失或變負值，跳過
-    const fmt=m=>String(Math.floor(m/60)).padStart(2,'0')+':'+String(m%60).padStart(2,'0');
     const origEnd=cur.end;
     cur.end=fmt(newEndMin);
     withBuffer.push({start:cur.end,end:origEnd,type:'rest',label:'段間緩衝',hint:'⏸ 短暫緩衝，不排任務'});
@@ -1504,7 +1510,7 @@ ${taskList}
     let raw,lastErr;
     for(let attempt=0;attempt<2;attempt++){
       try{
-        const resp=await fetch(GROQ,{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${key}`},body:JSON.stringify({model:'openai/gpt-oss-120b',messages:[{role:'system',content:sys},{role:'user',content:usr}],temperature:0.5,max_tokens:4000,reasoning_format:'hidden'})});
+        const resp=await fetch(GROQ,{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${key}`},body:JSON.stringify({model:'openai/gpt-oss-120b',messages:[{role:'system',content:sys},{role:'user',content:usr}],temperature:0.5,max_tokens:4000,reasoning_format:'hidden',reasoning_effort:'low'})});
         if(!resp.ok){const err=await resp.json().catch(()=>({}));throw new Error(err.error?.message||`HTTP ${resp.status}`);}
         const data=await resp.json();
         let content=(data.choices?.[0]?.message?.content||'').replace(/```json|```/g,'').trim();
@@ -1774,7 +1780,7 @@ Return ONLY JSON: [{"t":"task name","type":"high","ideal":30},...]`;
     const resp=await fetch(GROQ,{method:'POST',
       headers:{'Content-Type':'application/json','Authorization':`Bearer ${key}`},
       body:JSON.stringify({model:'openai/gpt-oss-20b',
-        messages:[{role:'user',content:prompt}],temperature:0.3,max_tokens:600,reasoning_format:'hidden'})});
+        messages:[{role:'user',content:prompt}],temperature:0.3,max_tokens:600,reasoning_format:'hidden',reasoning_effort:'low'})});
     const j=await resp.json();
     const raw=j.choices?.[0]?.message?.content||'';
     const jm=raw.match(/\[[\s\S]*\]/);
@@ -2591,7 +2597,7 @@ async function genReviewFeedback(){
     // 沒有JSON.parse會拋錯，後果是靜默輸出空字串或被截斷的半句話，使用者
     // 看到的就是「反饋跑不出來」而非明確錯誤。加reasoning_format:'hidden'+
     // 拉高max_tokens解法比照generate()
-    const resp=await fetch(GROQ,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+key},body:JSON.stringify({model:'openai/gpt-oss-120b',messages:[{role:'user',content:prompt}],temperature:0.5,max_tokens:1200,reasoning_format:'hidden'})});
+    const resp=await fetch(GROQ,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+key},body:JSON.stringify({model:'openai/gpt-oss-120b',messages:[{role:'user',content:prompt}],temperature:0.5,max_tokens:1200,reasoning_format:'hidden',reasoning_effort:'low'})});
     if(!resp.ok) throw new Error('HTTP '+resp.status);
     const data=await resp.json();
     const rawFbText=data.choices?.[0]?.message?.content||'';
@@ -2796,7 +2802,7 @@ ${weekSummary}
   try{
     // 08-18：同generate()/genReviewFeedback()的reasoning token坑，加
     // reasoning_format:'hidden'+拉高max_tokens
-    const resp=await fetch(GROQ,{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${key}`},body:JSON.stringify({model:'openai/gpt-oss-120b',messages:[{role:'user',content:prompt}],temperature:0.5,max_tokens:1500,reasoning_format:'hidden'})});
+    const resp=await fetch(GROQ,{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${key}`},body:JSON.stringify({model:'openai/gpt-oss-120b',messages:[{role:'user',content:prompt}],temperature:0.5,max_tokens:1500,reasoning_format:'hidden',reasoning_effort:'low'})});
     if(!resp.ok) throw new Error(`HTTP ${resp.status}`);
     const data=await resp.json();
     const rawRecap=data.choices?.[0]?.message?.content||'';
