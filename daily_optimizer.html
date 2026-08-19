@@ -862,7 +862,11 @@ function sanitizePipes(result, calEvents, tasks, pwr){
       // 08-18教訓：AI漏排一段時間，跟AI自己留白，程式碼分不出來，過去這裡直接continue
       // 當「已有間隔」放過不管，結果那段時間在畫面上完全消失、連卡片都不會出現。
       // 不管是AI真的漏排還是刻意留白，畫面都必須有東西可以顯示，補一段可見的空檔pipe蓋住。
-      withBuffer.push({start:cur.end,end:next.start,type:'rest',label:'彈性時間',hint:'⏸ 這段AI未排定，可自由運用或補任務'});
+      // 08-19補：小於10分鐘的縫隙多半只是排程精度誤差，不值得為此多生一張卡造成畫面碎片化，
+      // 門檻以上才補卡；小於門檻的維持原樣（不影響原本畫面，只是不特別標示）
+      if(nextStart-curEnd>=10){
+        withBuffer.push({start:cur.end,end:next.start,type:'rest',label:'彈性時間',hint:'⏸ 這段AI未排定，可自由運用或補任務'});
+      }
       continue;
     }
     const curIsCal=cur.type==='rest'&&calNames.has(normalizeCJK(cur.label));
