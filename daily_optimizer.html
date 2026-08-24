@@ -708,6 +708,29 @@ const DASH='https://resolutetinging.github.io/sleep-dashboard/sleep_dashboard_v2
 const PROXIES=[u=>`https://corsproxy.io/?${encodeURIComponent(u)}`,u=>`https://api.allorigins.win/get?url=${encodeURIComponent(u)}`,u=>`https://api.codetabs.com/v1/proxy/?quest=${encodeURIComponent(u)}`];
 const GROQ='https://api.groq.com/openai/v1/chat/completions';
 
+// 08-24：429退避＋model備援共用工具（4個Groq呼叫點各自的內容重試/JSON解析
+// 邏輯差異仍很大，不抽共用，維持各自處理；但下面兩個是純工具函式——不含任何
+// 呼叫點特有的內容判斷，只負責「單次fetch要不要因429等一下重打」與「這個錯誤
+// 像不像model本身掛了」，4處疊加時各自呼叫即可，不影響各自既有的重試計數）
+async function groqFetch(body,key){
+  // 單次語意fetch：最多3次嘗試，僅在收到429時退避重打，其餘狀況（含2xx/4xx/5xx）
+  // 原樣把Response回傳給呼叫端自行判斷，不吃掉呼叫端原本的resp.ok檢查邏輯
+  for(let i=0;i<3;i++){
+    const resp=await fetch(GROQ,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+key},body:JSON.stringify(body)});
+    if(resp.status===429&&i<2){
+      const retryAfter=Number(resp.headers.get('retry-after'));
+      await new Promise(res=>setTimeout(res,(retryAfter>0?retryAfter:3)*1000));
+      continue;
+    }
+    return resp;
+  }
+}
+function groqModelLooksDown(status,detail){
+  // 500系列或錯誤訊息像「model被下架/找不到」才判定為model故障，
+  // 避免一般內容類錯誤（如JSON解析失敗）誤觸發換model
+  return status>=500||/decommission|not[ _-]?found|does not exist|invalid model|model_not_active/i.test(detail||'');
+}
+
 /* ── CJK 正規化：僅替換明確有害字元 ── */
 const BAD_CJK={'弾':'彈','习':'習','进':'進','说':'說'};
 function normalizeCJK(t){return t?t.split('').map(c=>BAD_CJK[c]||c).join(''):t;}
@@ -1518,28 +1541,53 @@ ${taskList}
     // 08-24：補齊「隱藏推理吃光max_tokens導致content為空字串」的偵測——
     // finish_reason==='length'且content為空時，不是JSON格式錯誤，是預算不夠，
     // 放大max_tokens再試一次比原地重試更有機會成功（英文小教室驗證過的解法）
-    let raw,lastErr,curMax=4000;
-    for(let attempt=0;attempt<2;attempt++){
-      try{
-        const resp=await fetch(GROQ,{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${key}`},body:JSON.stringify({model:'openai/gpt-oss-120b',messages:[{role:'system',content:sys},{role:'user',content:usr}],temperature:0.5,max_tokens:curMax,reasoning_effort:'low'})});
-        if(!resp.ok){const err=await resp.json().catch(()=>({}));throw new Error(err.error?.message||`HTTP ${resp.status}`);}
-        const data=await resp.json();
-        const choice=data.choices?.[0];
-        let content=(choice?.message?.content||'').replace(/```json|```/g,'').trim();
-        if(!content&&choice?.finish_reason==='length'){
-          curMax=Math.round(curMax*1.8);
-          throw new Error('推理耗盡max_tokens導致內容為空，放大額度重試');
-        }
-        try{ raw=JSON.parse(content); }
-        catch(parseErr){
-          const braceStart=content.indexOf('{'),braceEnd=content.lastIndexOf('}');
-          if(braceStart===-1||braceEnd===-1||braceEnd<=braceStart) throw parseErr;
-          raw=JSON.parse(content.slice(braceStart,braceEnd+1));
-        }
-        break;
-      }catch(e){lastErr=e;raw=undefined;}
+    // 08-24（第二輪）：補齊429退避＋model故障備援。429退避下放到groqFetch()
+    // 單次fetch內部（不影響下面attempt<2這個既有迴圈的計數方式）；model備援則
+    // 包在最外層——primary的attempt<2整個迴圈都失敗、且判定是model本身故障
+    // （非JSON/長度問題）才整個迴圈換backup model重跑一次，邏輯清楚、風險最低，
+    // 不去動迴圈內部已經很複雜的JSON parse＋長度重試糾纏邏輯
+    const GEN_PRIMARY_MODEL='openai/gpt-oss-120b',GEN_BACKUP_MODEL='openai/gpt-oss-20b';
+    async function runGenerateAttempt(model){
+      let raw,lastErr,curMax=4000;
+      for(let attempt=0;attempt<2;attempt++){
+        try{
+          const resp=await groqFetch({model,messages:[{role:'system',content:sys},{role:'user',content:usr}],temperature:0.5,max_tokens:curMax,reasoning_effort:'low'},key);
+          if(!resp.ok){
+            const err=await resp.json().catch(()=>({}));
+            const e=new Error(err.error?.message||`HTTP ${resp.status}`);
+            e.status=resp.status;e.detail=err.error?.message||'';
+            throw e;
+          }
+          const data=await resp.json();
+          const choice=data.choices?.[0];
+          let content=(choice?.message?.content||'').replace(/```json|```/g,'').trim();
+          if(!content&&choice?.finish_reason==='length'){
+            curMax=Math.round(curMax*1.8);
+            throw new Error('推理耗盡max_tokens導致內容為空，放大額度重試');
+          }
+          try{ raw=JSON.parse(content); }
+          catch(parseErr){
+            const braceStart=content.indexOf('{'),braceEnd=content.lastIndexOf('}');
+            if(braceStart===-1||braceEnd===-1||braceEnd<=braceStart) throw parseErr;
+            raw=JSON.parse(content.slice(braceStart,braceEnd+1));
+          }
+          break;
+        }catch(e){lastErr=e;raw=undefined;}
+      }
+      if(raw===undefined) throw lastErr||new Error('重試2次仍失敗');
+      return raw;
     }
-    if(raw===undefined) throw lastErr||new Error('重試2次仍失敗');
+    let raw;
+    try{
+      raw=await runGenerateAttempt(GEN_PRIMARY_MODEL);
+    }catch(e1){
+      if(groqModelLooksDown(e1.status,e1.detail)){
+        console.warn('generate()：primary model疑似故障，切換backup重試',e1);
+        raw=await runGenerateAttempt(GEN_BACKUP_MODEL);
+      }else{
+        throw e1;
+      }
+    }
     // 繁中保底：cc_zht.js 為外部非同步載入的共用檔，未就緒時原樣顯示不報錯
     const zhSafe=(typeof s2tDeep==='function')?s2tDeep(raw):raw;
     const result=sanitizePipes(zhSafe,calEvents,getEffectiveTasks(),p);
@@ -1798,21 +1846,40 @@ Return ONLY JSON: [{"t":"task name","type":"high","ideal":30},...]`;
     // 08-24：這裡原本沒有任何重試，content為空時jm.match()直接失敗return，
     // 使用者看到的是任務時長區塊完全空白。補上「finish_reason===length
     // 且content為空」時放大max_tokens重試一次
-    let resp=await fetch(GROQ,{method:'POST',
-      headers:{'Content-Type':'application/json','Authorization':`Bearer ${key}`},
-      body:JSON.stringify({model:'openai/gpt-oss-20b',
-        messages:[{role:'user',content:prompt}],temperature:0.3,max_tokens:600,reasoning_effort:'low'})});
-    let j=await resp.json();
-    let choice=j.choices?.[0];
-    if(!(choice?.message?.content||'').trim()&&choice?.finish_reason==='length'){
-      resp=await fetch(GROQ,{method:'POST',
-        headers:{'Content-Type':'application/json','Authorization':`Bearer ${key}`},
-        body:JSON.stringify({model:'openai/gpt-oss-20b',
-          messages:[{role:'user',content:prompt}],temperature:0.3,max_tokens:1080,reasoning_effort:'low'})});
-      j=await resp.json();
-      choice=j.choices?.[0];
+    // 08-24（第二輪）：原本這裡連resp.ok都沒檢查，429/model故障時會直接靜默
+    // 落到jm=null的return。補429退避（groqFetch內建）＋model備援（外層try/catch），
+    // 跟既有length放大重試疊加，最外層本來就有try/catch(e){清空UI}兜底
+    const DUR_PRIMARY_MODEL='openai/gpt-oss-20b',DUR_BACKUP_MODEL='openai/gpt-oss-120b';
+    async function runDurAttempt(model){
+      let resp=await groqFetch({model,messages:[{role:'user',content:prompt}],temperature:0.3,max_tokens:600,reasoning_effort:'low'},key);
+      if(!resp.ok){
+        const errBody=await resp.json().catch(()=>({}));
+        const e=new Error(errBody.error?.message||`HTTP ${resp.status}`);
+        e.status=resp.status;e.detail=errBody.error?.message||'';
+        throw e;
+      }
+      let j=await resp.json();
+      let choice=j.choices?.[0];
+      if(!(choice?.message?.content||'').trim()&&choice?.finish_reason==='length'){
+        resp=await groqFetch({model,messages:[{role:'user',content:prompt}],temperature:0.3,max_tokens:1080,reasoning_effort:'low'},key);
+        if(!resp.ok){
+          const errBody=await resp.json().catch(()=>({}));
+          const e=new Error(errBody.error?.message||`HTTP ${resp.status}`);
+          e.status=resp.status;e.detail=errBody.error?.message||'';
+          throw e;
+        }
+        j=await resp.json();
+        choice=j.choices?.[0];
+      }
+      return choice?.message?.content||'';
     }
-    const raw=choice?.message?.content||'';
+    let raw;
+    try{
+      raw=await runDurAttempt(DUR_PRIMARY_MODEL);
+    }catch(e1){
+      if(groqModelLooksDown(e1.status,e1.detail)) raw=await runDurAttempt(DUR_BACKUP_MODEL);
+      else throw e1;
+    }
     const jm=raw.match(/\[[\s\S]*\]/);
     if(!jm) return;
     const parsedItems=JSON.parse(jm[0]);
@@ -2630,17 +2697,37 @@ async function genReviewFeedback(){
     // 系列不支援、被靜默忽略，已移除）
     // 08-24：補齊finish_reason===length且content為空的偵測——原本content||''
     // 直接顯示，隱藏推理吃光max_tokens時使用者看到的是「反饋跑不出來」的空白區塊
-    let resp=await fetch(GROQ,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+key},body:JSON.stringify({model:'openai/gpt-oss-120b',messages:[{role:'user',content:prompt}],temperature:0.5,max_tokens:1200,reasoning_effort:'low'})});
-    if(!resp.ok) throw new Error('HTTP '+resp.status);
-    let data=await resp.json();
-    let fbChoice=data.choices?.[0];
-    if(!(fbChoice?.message?.content||'').trim()&&fbChoice?.finish_reason==='length'){
-      resp=await fetch(GROQ,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+key},body:JSON.stringify({model:'openai/gpt-oss-120b',messages:[{role:'user',content:prompt}],temperature:0.5,max_tokens:2160,reasoning_effort:'low'})});
-      if(!resp.ok) throw new Error('HTTP '+resp.status);
-      data=await resp.json();
-      fbChoice=data.choices?.[0];
+    // 08-24（第二輪）：補429退避（groqFetch內建）＋model故障備援，跟既有的
+    // length放大重試疊加；最外層本來就有try/catch(e)顯示「生成失敗」訊息兜底
+    const FB_PRIMARY_MODEL='openai/gpt-oss-120b',FB_BACKUP_MODEL='openai/gpt-oss-20b';
+    async function runFeedbackAttempt(model){
+      let resp=await groqFetch({model,messages:[{role:'user',content:prompt}],temperature:0.5,max_tokens:1200,reasoning_effort:'low'},key);
+      if(!resp.ok){
+        const errBody=await resp.json().catch(()=>({}));
+        const e=new Error('HTTP '+resp.status);e.status=resp.status;e.detail=errBody.error?.message||'';
+        throw e;
+      }
+      let data=await resp.json();
+      let fbChoice=data.choices?.[0];
+      if(!(fbChoice?.message?.content||'').trim()&&fbChoice?.finish_reason==='length'){
+        resp=await groqFetch({model,messages:[{role:'user',content:prompt}],temperature:0.5,max_tokens:2160,reasoning_effort:'low'},key);
+        if(!resp.ok){
+          const errBody=await resp.json().catch(()=>({}));
+          const e=new Error('HTTP '+resp.status);e.status=resp.status;e.detail=errBody.error?.message||'';
+          throw e;
+        }
+        data=await resp.json();
+        fbChoice=data.choices?.[0];
+      }
+      return fbChoice?.message?.content||'';
     }
-    const rawFbText=fbChoice?.message?.content||'';
+    let rawFbText;
+    try{
+      rawFbText=await runFeedbackAttempt(FB_PRIMARY_MODEL);
+    }catch(e1){
+      if(groqModelLooksDown(e1.status,e1.detail)) rawFbText=await runFeedbackAttempt(FB_BACKUP_MODEL);
+      else throw e1;
+    }
     // 繁中保底：cc_zht.js 為外部非同步載入的共用檔，未就緒時原樣顯示不報錯
     const fbText=(typeof s2t==='function')?s2t(rawFbText):rawFbText;
     out.textContent=fbText;
@@ -2844,17 +2931,37 @@ ${weekSummary}
     // reasoning_effort:'low'+拉高max_tokens（08-19更正：原本也加過
     // reasoning_format:'hidden'，對gpt-oss系列不支援、被靜默忽略，已移除）
     // 08-24：同上，補finish_reason===length且content為空時放大max_tokens重試一次
-    let resp=await fetch(GROQ,{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${key}`},body:JSON.stringify({model:'openai/gpt-oss-120b',messages:[{role:'user',content:prompt}],temperature:0.5,max_tokens:1500,reasoning_effort:'low'})});
-    if(!resp.ok) throw new Error(`HTTP ${resp.status}`);
-    let data=await resp.json();
-    let recapChoice=data.choices?.[0];
-    if(!(recapChoice?.message?.content||'').trim()&&recapChoice?.finish_reason==='length'){
-      resp=await fetch(GROQ,{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${key}`},body:JSON.stringify({model:'openai/gpt-oss-120b',messages:[{role:'user',content:prompt}],temperature:0.5,max_tokens:2700,reasoning_effort:'low'})});
-      if(!resp.ok) throw new Error(`HTTP ${resp.status}`);
-      data=await resp.json();
-      recapChoice=data.choices?.[0];
+    // 08-24（第二輪）：補429退避（groqFetch內建）＋model故障備援，跟既有的
+    // length放大重試疊加；最外層本來就有try/catch(e)顯示「生成失敗」訊息兜底
+    const RECAP_PRIMARY_MODEL='openai/gpt-oss-120b',RECAP_BACKUP_MODEL='openai/gpt-oss-20b';
+    async function runRecapAttempt(model){
+      let resp=await groqFetch({model,messages:[{role:'user',content:prompt}],temperature:0.5,max_tokens:1500,reasoning_effort:'low'},key);
+      if(!resp.ok){
+        const errBody=await resp.json().catch(()=>({}));
+        const e=new Error(`HTTP ${resp.status}`);e.status=resp.status;e.detail=errBody.error?.message||'';
+        throw e;
+      }
+      let data=await resp.json();
+      let recapChoice=data.choices?.[0];
+      if(!(recapChoice?.message?.content||'').trim()&&recapChoice?.finish_reason==='length'){
+        resp=await groqFetch({model,messages:[{role:'user',content:prompt}],temperature:0.5,max_tokens:2700,reasoning_effort:'low'},key);
+        if(!resp.ok){
+          const errBody=await resp.json().catch(()=>({}));
+          const e=new Error(`HTTP ${resp.status}`);e.status=resp.status;e.detail=errBody.error?.message||'';
+          throw e;
+        }
+        data=await resp.json();
+        recapChoice=data.choices?.[0];
+      }
+      return recapChoice?.message?.content||'';
     }
-    const rawRecap=recapChoice?.message?.content||'';
+    let rawRecap;
+    try{
+      rawRecap=await runRecapAttempt(RECAP_PRIMARY_MODEL);
+    }catch(e1){
+      if(groqModelLooksDown(e1.status,e1.detail)) rawRecap=await runRecapAttempt(RECAP_BACKUP_MODEL);
+      else throw e1;
+    }
     // 繁中保底：cc_zht.js 為外部非同步載入的共用檔，未就緒時原樣顯示不報錯
     out.textContent=(typeof s2t==='function')?s2t(rawRecap):rawRecap;
     out.style.display='block';
