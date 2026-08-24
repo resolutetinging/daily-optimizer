@@ -1515,13 +1515,21 @@ ${taskList}
     // （查證console.groq.com/docs/reasoning），Groq靜默忽略、不是真正生效的修法，
     // 已從呼叫參數移除；真正有效的是reasoning_effort:'low'（官方文件證實支援，
     // 控制推理耗用深度）與拿掉response_format/拉高max_tokens這兩項
-    let raw,lastErr;
+    // 08-24：補齊「隱藏推理吃光max_tokens導致content為空字串」的偵測——
+    // finish_reason==='length'且content為空時，不是JSON格式錯誤，是預算不夠，
+    // 放大max_tokens再試一次比原地重試更有機會成功（英文小教室驗證過的解法）
+    let raw,lastErr,curMax=4000;
     for(let attempt=0;attempt<2;attempt++){
       try{
-        const resp=await fetch(GROQ,{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${key}`},body:JSON.stringify({model:'openai/gpt-oss-120b',messages:[{role:'system',content:sys},{role:'user',content:usr}],temperature:0.5,max_tokens:4000,reasoning_effort:'low'})});
+        const resp=await fetch(GROQ,{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${key}`},body:JSON.stringify({model:'openai/gpt-oss-120b',messages:[{role:'system',content:sys},{role:'user',content:usr}],temperature:0.5,max_tokens:curMax,reasoning_effort:'low'})});
         if(!resp.ok){const err=await resp.json().catch(()=>({}));throw new Error(err.error?.message||`HTTP ${resp.status}`);}
         const data=await resp.json();
-        let content=(data.choices?.[0]?.message?.content||'').replace(/```json|```/g,'').trim();
+        const choice=data.choices?.[0];
+        let content=(choice?.message?.content||'').replace(/```json|```/g,'').trim();
+        if(!content&&choice?.finish_reason==='length'){
+          curMax=Math.round(curMax*1.8);
+          throw new Error('推理耗盡max_tokens導致內容為空，放大額度重試');
+        }
         try{ raw=JSON.parse(content); }
         catch(parseErr){
           const braceStart=content.indexOf('{'),braceEnd=content.lastIndexOf('}');
@@ -1787,12 +1795,24 @@ Return ONLY JSON: [{"t":"task name","type":"high","ideal":30},...]`;
     // 08-18：gpt-oss-20b跟120b同屬reasoning model系列，同樣補reasoning_effort:'low'
     // （08-19更正：原本這裡也補過reasoning_format:'hidden'，查證後這個參數對
     // gpt-oss系列不支援、被靜默忽略，已移除，真正有效的是reasoning_effort）
-    const resp=await fetch(GROQ,{method:'POST',
+    // 08-24：這裡原本沒有任何重試，content為空時jm.match()直接失敗return，
+    // 使用者看到的是任務時長區塊完全空白。補上「finish_reason===length
+    // 且content為空」時放大max_tokens重試一次
+    let resp=await fetch(GROQ,{method:'POST',
       headers:{'Content-Type':'application/json','Authorization':`Bearer ${key}`},
       body:JSON.stringify({model:'openai/gpt-oss-20b',
         messages:[{role:'user',content:prompt}],temperature:0.3,max_tokens:600,reasoning_effort:'low'})});
-    const j=await resp.json();
-    const raw=j.choices?.[0]?.message?.content||'';
+    let j=await resp.json();
+    let choice=j.choices?.[0];
+    if(!(choice?.message?.content||'').trim()&&choice?.finish_reason==='length'){
+      resp=await fetch(GROQ,{method:'POST',
+        headers:{'Content-Type':'application/json','Authorization':`Bearer ${key}`},
+        body:JSON.stringify({model:'openai/gpt-oss-20b',
+          messages:[{role:'user',content:prompt}],temperature:0.3,max_tokens:1080,reasoning_effort:'low'})});
+      j=await resp.json();
+      choice=j.choices?.[0];
+    }
+    const raw=choice?.message?.content||'';
     const jm=raw.match(/\[[\s\S]*\]/);
     if(!jm) return;
     const parsedItems=JSON.parse(jm[0]);
@@ -2608,10 +2628,19 @@ async function genReviewFeedback(){
     // 而非明確錯誤。拉高max_tokens+加reasoning_effort:'low'解法比照generate()
     // （08-19更正：原本這裡也加過reasoning_format:'hidden'，查證後對gpt-oss
     // 系列不支援、被靜默忽略，已移除）
-    const resp=await fetch(GROQ,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+key},body:JSON.stringify({model:'openai/gpt-oss-120b',messages:[{role:'user',content:prompt}],temperature:0.5,max_tokens:1200,reasoning_effort:'low'})});
+    // 08-24：補齊finish_reason===length且content為空的偵測——原本content||''
+    // 直接顯示，隱藏推理吃光max_tokens時使用者看到的是「反饋跑不出來」的空白區塊
+    let resp=await fetch(GROQ,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+key},body:JSON.stringify({model:'openai/gpt-oss-120b',messages:[{role:'user',content:prompt}],temperature:0.5,max_tokens:1200,reasoning_effort:'low'})});
     if(!resp.ok) throw new Error('HTTP '+resp.status);
-    const data=await resp.json();
-    const rawFbText=data.choices?.[0]?.message?.content||'';
+    let data=await resp.json();
+    let fbChoice=data.choices?.[0];
+    if(!(fbChoice?.message?.content||'').trim()&&fbChoice?.finish_reason==='length'){
+      resp=await fetch(GROQ,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+key},body:JSON.stringify({model:'openai/gpt-oss-120b',messages:[{role:'user',content:prompt}],temperature:0.5,max_tokens:2160,reasoning_effort:'low'})});
+      if(!resp.ok) throw new Error('HTTP '+resp.status);
+      data=await resp.json();
+      fbChoice=data.choices?.[0];
+    }
+    const rawFbText=fbChoice?.message?.content||'';
     // 繁中保底：cc_zht.js 為外部非同步載入的共用檔，未就緒時原樣顯示不報錯
     const fbText=(typeof s2t==='function')?s2t(rawFbText):rawFbText;
     out.textContent=fbText;
@@ -2814,10 +2843,18 @@ ${weekSummary}
     // 08-18：同generate()/genReviewFeedback()的reasoning token坑，加
     // reasoning_effort:'low'+拉高max_tokens（08-19更正：原本也加過
     // reasoning_format:'hidden'，對gpt-oss系列不支援、被靜默忽略，已移除）
-    const resp=await fetch(GROQ,{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${key}`},body:JSON.stringify({model:'openai/gpt-oss-120b',messages:[{role:'user',content:prompt}],temperature:0.5,max_tokens:1500,reasoning_effort:'low'})});
+    // 08-24：同上，補finish_reason===length且content為空時放大max_tokens重試一次
+    let resp=await fetch(GROQ,{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${key}`},body:JSON.stringify({model:'openai/gpt-oss-120b',messages:[{role:'user',content:prompt}],temperature:0.5,max_tokens:1500,reasoning_effort:'low'})});
     if(!resp.ok) throw new Error(`HTTP ${resp.status}`);
-    const data=await resp.json();
-    const rawRecap=data.choices?.[0]?.message?.content||'';
+    let data=await resp.json();
+    let recapChoice=data.choices?.[0];
+    if(!(recapChoice?.message?.content||'').trim()&&recapChoice?.finish_reason==='length'){
+      resp=await fetch(GROQ,{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${key}`},body:JSON.stringify({model:'openai/gpt-oss-120b',messages:[{role:'user',content:prompt}],temperature:0.5,max_tokens:2700,reasoning_effort:'low'})});
+      if(!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      data=await resp.json();
+      recapChoice=data.choices?.[0];
+    }
+    const rawRecap=recapChoice?.message?.content||'';
     // 繁中保底：cc_zht.js 為外部非同步載入的共用檔，未就緒時原樣顯示不報錯
     out.textContent=(typeof s2t==='function')?s2t(rawRecap):rawRecap;
     out.style.display='block';
