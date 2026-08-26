@@ -1561,9 +1561,13 @@ ${taskList}
           const data=await resp.json();
           const choice=data.choices?.[0];
           let content=(choice?.message?.content||'').replace(/```json|```/g,'').trim();
-          if(!content&&choice?.finish_reason==='length'){
+          if(choice?.finish_reason==='length'){
+            // 08-26修正：原本要求content完全空白才觸發，但殘句（非空但沒寫完的JSON片段）
+            // 一樣是finish_reason===length，不該漏放——這裡提早攔截可以立刻放大curMax
+            // 重試，比放給下面JSON.parse失敗後才靠parse-error分支重試更準（那條路徑
+            // 不會放大curMax，同預算重試大機率再截斷一次）
             curMax=Math.round(curMax*1.8);
-            throw new Error('推理耗盡max_tokens導致內容為空，放大額度重試');
+            throw new Error('推理耗盡max_tokens導致內容不完整，放大額度重試');
           }
           try{ raw=JSON.parse(content); }
           catch(parseErr){
@@ -1860,7 +1864,7 @@ Return ONLY JSON: [{"t":"task name","type":"high","ideal":30},...]`;
       }
       let j=await resp.json();
       let choice=j.choices?.[0];
-      if(!(choice?.message?.content||'').trim()&&choice?.finish_reason==='length'){
+      if(choice?.finish_reason==='length'){ // 08-26：不再要求content空白，殘句同樣算截斷
         resp=await groqFetch({model,messages:[{role:'user',content:prompt}],temperature:0.3,max_tokens:1080,reasoning_effort:'low'},key);
         if(!resp.ok){
           const errBody=await resp.json().catch(()=>({}));
@@ -2709,7 +2713,7 @@ async function genReviewFeedback(){
       }
       let data=await resp.json();
       let fbChoice=data.choices?.[0];
-      if(!(fbChoice?.message?.content||'').trim()&&fbChoice?.finish_reason==='length'){
+      if(fbChoice?.finish_reason==='length'){ // 08-26：不再要求content空白，殘句同樣算截斷
         resp=await groqFetch({model,messages:[{role:'user',content:prompt}],temperature:0.5,max_tokens:2160,reasoning_effort:'low'},key);
         if(!resp.ok){
           const errBody=await resp.json().catch(()=>({}));
@@ -2943,7 +2947,7 @@ ${weekSummary}
       }
       let data=await resp.json();
       let recapChoice=data.choices?.[0];
-      if(!(recapChoice?.message?.content||'').trim()&&recapChoice?.finish_reason==='length'){
+      if(recapChoice?.finish_reason==='length'){ // 08-26：不再要求content空白，殘句同樣算截斷
         resp=await groqFetch({model,messages:[{role:'user',content:prompt}],temperature:0.5,max_tokens:2700,reasoning_effort:'low'},key);
         if(!resp.ok){
           const errBody=await resp.json().catch(()=>({}));
