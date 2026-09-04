@@ -839,20 +839,25 @@ function sanitizePipes(result, calEvents, tasks, pwr){
   const toMin=t=>{const[h,m]=(t||'0:0').split(':').map(Number);return h*60+(m||0);};
   const fmtMin=m=>String(Math.floor(m/60)).padStart(2,'0')+':'+String(m%60).padStart(2,'0');
 
-  /* ── 午餐 13:00–14:00 強制校正（07-28）：AI偶爾未照prompt規則2把午休排在13:00-14:00
-     （例如排到11:30-12:20），完全依賴prompt文字沒有code層防護，跟Calendar行程一樣補一道
-     強制校正。Calendar已佔用該區間則完全略過（比照prompt規則2）；已有rest管與該區間重疊
-     視為AI已安排午休不強制；否則把佔用該區間的水管切成前後兩段，中間插入強制午休 ── */
+  /* ── 午餐 13:00–14:00 強制校正（07-28，09-04擴大偵測窗）：AI偶爾未照prompt規則2把
+     午休排在13:00-14:00（例如排到11:30-12:20），完全依賴prompt文字沒有code層防護，
+     跟Calendar行程一樣補一道強制校正。判斷「是否已有午餐」的偵測窗放寬到11:00-15:00
+     （不用精確13:00-14:00）——使用者若在人工行程（calInput）把午餐排到更早（例如
+     12:00-12:30），因為不重疊精確的13:00-14:00會被誤判成沒吃午餐，硬插第二段午休，
+     變成一天兩段午休；放寬後只要人工行程或AI水管在11:00-15:00內有任何佔用就視為
+     午餐已安排，不強制。真的什麼都沒有時，才固定插在13:00-14:00（LUNCH_S/LUNCH_E
+     維持不變，只有「是否已有」的判斷窗變寬，插入位置沒變） ── */
   const LUNCH_S=toMin('13:00'), LUNCH_E=toMin('14:00');
+  const LUNCH_DETECT_S=toMin('11:00'), LUNCH_DETECT_E=toMin('15:00');
   const calOverlapsLunch=parsedCal.some(ev=>{
     const s=toMin(ev.start), e=toMin(ev.end);
-    return s<LUNCH_E && e>LUNCH_S;
+    return s<LUNCH_DETECT_E && e>LUNCH_DETECT_S;
   });
   if(!calOverlapsLunch){
     const hasLunchRest=result.pipes.some(p=>{
       if(p.type!=='rest')return false;
       const s=toMin(p.start), e=toMin(p.end);
-      return s<LUNCH_E && e>LUNCH_S;
+      return s<LUNCH_DETECT_E && e>LUNCH_DETECT_S;
     });
     if(!hasLunchRest){
       const rebuilt=[];
