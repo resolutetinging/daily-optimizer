@@ -252,6 +252,8 @@ input:checked+.js-slider:before{transform:translateX(13px);}
 .fb-reason{font-size:13px;color:#4a4640;line-height:1.6;margin-bottom:6px;white-space:normal;}
 .fb-directions{margin-top:4px;}
 .fb-dir-item{font-size:13px;color:#4a4640;line-height:1.7;padding:2px 0;white-space:normal;}
+.fb-week{margin-top:8px;padding-top:8px;border-top:1px dashed #cec8bf;font-size:12.5px;color:#4a4640;line-height:1.6;white-space:normal;}
+.fb-week-lbl{display:block;font-size:10.5px;font-weight:700;color:#9a8058;margin-bottom:2px;}
 
 /* ── History panel ── */
 .hist-panel{position:fixed;inset:0;background:#e8e4de;z-index:200;overflow-y:auto;transform:translateX(100%);transition:transform .3s ease;}
@@ -2577,11 +2579,19 @@ function renderFeedbackCard(fbData,isVacation){
     if(alignMap[fbData.align])badges+=badge(alignMap[fbData.align][0],alignMap[fbData.align][1]);
   }
   const reasonHtml=fbData.reason?`<div class="fb-reason">${esc(fbData.reason)}</div>`:'';
-  const diagHtml=(!isVacation&&fbData.diagnosis)?`<div class="fb-reason">${esc(fbData.diagnosis)}</div>`:'';
+  // 09-09：insight取代原本的diagnosis欄位（字數上限太緊只能吐重述現象的一句話，
+  // 使用者反映缺分析見解），舊資料(09-08當天存的)還是diagnosis欄位名，兩者都吃
+  // 才不會讓昨天存的反饋重新打開時顯示空白。
+  const insightText=fbData.insight||fbData.diagnosis;
+  const insightHtml=(!isVacation&&insightText)?`<div class="fb-reason">${esc(insightText)}</div>`:'';
   const dirHtml=Array.isArray(fbData.directions)&&fbData.directions.length
     ?`<div class="fb-directions">${fbData.directions.map(d=>`<div class="fb-dir-item">${esc(d)}</div>`).join('')}</div>`
     :'';
-  return `<div class="fb-badge-row">${badges}</div>${reasonHtml}${diagHtml}${dirHtml}`;
+  // 09-09新增：本週配速建議，只在有本週歷史資料時才會出現，跟明日行動視覺區隔
+  const weekHtml=(!isVacation&&fbData.week_plan)
+    ?`<div class="fb-week"><span class="fb-week-lbl">📅 本週配速</span>${esc(fbData.week_plan)}</div>`
+    :'';
+  return `<div class="fb-badge-row">${badges}</div>${reasonHtml}${insightHtml}${dirHtml}${weekHtml}`;
 }
 async function genReviewFeedback(){
   const key=getKey();
@@ -2703,23 +2713,45 @@ async function genReviewFeedback(){
           +' ['+(a.verdict==='inconsistent'?'不一致：模型校正信號':'一致：防禦準確')+']').join(NL)
       : '';
 
+    // 09-09：使用者反映反饋改可視化指標卡後內容變成只是重述現象的summarize，
+    // 缺分析見解跟隔週計畫建議。診斷欄位(原diagnosis)字數上限太緊(22字)逼LLM
+    // 只能吐一句話重述，改放寬成insight允許2-3句真正講因果；另外新增week_plan
+    // 需要本週實際數字才能給不虛構的配速建議，這裡重用getWeekData()（週報
+    // 功能既有的資料來源）算出本週已記錄天數/戰力/過載天數餵給prompt，
+    // 明確禁止編造這個區塊沒列出的天數或數字。
+    const weekDays=getWeekData();
+    const weekLines=weekDays.map(({date,data})=>{
+      const{overloadedPipes:wOverload}=computeOverloadInfo(data);
+      const total=(data.items||[]).length;
+      const doneish=(data.items||[]).filter(i=>i.status==='done'||i.status==='part').length;
+      const pct=total?Math.round(doneish/total*100):null;
+      return `  ${date.slice(5)}：戰力${data.combatPower??'—'}%`+(pct!=null?`、完成率${pct}%`:'')+(wOverload.length?'、有過載':'');
+    });
+    const weekContextSection=weekDays.length>1
+      ? NL+'【本週記錄（week_plan只能引用這裡列出的天數/數字，禁止虛構超出範圍的內容）】'+NL+weekLines.join(NL)
+      : '';
+
     prompt='你是我的效能顧問，給精準、簡短的覆盤。禁止重述事實，只給判斷和行動。'+NL
       +'設計背景：AI 精力水管為當日 fixed plan；[人工加入]代表使用者手動追加。'+NL
       +'嚴禁提及【實際覆盤結果】【AI 預排任務】【今日 Calendar 行程】以外的任何活動或事項名稱，不可自行編造具體事件（例如晚餐、逛街、看書店等未列出的活動）。'+NL+NL
       +'日期：'+dateStr+'　模式：'+(saved.mode||'未知')+'　體感：'+(saved.feel||'未知')+NL
       +'今日戰力：'+cp+'% '+cpLabel+'　期待基準：'+cpExpect+NL
       +(saved.depleted_at?'⚡ 能量低點：'+saved.depleted_at+NL:'')
-      +planSection+overloadSection+alignSection+NL+NL
+      +planSection+overloadSection+alignSection+weekContextSection+NL+NL
       +'【實際覆盤結果】'+NL+actualItems+missedText+overall+NL+NL
       +'只能輸出一個JSON物件，不要有其他文字、不要用markdown code fence包住，務必使用繁體中文（台灣正體），嚴禁簡體字與日文（含漢字新字體與假名）。schema如下：'+NL
       +'{"status":"above或meet或below（以戰力'+cp+'%為基準，今日完成率高於/符合/低於期待，必須與【實際覆盤結果】的完成狀態一致，不可矛盾）",'+NL
       +'"overload":"'+(overloadedPipes.length?(allOverloadDone?'sustainable（過載任務全部完成，撐過去了但要判斷是否可持續，不可說塞爆或燃意志力不足）':'burnout（水管過載且有任務未完成，直接判定為塞爆或燃意志力不足）'):'none（今日無水管過載記錄，固定填none）')+'",'+NL
       +'"align":"'+(pipeAlignItems.length?'breakthrough或fatigue_lag或accurate（⚠️警告任務若完成，判斷是心流突破(breakthrough)還是疲勞滯後未顯(fatigue_lag)；若未完成，填accurate代表防禦準確）':'none（今日無配速警告任務，固定填none）')+'",'+NL
       +'"reason":"一句話，18字以內，說明status判斷的關鍵原因",'+NL
-      +'"diagnosis":"一句話，22字以內，'+(hasAiPlan?'AI水管vs實際最大落差點，原因是計畫問題還是當日狀態問題':'今日任務選擇反映了什麼，最值得追問的一個決策')+'",'+NL
-      +'"directions":["①時間或場景＋具體事項（不用可以考慮、建議等模糊詞，15-20字內）"]（2-3項，必須根據【實際覆盤結果】的今日實際任務和狀態產生，禁止使用任何預設範例文字'
-      +(saved.overall?'，且須直接回應本人整體反饋中的關切點':'')+'）}'
-      +NL+'嚴禁提及【實際覆盤結果】【AI 預排任務】【今日 Calendar 行程】以外的任何活動或事項名稱，不可自行編造具體事件。語氣直接，不鼓勵，不重述事實。';
+      +'"insight":"2-3句話的分析見解，不是重述【實際覆盤結果】已經寫的事實，要講因果或型態——'
+      +(hasAiPlan?'AI水管vs實際最大落差點，原因是計畫問題還是當日狀態問題':'今日任務選擇反映了什麼決策傾向')
+      +'，並指出這對日後排程設計的啟示",'+NL
+      +'"directions":["①時間或場景＋具體事項（不用可以考慮、建議等模糊詞，15-20字內）"]（2-3項，明日行動，必須根據【實際覆盤結果】的今日實際任務和狀態產生，禁止使用任何預設範例文字'
+      +(saved.overall?'，且須直接回應本人整體反饋中的關切點':'')+'）'
+      +(weekDays.length>1?',"week_plan":"1-2句話，只能根據上方【本週記錄】列出的實際天數與數字，給本週剩餘時間的配速調整建議，禁止提及【本週記錄】沒列出的日期或數字"':'')
+      +'}'
+      +NL+'嚴禁提及【實際覆盤結果】【AI 預排任務】【今日 Calendar 行程】'+(weekDays.length>1?'【本週記錄】':'')+'以外的任何活動、事項名稱或數字，不可自行編造具體事件。語氣直接，不鼓勵，不重述事實。';
   }
 
   try{
