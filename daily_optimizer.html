@@ -2158,7 +2158,13 @@ function computeOverloadInfo(saved){
         const ri=saved.items?.find(i=>i.name===t);
         return ri?ri.status:'未記錄';
       });
-      const doneCount=statuses.filter(s=>s==='done'||s==='part').length;
+      // 09-09修復：使用者反映「某時段只做了一個任務的部分內容，但pipeline
+      // 警示會以一整個任務去計算」——根因是這裡原本把'part'(部分完成)跟
+      // 'done'(完全完成)同等計分，導致某任務只做一半，這個過載時段卻被
+      // allDone判定成「全部做完」，AI反饋因此誤報「💪撐住了」而非誠實反映
+      // 只做了部分。改成只有status嚴格等於'done'才計入，'part'不算數，
+      // 這樣才會誠實反映「還沒真的做完」而非灌水成完成。
+      const doneCount=statuses.filter(s=>s==='done').length;
       overloadedPipes.push({
         range:`${pipe.start}–${pipe.end}`,label:pipe.label,type:pipe.type,
         tasks:workTasks,count:workTasks.length,doneCount,allDone:doneCount===workTasks.length,
@@ -2731,8 +2737,11 @@ async function genReviewFeedback(){
     const weekLines=weekDays.map(({date,data})=>{
       const{overloadedPipes:wOverload}=computeOverloadInfo(data);
       const total=(data.items||[]).length;
-      const doneish=(data.items||[]).filter(i=>i.status==='done'||i.status==='part').length;
-      const pct=total?Math.round(doneish/total*100):null;
+      // 09-09同步修正：跟computeOverloadInfo()同一種「part當done算」的誤差，
+      // 改用renderWeeklyPreview()既有的加權算法（part算0.5分）維持全app一致，
+      // 避免完成率虛高誤導week_plan的配速建議。
+      const doneScore=(data.items||[]).reduce((s,i)=>s+(i.status==='done'?1:i.status==='part'?0.5:0),0);
+      const pct=total?Math.round(doneScore/total*100):null;
       return `  ${date.slice(5)}：戰力${data.combatPower??'—'}%`+(pct!=null?`、完成率${pct}%`:'')+(wOverload.length?'、有過載':'');
     });
     const weekContextSection=weekDays.length>1
