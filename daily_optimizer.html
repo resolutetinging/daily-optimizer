@@ -2604,7 +2604,15 @@ async function genReviewFeedback(){
   btn.textContent='分析中…';btn.disabled=true;
   out.style.display='none';
 
-  const dateStr=document.getElementById('hdate').textContent;
+  // 09-09修復（比getWeekData那個更根本的同類bug）：#hdate這個DOM欄位只在
+  // window.onload時用真實今天的日期設定過一次，切到歷史記錄編輯時完全沒有
+  // 跟著更新，導致重新生成過去某天的反饋時，prompt裡「日期：」那行永遠寫的
+  // 是瀏覽器打開當下的真實今天，跟實際覆盤資料的日期對不上，讓LLM誤以為在
+  // 分析今天而非displayKey代表的那一天，時間軸因此錯亂。改直接從displayKey
+  // 反推正確日期文字，不依賴可能過期的DOM顯示內容。
+  const _dsD=new Date(displayKey.replace('review_','')+'T12:00:00');
+  const _dsW=['週日','週一','週二','週三','週四','週五','週六'];
+  const dateStr=`${_dsD.getMonth()+1}月${_dsD.getDate()}日　${_dsW[_dsD.getDay()]}`;
   const NL='\n';
   const cp=saved.combatPower||pwr||0;
   const cpLabel=cp>=80?'🔥 Peak（80+）':cp>=70?'⚡ Stable（70-79）':cp>=60?'⚠ Caution（60-69）':'🔴 Critical（<60）';
@@ -2719,7 +2727,7 @@ async function genReviewFeedback(){
     // 需要本週實際數字才能給不虛構的配速建議，這裡重用getWeekData()（週報
     // 功能既有的資料來源）算出本週已記錄天數/戰力/過載天數餵給prompt，
     // 明確禁止編造這個區塊沒列出的天數或數字。
-    const weekDays=getWeekData();
+    const weekDays=getWeekDataEndingAt(displayKey.replace('review_',''));
     const weekLines=weekDays.map(({date,data})=>{
       const{overloadedPipes:wOverload}=computeOverloadInfo(data);
       const total=(data.items||[]).length;
@@ -2916,18 +2924,30 @@ function renderSavedSchedule(saved){
 }
 
 /* ── Weekly Recap ── */
-function getWeekData(){
-  // 取本週一到今天（週五）的覆盤資料
-  const today=new Date();
+// 09-09修復：原本寫死用new Date()（瀏覽器當下的真實今天），使用者叫出09-08
+// 歷史記錄重新生成AI反饋時，本週配速區塊卻用09-09當錨點抓資料，時間軸對不
+// 起來（甚至把「今天」尚未發生的09-09也算進09-08那次分析的本週脈絡）。拆成
+// 通用的getWeekDataEndingAt(anchorDateStr)以指定日期為錨點，Weekly Recap
+// 面板本身仍應永遠看「真實現在」的本週，繼續呼叫不帶參數的getWeekData()；
+// genReviewFeedback()改呼叫帶displayKey日期錨點的版本。
+function getWeekDataEndingAt(anchorDateStr){
+  // T12:00:00（非T00:00:00）：UTC+8時區下午夜錨點經toISOString()轉UTC會
+  // 往前多跳一天(00:00 CST = 前一天16:00 UTC)，正午錨點才能穩定落在同一
+  // 曆日，比照這個檔案其他地方(如編輯歷史banner)已經在用的同一種寫法
+  const anchor=new Date(anchorDateStr+'T12:00:00');
   const days=[];
   for(let i=4;i>=0;i--){
-    const d=new Date(today);
-    d.setDate(today.getDate()-i);
+    const d=new Date(anchor);
+    d.setDate(anchor.getDate()-i);
     const key='review_'+d.toISOString().slice(0,10);
     const data=JSON.parse(localStorage.getItem(key)||'null');
     if(data) days.push({date:d.toISOString().slice(0,10),data});
   }
   return days;
+}
+function getWeekData(){
+  // 取本週一到今天（週五）的覆盤資料——Weekly Recap面板永遠看真實現在的本週
+  return getWeekDataEndingAt(new Date().toISOString().slice(0,10));
 }
 
 function renderWeeklyPreview(){
