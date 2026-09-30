@@ -1,0 +1,3569 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%220.9em%22 font-size=%2290%22>⚡</text></svg>">
+<meta charset="UTF-8">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Daily Optimizer">
+<title>Daily Optimizer v2</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue","PingFang TC",sans-serif;background-color:#e8e4de;color:#38342e;font-size:15px;line-height:1.65;min-height:100vh;}
+.app{max-width:460px;margin:0 auto;padding-bottom:100px;}
+
+.header{padding:54px 20px 16px;display:flex;align-items:flex-end;justify-content:space-between;}
+.h-date{font-size:12px;color:#9a9088;letter-spacing:.05em;margin-bottom:4px;}
+.h-title{font-size:24px;font-weight:600;color:#38342e;letter-spacing:-.3px;}
+.h-reload{font-size:12px;color:#9a9088;background:#f4f1ec;border:1px solid #cec8bf;border-radius:20px;padding:5px 12px;cursor:pointer;white-space:nowrap;}
+.h-hist{font-size:12px;color:#9a9088;background:#f4f1ec;border:1px solid #cec8bf;border-radius:20px;padding:5px 12px;cursor:pointer;white-space:nowrap;}
+.h-rest{font-size:12px;font-weight:500;background:#f4f1ec;border:1px solid #cec8bf;border-radius:20px;padding:5px 12px;cursor:pointer;color:#9a9088;transition:all .2s;white-space:nowrap;}
+.h-rest.on{background:#7a9e8a;border-color:#7a9e8a;color:#fff;}
+.h-rest-sm{font-size:10px;font-weight:500;background:#f4f1ec;border:1px solid #cec8bf;border-radius:20px;padding:2px 8px;cursor:pointer;color:#9a9088;transition:all .2s;line-height:1.6;}
+.h-rest-sm.on{background:#7a9e8a;border-color:#7a9e8a;color:#fff;}
+
+/* Rest mode card */
+.rest-card{background:#f4f1ec;border:1px solid #cec8bf;border-radius:14px;padding:18px 17px;margin:0 16px 9px;display:none;}
+.rest-card.show{display:block;}
+.rest-title{font-size:15px;font-weight:600;color:#38342e;margin-bottom:4px;}
+.rest-sub{font-size:12px;color:#7a7570;margin-bottom:14px;line-height:1.55;}
+.rest-note{width:100%;padding:11px 13px;border-radius:10px;border:1px solid #cec8bf;background:#ece8e0;font-size:14px;color:#38342e;resize:none;min-height:72px;font-family:inherit;outline:none;line-height:1.6;}
+.rest-note::placeholder{color:#aaa49c;}
+.rest-note:focus{border-color:#7a9e8a;}
+.rest-open-btn{margin-top:10px;width:100%;padding:13px;border-radius:10px;border:none;background:#7a9e8a;color:#fff;font-size:14px;font-weight:600;cursor:pointer;transition:opacity .15s;}
+.rest-open-btn:active{opacity:.8;}
+
+.sbar{display:flex;align-items:center;gap:8px;margin:0 16px 8px;padding:9px 14px;background:#f4f1ec;border:1px solid #cec8bf;border-radius:10px;font-size:12px;color:#7a7570;}
+.dot{width:6px;height:6px;border-radius:50%;flex-shrink:0;}
+.dspin{background:#b09070;animation:pulse 1.2s ease-in-out infinite;}
+.dok{background:#7a9e8a;}.derr{background:#a07070;}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.2}}
+
+.card{background:#f4f1ec;border:1px solid #cec8bf;border-radius:14px;padding:15px 17px;margin:0 16px 9px;}
+.clabel{font-size:10px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:#9a9088;margin-bottom:12px;}
+
+.key-card{background:#f0ede6;border:1px solid #cec8bf;border-radius:10px;padding:13px 15px;margin:0 16px 9px;}
+.key-title{font-size:10px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:#9a9088;margin-bottom:8px;}
+.key-row{display:flex;gap:7px;}
+.key-in{flex:1;padding:9px 11px;border-radius:7px;border:1px solid #cec8bf;background:#faf8f4;font-size:12px;color:#38342e;font-family:'SF Mono',monospace;outline:none;}
+.key-in:focus{border-color:#7a8e9e;}
+.key-save{padding:9px 14px;border-radius:7px;border:none;background:#7a8e9e;color:#fff;font-size:13px;font-weight:500;cursor:pointer;}
+.key-ok{display:flex;align-items:center;gap:8px;margin:0 16px 8px;padding:9px 14px;background:#f4f1ec;border:1px solid #cec8bf;border-radius:10px;font-size:12px;color:#7a9e8a;}
+.key-hint{font-size:11px;color:#9a9088;margin-top:5px;line-height:1.5;}
+.key-hint a{color:#7a8e9e;}
+
+.prow{display:flex;align-items:center;gap:14px;}
+.pring{position:relative;width:70px;height:70px;flex-shrink:0;}
+.pring svg{transform:rotate(-90deg);}
+.ring-bg{fill:none;stroke:#cec8bf;stroke-width:5;}
+.ring-fg{fill:none;stroke-width:5;stroke-linecap:round;stroke:#7a8e9e;stroke-dasharray:188.5;stroke-dashoffset:188.5;transition:stroke-dashoffset 1s ease,stroke .4s;}
+.ring-txt{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;}
+.ring-num{font-size:20px;font-weight:600;color:#38342e;line-height:1;}
+.ring-pct{font-size:9px;color:#9a9088;margin-top:1px;}
+.pinfo{flex:1;}
+.pstatus{font-size:15px;font-weight:600;color:#38342e;margin-bottom:3px;}
+.pdesc{font-size:12px;color:#7a7570;line-height:1.55;}
+.bars{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px;}
+.bi{display:flex;flex-direction:column;gap:4px;}
+.bl{font-size:11px;color:#9a9088;display:flex;justify-content:space-between;}
+.bl span:last-child{color:#6a6660;font-weight:500;}
+.bt{height:4px;border-radius:2px;background:#cec8bf;overflow:hidden;}
+.bf{height:100%;border-radius:2px;transition:width .9s ease;}
+
+/* power level colors */
+.rc{color:#a05050!important;} .rl{color:#b09070!important;} .rn{color:#7a9e8a!important;} .rh{color:#7a8e9e!important;}
+/* within/without task split */
+.task-split{background:#f4f1ec;border:1px solid #cec8bf;border-radius:14px;padding:13px 15px;margin:0 16px 9px;}
+.split-label{font-size:10px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:#9a9088;margin-bottom:8px;display:flex;align-items:center;gap:5px;}
+.split-label span{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;font-size:9px;font-weight:700;}
+.sl-in{background:rgba(122,158,138,.15);color:#4a7e5e;}
+.sl-out{background:rgba(200,194,184,.2);color:#7a7570;}
+.t-in-row{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #ddd8d0;font-size:13px;color:#38342e;}
+.t-in-row:last-child{border-bottom:none;}
+.t-out-row{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #ddd8d0;font-size:13px;color:#9a9088;}
+.t-out-row:last-child{border-bottom:none;}
+.t-dot-in{width:5px;height:5px;border-radius:50%;background:#7a9e8a;flex-shrink:0;}
+.t-dot-out{width:5px;height:5px;border-radius:50%;background:#cec8bf;flex-shrink:0;}
+.t-add-btn{margin-left:auto;flex-shrink:0;padding:3px 10px;border-radius:20px;border:1px solid #cec8bf;background:#f4f1ec;font-size:11px;color:#7a8e9e;cursor:pointer;font-weight:500;-webkit-tap-highlight-color:transparent;}
+
+.stitle{font-size:11px;font-weight:600;color:#9a9088;padding:15px 20px 7px;letter-spacing:.08em;text-transform:uppercase;}
+.orow3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:7px;margin:0 16px 9px;}
+.obtn{padding:11px 6px;border-radius:10px;border:1.5px solid #cec8bf;background:#f4f1ec;font-size:12.5px;font-weight:500;color:#7a7570;cursor:pointer;text-align:center;line-height:1.5;transition:all .15s;-webkit-tap-highlight-color:transparent;}
+.obtn .sub{font-size:10px;color:#9a9088;display:block;margin-top:1px;}
+.obtn.sel-blue{border-color:#7a8e9e;color:#5a6e7e;background:rgba(122,142,158,.09);}
+.obtn.sel-sage{border-color:#7a9e8a;color:#4a7e5e;background:rgba(122,158,138,.09);}
+.obtn.sel-sand{border-color:#b09870;color:#806040;background:rgba(176,152,112,.09);}
+.obtn.sel-mauve{border-color:#8e7a9e;color:#6e5a7e;background:rgba(142,122,158,.09);}
+.obtn.sel-warm{border-color:#a07878;color:#704848;background:rgba(160,120,120,.09);}
+.obtn.sel-rose{border-color:#a08878;color:#705848;background:rgba(160,136,120,.09);}
+.feel-row{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin:0 16px 9px;}
+.feel-custom-pill{display:flex;align-items:center;justify-content:space-between;padding:10px 10px 10px 11px;border-radius:10px;border:1.5px solid #cec8bf;background:#f4f1ec;font-size:12.5px;font-weight:500;color:#7a7570;cursor:pointer;transition:all .15s;box-sizing:border-box;}
+.feel-custom-pill .rm{font-size:10px;color:#bbb;cursor:pointer;line-height:1;flex-shrink:0;}
+.feel-custom-pill .rm:hover{color:#a07878;}
+.feel-add-btn{padding:10px 6px;border-radius:10px;border:1.5px dashed #cec8bf;background:transparent;font-size:12.5px;color:#b0a898;cursor:pointer;text-align:center;box-sizing:border-box;}
+.feel-add-btn:hover{border-color:#a0988a;color:#7a7570;}
+.feel-input-wrap{display:flex;align-items:center;gap:6px;margin:0 16px 9px;}
+.feel-input{flex:1;padding:9px 11px;border-radius:9px;border:1.5px solid #cec8bf;background:#f4f1ec;font-size:13px;color:#38342e;font-family:inherit;}
+.feel-input:focus{outline:none;border-color:#8a9aaa;}
+.feel-confirm-btn{padding:9px 14px;border-radius:9px;border:none;background:#7a8e9e;color:#fff;font-size:12.5px;cursor:pointer;font-family:inherit;}
+
+.wrap{margin:0 16px 9px;}
+.area{width:100%;padding:12px 14px;border-radius:10px;border:1px solid #cec8bf;background:#f4f1ec;font-size:14px;color:#38342e;resize:none;font-family:inherit;outline:none;line-height:1.6;}
+#calInput{resize:vertical;min-height:80px;}
+.area::placeholder{color:#aaa49c;}
+.area:focus{border-color:#7a8e9e;}
+.minput{width:100%;padding:12px 14px;border-radius:10px;border:1px solid #cec8bf;background:#f4f1ec;font-size:14px;color:#38342e;font-family:inherit;outline:none;}
+.minput:focus{border-color:#7a8e9e;}
+
+.ti{display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid #ece8e0;cursor:grab;}
+.ti:last-child{border-bottom:none;}
+.ti.drag{opacity:.3;}
+.ti-dot{width:5px;height:5px;border-radius:50%;background:#cec8bf;flex-shrink:0;}
+.tt{flex:1;font-size:13px;color:#38342e;outline:none;background:transparent;border:none;font-family:inherit;padding:2px 4px;line-height:1.5;border-radius:4px;}
+.tt:hover{background:rgba(0,0,0,.04);}
+.tt:focus{background:rgba(122,142,158,.07);}
+.dh{color:#c8c2b8;font-size:14px;cursor:grab;padding:0 2px;}
+.db{font-size:16px;color:#c8c2b8;cursor:pointer;padding:0 3px;opacity:0;transition:opacity .15s;line-height:1;}
+.ti:hover .db{opacity:1;}
+.ti-onoff{position:relative;width:28px;height:16px;cursor:pointer;display:inline-flex;flex-shrink:0;}
+.ti-onoff input{opacity:0;width:0;height:0;position:absolute;}
+.ti-onoff-sl{position:absolute;inset:0;background:#cec8bf;border-radius:16px;transition:.2s;}
+.ti-onoff-sl:before{content:'';position:absolute;width:11px;height:11px;left:2.5px;top:2.5px;background:#fff;border-radius:50%;transition:.2s;}
+.ti-onoff input:checked+.ti-onoff-sl{background:#7a9e8a;}
+.ti-onoff input:checked+.ti-onoff-sl:before{transform:translateX(12px);}
+.si-cat-lbl{font-size:14px;color:#38342e;font-weight:500;margin-right:4px;letter-spacing:.01em;}
+.arow{display:flex;align-items:center;gap:10px;padding:9px 0;}
+.ainput{flex:1;font-size:14px;color:#7a7570;background:transparent;border:none;outline:none;font-family:inherit;}
+.ainput::placeholder{color:#b0aaa0;}
+/* ── Category task library ── */
+.cat-sec{margin-bottom:8px;}
+.cat-hd{display:flex;align-items:center;gap:7px;padding:9px 0 6px;}
+.cat-lbl{font-size:13px;font-weight:700;letter-spacing:.01em;color:#4a4540;}
+.cat-items{padding-left:12px;border-left:2px solid #e4dfd8;margin-left:3px;margin-bottom:2px;min-height:8px;transition:background .15s,border-color .15s;}
+.cat-items.cat-drop-over{background:rgba(122,142,158,.07);border-left-color:#7a8e9e;border-radius:0 6px 6px 0;}
+.cat-freq{font-size:9px;padding:2px 7px;border-radius:10px;font-weight:600;letter-spacing:.03em;}
+.cf-daily{background:rgba(122,158,138,.14);color:#3a7e5a;}
+.cf-job{background:rgba(122,142,158,.14);color:#4a6e7e;}
+.cf-ondemand{background:rgba(160,150,130,.12);color:#7a6850;}
+.cat-js-wrap{margin-left:auto;display:flex;align-items:center;gap:6px;}
+.cat-js-lbl{font-size:9.5px;color:#9a9088;}
+.js-toggle{position:relative;width:30px;height:17px;cursor:pointer;display:inline-flex;flex-shrink:0;}
+.js-toggle input{opacity:0;width:0;height:0;position:absolute;}
+.js-slider{position:absolute;inset:0;background:#cec8bf;border-radius:17px;transition:.2s;}
+.js-slider:before{content:'';position:absolute;width:12px;height:12px;left:2.5px;top:2.5px;background:#fff;border-radius:50%;transition:.2s;}
+input:checked+.js-slider{background:#7a8e9e;}
+input:checked+.js-slider:before{transform:translateX(13px);}
+.acat-sel{font-size:11.5px;color:#7a7570;background:#ece8e0;border:1px solid #cec8bf;border-radius:6px;padding:3px 5px;outline:none;cursor:pointer;max-width:80px;flex-shrink:0;}
+.catmgr{background:#ece8e0;border-radius:8px;padding:10px 12px;margin-bottom:8px;display:none;}
+.catmgr.show{display:block;}
+.catmgr-row{display:flex;align-items:center;gap:6px;padding:5px 0;border-bottom:1px solid #ddd8d0;}
+.catmgr-row:last-child{border-bottom:none;padding-bottom:0;}
+.catmgr-lbl{flex:1;font-size:12.5px;color:#38342e;}
+.catmgr-freq{font-size:10.5px;color:#7a7570;background:#f4f1ec;border:1px solid #cec8bf;border-radius:6px;padding:3px 5px;outline:none;}
+.catmgr-del{font-size:14px;color:#c8c2b8;cursor:pointer;padding:0 3px;line-height:1;}
+.catmgr-del:hover{color:#a07878;}
+.catmgr-addinput{flex:1;font-size:12.5px;color:#38342e;background:transparent;border:none;outline:none;font-family:inherit;}
+.catmgr-addinput::placeholder{color:#b0aaa0;}
+/* AI suggestion card */
+
+.gbtn{margin:10px 16px 0;width:calc(100% - 32px);padding:15px;border-radius:10px;border:none;background:#7a8e9e;color:#fff;font-size:15px;font-weight:600;cursor:pointer;letter-spacing:.02em;-webkit-tap-highlight-color:transparent;transition:opacity .15s,transform .1s;display:flex;align-items:center;justify-content:center;gap:7px;}
+.gbtn:active{opacity:.82;transform:scale(.98);}
+
+.si{display:flex;gap:12px;align-items:flex-start;padding:11px 0;border-bottom:1px solid #ddd8d0;}
+.si:last-child{border-bottom:none;}
+.tlbl{font-size:11px;font-weight:600;color:#9a9088;min-width:46px;padding-top:2px;font-variant-numeric:tabular-nums;}
+.sb{flex:1;}
+.stask-row{display:flex;align-items:center;justify-content:space-between;gap:8px;}
+.stask{font-size:14px;font-weight:500;color:#38342e;flex:1;}
+.snote{font-size:10px;color:#7a7570;line-height:1.55;margin-top:2px;}
+.tag{display:inline-block;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:600;letter-spacing:.03em;flex-shrink:0;}
+.t-h{background:rgba(122,142,158,.13);color:#5a6e7e;}
+.t-m{background:rgba(140,124,150,.13);color:#7a6e8e;}
+.t-l{background:rgba(122,158,138,.13);color:#4a7e5e;}
+.t-b{background:rgba(160,140,110,.13);color:#8a7050;}
+.t-cal{background:rgba(176,152,112,.13);color:#806040;}
+
+.tr2{display:flex;gap:11px;align-items:flex-start;padding:10px 0;border-bottom:1px solid #ddd8d0;}
+.tr2:last-child{border-bottom:none;padding-bottom:0;}
+.ti2{font-size:14px;flex-shrink:0;margin-top:1px;}
+.tt2{font-size:13px;color:#4a4640;line-height:1.65;}
+.sbox{font-size:13px;color:#6a6660;line-height:1.65;padding:10px 13px;border-radius:8px;background:#ece8e0;border:1px solid #cec8bf;margin-bottom:13px;}
+
+/* ── Review ── */
+.review-card{background:#f4f1ec;border:1px solid #cec8bf;border-radius:14px;padding:15px 17px;margin:0 16px 9px;}
+.rest-note-display{padding:10px 13px;border-radius:8px;background:#ece8e0;border:1px solid #cec8bf;font-size:13px;color:#6a6660;line-height:1.6;margin-bottom:13px;white-space:pre-wrap;display:none;}
+.rest-note-display.show{display:block;}
+.depleted-row{display:flex;align-items:center;}
+.depleted-pill{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;padding:4px 12px;border-radius:20px;border:1px solid #cec8bf;background:transparent;color:#7a7570;cursor:pointer;font-family:inherit;transition:background .15s;}
+.depleted-pill:hover{background:#ece8e0;}
+.depleted-pill.recorded{background:#fef6ec;border-color:#d4a87a;cursor:default;}
+.depleted-time{font-weight:600;color:#b07848;}
+.depleted-clr{font-size:12px;color:#c8c2b8;cursor:pointer;padding:0 2px;margin-left:2px;line-height:1;}
+.depleted-clr:hover{color:#a07878;}
+.add-ri-row{display:flex;align-items:center;gap:8px;padding:9px 12px;margin-top:8px;border-radius:9px;background:#ece8e0;border:1px dashed #c4bfb6;}
+.add-ri-input{flex:1;font-size:13px;color:#38342e;background:transparent;border:none;outline:none;font-family:inherit;}
+.add-ri-input::placeholder{color:#aaa49c;}
+.add-ri-btn{font-size:12px;font-weight:600;color:#fff;background:#7a8e9e;border:none;border-radius:20px;padding:5px 12px;cursor:pointer;white-space:nowrap;flex-shrink:0;}
+.add-ri-btn:active{opacity:.8;}
+.review-title{font-size:10px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:#9a9088;}
+.save-all-btn{font-size:11px;font-weight:600;color:#fff;background:#7a8e9e;border:none;border-radius:20px;padding:5px 12px;cursor:pointer;}
+.save-all-btn:active{opacity:.8;}
+
+/* per-item review */
+.ri{border-bottom:1px solid #ddd8d0;padding:12px 0;}
+.ri:last-child{border-bottom:none;padding-bottom:4px;}
+.ri-top{display:flex;align-items:center;gap:8px;margin-bottom:0;}
+.ri-name{flex:1;font-size:13px;font-weight:500;color:#38342e;line-height:1.4;}
+.ri-btns{display:flex;gap:5px;flex-shrink:0;}
+.rb{padding:4px 10px;border-radius:20px;border:1px solid #cec8bf;background:#f4f1ec;font-size:11px;font-weight:500;color:#9a9088;cursor:pointer;transition:all .15s;white-space:nowrap;}
+.rb.on-done{background:#7a9e8a;border-color:#7a9e8a;color:#fff;}
+.rb.on-skip{background:#b0a090;border-color:#b0a090;color:#fff;}
+.rb.on-part{background:#8e9e7a;border-color:#8e9e7a;color:#fff;}
+.rb.on-no{background:#9e8a7a;border-color:#9e8a7a;color:#fff;}
+
+/* inline feedback - hidden by default, shown on status select */
+.ri-feedback{margin-top:8px;display:none;}
+.ri-feedback.show{display:block;}
+.ri-fb-input{width:100%;padding:9px 11px;border-radius:8px;border:1px solid #cec8bf;background:#ece8e0;font-size:12px;color:#38342e;resize:vertical;min-height:54px;font-family:inherit;outline:none;line-height:1.55;}
+.ri-fb-input::placeholder{color:#b0aaa0;}
+.ri-fb-input:focus{border-color:#7a8e9e;}
+.ri-del{background:none;border:none;color:#c4bfb6;cursor:pointer;font-size:13px;padding:2px 4px;border-radius:5px;flex-shrink:0;line-height:1;transition:color .15s;}
+.ri-del:hover{color:#b07878;}
+
+/* overall note */
+.overall-wrap{margin-top:13px;border-top:1px solid #ddd8d0;padding-top:13px;}
+.overall-label{font-size:11px;font-weight:600;color:#9a9088;letter-spacing:.05em;text-transform:uppercase;margin-bottom:7px;}
+.overall-input{width:100%;padding:11px 13px;border-radius:10px;border:1px solid #cec8bf;background:#ece8e0;font-size:13px;color:#38342e;resize:vertical;min-height:70px;font-family:inherit;outline:none;line-height:1.6;white-space:pre-wrap;}
+.overall-input::placeholder{color:#b0aaa0;}
+.overall-input:focus{border-color:#7a8e9e;}
+
+.saved-toast{font-size:12px;color:#7a9e8a;text-align:center;padding:8px 0;display:none;}
+.ai-fb-btn{margin-top:10px;width:100%;padding:11px;border-radius:10px;border:1px solid #cec8bf;background:#f4f1ec;color:#7a8e9e;font-size:13px;font-weight:600;cursor:pointer;transition:all .15s;display:flex;align-items:center;justify-content:center;gap:6px;}
+.ai-fb-btn:hover{background:#ece8e0;border-color:#b0aaa0;}
+.ai-fb-btn:active{opacity:.8;}
+.ai-fb-out{margin-top:10px;padding:12px 14px;border-radius:10px;background:#ece8e0;border:1px solid #cec8bf;font-size:13px;color:#4a4640;line-height:1.7;white-space:pre-wrap;display:none;}
+.fb-badge-row{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;white-space:normal;}
+.fb-badge{display:inline-flex;align-items:center;padding:4px 10px;border-radius:20px;font-size:12px;font-weight:600;white-space:nowrap;}
+.fb-good{background:rgba(122,158,138,.22);color:#3e6b50;}
+.fb-neutral{background:rgba(122,142,158,.22);color:#3e5c6e;}
+.fb-warn{background:rgba(212,168,122,.32);color:#7a5228;}
+.fb-reason{font-size:13px;color:#4a4640;line-height:1.6;margin-bottom:6px;white-space:normal;}
+.fb-directions{margin-top:4px;}
+.fb-dir-item{font-size:13px;color:#4a4640;line-height:1.7;padding:2px 0;white-space:normal;}
+.fb-week{margin-top:8px;padding-top:8px;border-top:1px dashed #cec8bf;font-size:12.5px;color:#4a4640;line-height:1.6;white-space:normal;}
+.fb-week-lbl{display:block;font-size:10.5px;font-weight:700;color:#9a8058;margin-bottom:2px;}
+
+/* ── History panel ── */
+.hist-panel{position:fixed;inset:0;background:#e8e4de;z-index:200;overflow-y:auto;transform:translateX(100%);transition:transform .3s ease;}
+.hist-panel.open{transform:translateX(0);}
+.hist-header{padding:54px 20px 12px;display:flex;align-items:center;gap:12px;background:#e8e3db;position:sticky;top:0;z-index:10;}
+.hist-filter-wrap{background:#e8e3db;border-bottom:1px solid #cec8bf;position:sticky;top:52px;z-index:9;padding:6px 16px 8px;}
+.hist-filter-row{display:flex;gap:5px;overflow-x:auto;scrollbar-width:none;padding:0;}
+.hist-filter-row::-webkit-scrollbar{display:none;}
+.hist-filter-lbl{font-size:10px;color:#9a9088;letter-spacing:.06em;text-transform:uppercase;flex-shrink:0;line-height:1;padding-top:5px;}
+.hfp{font-size:11.5px;padding:4px 12px;border-radius:20px;border:1px solid #cec8bf;background:transparent;color:#7a7570;cursor:pointer;white-space:nowrap;flex-shrink:0;font-family:inherit;line-height:1.4;}
+.hfp.active{background:#38342e;color:#f4f1ec;border-color:#38342e;}
+.hist-back{font-size:13px;color:#7a8e9e;background:none;border:none;cursor:pointer;padding:4px 0;font-weight:500;}
+.hist-title{font-size:18px;font-weight:600;color:#38342e;flex:1;}
+.hist-empty{text-align:center;padding:60px 20px;font-size:14px;color:#9a9088;line-height:1.8;}
+/* ── Journal wall card ── */
+.hist-day{margin:12px 16px;background:#f4f1ec;border:1px solid #cec8bf;border-radius:16px;overflow:hidden;}
+.hist-day-top{display:flex;align-items:center;justify-content:space-between;padding:12px 14px 10px;}
+.hist-day-date{font-size:15px;font-weight:700;color:#38342e;}
+.hist-day-meta{font-size:11px;color:#9a9088;margin-top:1px;}
+.hist-day-stats{display:flex;gap:5px;align-items:center;flex-wrap:wrap;}
+.stat-pill{display:inline-flex;align-items:center;gap:3px;padding:3px 8px;border-radius:20px;font-size:10px;font-weight:600;}
+.sp-done{background:rgba(122,158,138,.18);color:#4a7e5e;}
+.sp-part{background:rgba(142,158,122,.18);color:#5a7e3e;}
+.sp-skip{background:rgba(176,160,144,.18);color:#7a6050;}
+.sp-no{background:rgba(158,138,122,.18);color:#6a5040;}
+/* 2-col card body */
+.hist-card-body{display:grid;grid-template-columns:2fr 1fr;gap:0;border-top:1px solid #ddd8d0;min-height:0;}
+/* left: review text */
+.hist-left{padding:10px 13px;min-width:0;}
+/* right: snapshot */
+.hist-right{border-left:1px solid #ddd8d0;display:flex;align-items:flex-start;padding:8px;min-width:0;overflow:hidden;}
+.hist-snapshot{width:100%;min-width:0;}
+.hist-snapshot img{width:100%;border-radius:6px;display:block;box-shadow:0 1px 4px rgba(0,0,0,.10);}
+.hist-snapshot-none{font-size:11px;color:#c0bab0;text-align:center;padding-top:8px;line-height:1.5;}
+.mini-pipe-view{width:100%;}
+.mpipe-row{padding:5px 0;border-bottom:1px solid #d8d2ca;}
+.mpipe-row:last-child{border-bottom:none;}
+.mpipe-hd{display:flex;align-items:center;gap:5px;margin-bottom:2px;}
+.mpipe-badge{font-size:9px;font-weight:700;padding:1px 5px;border-radius:8px;flex-shrink:0;letter-spacing:.02em;}
+.mpipe-time{font-size:10px;color:#9a9088;}
+.mpipe-label{font-size:11px;font-weight:500;color:#38342e;line-height:1.3;}
+.mpipe-chips{margin-top:3px;display:flex;flex-wrap:wrap;gap:3px;}
+.mpipe-chip{font-size:9px;background:#ece8e0;color:#6a6660;padding:1px 5px;border-radius:8px;line-height:1.4;}
+.hist-dur-sec{margin-top:6px;}
+.hist-dur-hdr{font-size:9px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#9a9088;margin-bottom:5px;}
+.hist-type-group{margin-bottom:7px;}
+.hist-type-group:last-child{margin-bottom:0;}
+.hist-type-hd{display:flex;align-items:baseline;gap:5px;margin-bottom:3px;}
+.hist-type-emoji{font-size:11px;}
+.hist-type-lbl{font-size:11px;font-weight:700;}
+.hist-type-min{font-size:10px;color:#9a9088;}
+.hist-task-row{display:flex;align-items:center;gap:4px;padding:2px 0 2px 14px;min-width:0;}
+.hist-task-name{flex:1;font-size:10px;color:#5a5450;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.hist-task-min{font-size:10px;color:#9a9088;flex-shrink:0;white-space:nowrap;}
+.hist-task-st{font-size:10px;font-weight:700;flex-shrink:0;margin-left:2px;}
+.hist-chevron{font-size:11px;color:#b0aaa0;transition:transform .2s;}
+.hist-chevron.open{transform:rotate(90deg);}
+.hist-item{padding:7px 0;border-bottom:1px solid #ddd8d0;}
+.hist-item:last-child{border-bottom:none;}
+.hist-item-top{display:flex;align-items:center;gap:6px;margin-bottom:2px;}
+.hist-item-name{flex:1;font-size:12px;font-weight:500;color:#38342e;line-height:1.3;}
+.hist-status{font-size:10px;font-weight:600;padding:2px 7px;border-radius:20px;flex-shrink:0;}
+.hs-done{background:rgba(122,158,138,.15);color:#4a7e5e;}
+.hs-part{background:rgba(142,158,122,.15);color:#5a7e3e;}
+.hs-skip{background:rgba(176,160,144,.15);color:#7a6050;}
+.hs-no{background:rgba(158,138,122,.15);color:#6a5040;}
+.hs-none{background:rgba(200,194,184,.15);color:#9a9088;}
+.hist-item-fb{font-size:11px;color:#7a7570;line-height:1.5;padding-left:1px;white-space:pre-wrap;word-break:break-word;}
+.hist-overall{margin:5px 0 4px;padding:7px 10px;border-radius:7px;background:#ece8e0;font-size:11px;color:#6a6660;line-height:1.55;word-break:break-word;}
+.hist-overall-label{font-size:9px;font-weight:600;color:#9a9088;letter-spacing:.06em;text-transform:uppercase;margin-bottom:2px;}
+/* action buttons */
+.hist-actions{display:flex;gap:6px;padding:8px 13px 11px;border-top:1px solid #ece8e0;}
+.hist-act-btn{font-size:11px;border:none;border-radius:7px;padding:4px 9px;cursor:pointer;font-family:inherit;}
+.snap-lb{position:fixed;inset:0;background:rgba(20,18,14,.82);z-index:500;display:flex;align-items:center;justify-content:center;cursor:zoom-out;}
+.snap-lb img{max-width:92vw;max-height:88vh;border-radius:10px;box-shadow:0 8px 40px rgba(0,0,0,.5);}
+
+.overlay{position:fixed;inset:0;background:rgba(30,26,20,.4);display:flex;align-items:center;justify-content:center;z-index:100;}
+.ocard{background:#f4f1ec;border-radius:14px;padding:28px 36px;text-align:center;max-width:240px;border:1px solid #cec8bf;}
+.spin{width:32px;height:32px;border:2.5px solid #cec8bf;border-top-color:#7a8e9e;border-radius:50%;animation:sp .85s linear infinite;margin:0 auto 13px;}
+@keyframes sp{to{transform:rotate(360deg)}}
+.otxt{font-size:13px;color:#7a7570;}
+
+.editing-banner{background:#f0e8d8;border:1.5px solid #c8b89a;border-radius:10px;padding:9px 14px;margin:0 16px 12px;font-size:13px;color:#6b5a42;font-weight:500;display:flex;justify-content:space-between;align-items:center;gap:8px;}
+.hidden{display:none!important;}
+.fi{animation:fi .4s ease;}
+@keyframes fi{from{opacity:0;transform:translateY(8px)}to{opacity:1}}
+/* Collapsible gist card */
+.key-card-hd{cursor:pointer;user-select:none;display:flex;align-items:center;justify-content:space-between;margin-bottom:0;}
+.key-card-hd .chev{font-size:13px;color:#9a9088;transition:transform .25s;flex-shrink:0;}
+.key-card-hd.coll .chev{transform:rotate(-90deg);}
+.key-card-bd{overflow:hidden;max-height:600px;transition:max-height .32s cubic-bezier(.4,0,.2,1),opacity .25s;opacity:1;margin-top:8px;}
+.key-card-bd.coll{max-height:0!important;opacity:0;margin-top:0;}
+
+/* ─── Pipe Sandbox ─── */
+.pipe-summary{font-size:13px;color:#4a4640;line-height:1.65;padding:10px 13px;border-radius:8px;background:#ece8e0;border:1px solid #cec8bf;margin-bottom:14px;}
+.dur-card{background:#f5f2ec;border:1px solid #ddd8ce;border-radius:10px;padding:11px 14px;margin-bottom:12px;}
+.dur-card-hdr{font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#9a9088;margin-bottom:5px;}
+.dur-fuel-ref{font-size:11px;color:#9a9088;margin-bottom:10px;line-height:1.5;font-weight:500;}
+.dur-type-group{margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid #e8e4de;}
+.dur-type-group:last-of-type{margin-bottom:0;padding-bottom:0;border-bottom:none;}
+.dur-type-hdr{margin-bottom:7px;}
+.dur-type-lbl{font-size:11.5px;font-weight:700;color:#4a4640;}
+.dur-type-tasks{display:flex;flex-direction:column;gap:9px;padding-left:10px;border-left:2px solid #e2ddd6;margin-left:4px;}
+.dur-task-block{display:flex;flex-direction:column;gap:3px;}
+.dur-task-name{font-size:12px;font-weight:600;color:#38342e;margin-bottom:2px;}
+.dur-sub-row{display:flex;align-items:baseline;gap:4px;padding-left:10px;}
+.dur-sub-icon{font-size:9px;color:#b0a898;flex-shrink:0;line-height:1.6;}
+.dur-ideal-min{font-size:10.5px;color:#9a9088;line-height:1.6;}
+.dur-actual-min{font-size:11px;font-weight:700;color:#4a6858;line-height:1.6;}
+.dur-formula-toggle{font-size:10px;color:#9a9088;cursor:pointer;user-select:none;margin-left:auto;padding:1px 6px;border-radius:8px;border:1px solid #ddd8ce;background:#f0ede7;white-space:nowrap;flex-shrink:0;}
+.dur-formula-toggle:hover{background:#e8e4de;}
+.dur-formula-box{font-size:10.5px;color:#7a7570;background:#f0ede7;border:1px solid #e0dbd2;border-radius:8px;padding:9px 11px;margin-bottom:10px;line-height:1.75;display:none;}
+.dur-formula-box.open{display:block;}
+.dur-buffer{display:flex;align-items:center;gap:6px;margin-top:8px;padding-top:8px;border-top:1px solid #e8e4de;}
+.dur-card-body{overflow:hidden;max-height:0;transition:max-height 360ms cubic-bezier(0.4,0,0.2,1);}
+.dur-card-body.open{max-height:1600px;}
+.dur-collapse-btn{font-size:11px;color:#9a9088;cursor:pointer;user-select:none;padding:1px 7px;border-radius:8px;border:1px solid #ddd8ce;background:#f0ede7;white-space:nowrap;flex-shrink:0;transition:background 140ms ease;}
+.dur-collapse-btn:hover{background:#e8e4de;}
+.dur-badge{font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;white-space:nowrap;flex-shrink:0;}
+.dur-badge.dh{background:rgba(80,105,142,.15);color:#3a5878;}
+.dur-badge.dm{background:rgba(80,140,115,.15);color:#2a6850;}
+.dur-badge.dl{background:rgba(115,148,95,.12);color:#3a6030;}
+.dur-badge.dr{background:rgba(132,168,140,.12);color:#4a7860;}
+.dur-val{font-size:11.5px;color:#5a5550;}
+.dur-row{display:flex;align-items:center;gap:6px;}
+.pipe-item{position:relative;border-radius:12px;padding:13px 14px 11px;margin-bottom:8px;cursor:pointer;transition:box-shadow .18s,border-color .18s;border:1.5px solid transparent;}
+.pipe-item.type-high{background:rgba(80,105,142,.13);border-color:rgba(80,105,142,.26);}
+.pipe-item.type-mid {background:rgba(80,140,115,.09);border-color:rgba(80,140,115,.22);}
+.pipe-item.type-low {background:rgba(115,148,95,.08);border-color:rgba(115,148,95,.2);}
+.pipe-item.type-rest{background:rgba(132,168,140,.07);border-color:rgba(168,198,172,.28);}
+.brick.rest-brick{border-color:#7a9e8a;color:#2e6848;background:rgba(122,158,138,.09);border-style:solid;}
+.pipe-item.selected{box-shadow:0 0 0 2.5px #7a8e9e;border-color:#7a8e9e;}
+.pipe-item.pipe-now{box-shadow:0 0 0 2.5px #4a7fa5;border-color:#4a7fa5;}
+.pipe-now-badge{display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:700;color:#2f5878;background:rgba(74,127,165,.16);padding:2px 8px;border-radius:10px;margin-left:auto;letter-spacing:.02em;}
+.pipe-now-dot{width:6px;height:6px;border-radius:50%;background:#4a7fa5;flex-shrink:0;animation:pipeNowPulse 1.6s ease-in-out infinite;}
+@keyframes pipeNowPulse{0%,100%{opacity:1}50%{opacity:.3}}
+.pipe-warn-1{animation:pWarn1 1.6s ease-in-out;}
+.pipe-warn-2{animation:pWarn2 1.1s ease-in-out infinite;}
+.pipe-warn-3{animation:pWarn3 0.7s ease-in-out infinite;}
+@keyframes pWarn1{0%,100%{box-shadow:0 0 0 2px #9a8060}50%{box-shadow:0 0 0 3px #d09018,0 0 14px rgba(208,144,24,.32)}}
+@keyframes pWarn2{0%,100%{box-shadow:0 0 0 2px #a04030}50%{box-shadow:0 0 0 3.5px #c0392b,0 0 18px rgba(192,57,43,.38)}}
+@keyframes pWarn3{0%,100%{box-shadow:0 0 0 2px #800020}40%{box-shadow:0 0 0 4px #e74c3c,0 0 24px rgba(231,76,60,.5)}}
+.pipe-hd{display:flex;align-items:center;gap:8px;margin-bottom:3px;}
+.pipe-time-range{font-size:10.5px;font-weight:600;color:#9a9088;font-variant-numeric:tabular-nums;letter-spacing:.03em;}
+.pipe-type-badge{font-size:10px;font-weight:700;letter-spacing:.04em;padding:2px 7px;border-radius:10px;}
+.type-high .pipe-type-badge{background:rgba(80,105,142,.15);color:#3a5878;}
+.type-mid  .pipe-type-badge{background:rgba(80,140,115,.15);color:#2a6850;}
+.type-low  .pipe-type-badge{background:rgba(115,148,95,.12);color:#3a6030;}
+.type-rest .pipe-type-badge{background:rgba(90,140,100,.1);color:#4a7860;}
+.pipe-lbl{font-size:13px;font-weight:600;color:#38342e;margin-bottom:2px;}
+.pipe-hint{font-size:11px;color:#9a9088;line-height:1.5;margin-bottom:2px;}
+.pipe-chips{display:flex;flex-wrap:wrap;gap:5px;margin-top:7px;}
+.pipe-chip{display:inline-flex;align-items:center;gap:4px;padding:4px 8px 4px 10px;border-radius:20px;background:rgba(58,52,46,.09);border:1px solid rgba(58,52,46,.15);font-size:11.5px;color:#38342e;cursor:pointer;-webkit-tap-highlight-color:transparent;}
+.pipe-chip .prm{font-size:11px;color:#c0bab0;line-height:1;}
+.pipe-chip:hover .prm{color:#a07878;}
+.pipe-lock-ico{position:absolute;top:11px;right:13px;font-size:12px;opacity:.38;pointer-events:none;}
+.pipe-warn-ico{position:absolute;bottom:10px;right:12px;font-size:13px;pointer-events:none;}
+.sandbox-hint{font-size:11px;color:#9a9088;padding:0;letter-spacing:.01em;transition:color .15s;display:flex;align-items:flex-start;gap:5px;}
+.sandbox-hint .bph-ic{flex-shrink:0;line-height:1.5;}
+.brick-pool-sec{margin-top:14px;padding-top:13px;border-top:1px solid #ddd8d0;}
+.brick-pool-hd{font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#9a9088;margin-bottom:9px;display:flex;align-items:center;gap:5px;}
+.brick-pool-hd .bph-ic{flex-shrink:0;letter-spacing:0;text-transform:none;}
+.brick-pool-desc{font-size:10.5px;color:#9a9088;margin-bottom:4px;display:flex;align-items:flex-start;gap:5px;}
+.brick-pool-desc .bph-ic{flex-shrink:0;line-height:1.5;}
+.brick-pool{display:flex;flex-wrap:wrap;gap:7px;}
+.brick{display:inline-flex;align-items:center;gap:4px;padding:7px 11px;border-radius:10px;border:1.5px solid #cec8bf;background:#f4f1ec;font-size:12.5px;font-weight:500;color:#38342e;cursor:pointer;transition:all .15s;-webkit-tap-highlight-color:transparent;user-select:none;}
+.brick:active{transform:scale(.95);}
+.brick.skip-sug{opacity:.5;border-style:dashed;color:#9a9088;}
+.brick.selected{border-color:#7a8e9e!important;background:rgba(122,142,158,.13);color:#4a6e8e;opacity:1!important;border-style:solid!important;}
+.brick-cnt{font-size:9px;font-weight:700;background:rgba(61,106,82,.18);color:#2e6848;border-radius:8px;padding:1px 5px;margin-left:4px;}
+.brick-warn-dot{font-size:9px;color:#d09018;flex-shrink:0;}
+.mock-notice{font-size:11px;color:#a07840;background:rgba(176,140,80,.09);border:1px solid rgba(176,140,80,.22);border-radius:7px;padding:6px 10px;margin-bottom:10px;}
+.temp-brick-row{display:flex;gap:6px;margin-top:10px;}
+.temp-brick-input{flex:1;padding:7px 10px;border-radius:8px;border:1.5px dashed #cec8bf;background:transparent;font-size:12.5px;color:#38342e;font-family:inherit;outline:none;}
+.temp-brick-input:focus{border-color:#7a8e9e;background:rgba(122,142,158,.05);}
+.temp-brick-input::placeholder{color:#b0aaa0;}
+.temp-brick-btn{padding:7px 11px;border-radius:8px;border:none;background:#7a8e9e;color:#fff;font-size:12px;font-weight:500;cursor:pointer;flex-shrink:0;}
+.brick.temp-brick{border-style:dashed;border-color:#7a8e9e;color:#4a6e8e;background:rgba(122,142,158,.06);}
+@media(max-width:430px){
+  .header{padding:20px 16px 14px;}
+  .h-title{font-size:19px;}
+  .h-rest,.h-hist,.h-reload{font-size:11px;padding:4px 9px;}
+}
+/* ── 任務能耗設定 ── */
+.energy-row{display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid #ece8e0;}
+.energy-row:last-child{border-bottom:none;}
+.energy-task-name{flex:1;font-size:12px;color:#38342e;line-height:1.3;}
+.energy-cat-tag{font-size:9px;color:#9a9088;margin-left:5px;font-weight:400;}
+.energy-btns{display:flex;gap:4px;flex-shrink:0;}
+.energy-btn{font-size:9.5px;font-weight:600;padding:3px 9px;border-radius:10px;border:1px solid #ddd8d0;cursor:pointer;transition:all .15s;background:#f4f1ec;color:#9a9088;}
+.energy-btn:hover{background:#ece8e0;}
+.energy-btn.e-high{background:rgba(200,80,60,.12);color:#8a3828;border-color:rgba(200,80,60,.3);}
+.energy-btn.e-mid{background:rgba(190,140,50,.12);color:#7a5e20;border-color:rgba(190,140,50,.3);}
+.energy-btn.e-low{background:rgba(90,158,120,.14);color:#2e6a48;border-color:rgba(90,158,120,.3);}
+</style>
+</head>
+<body>
+<!-- 09-30：Daily Optimizer v3分支標記，避免跟正式版daily_optimizer.html混淆。
+     10/1切換生效後可移除此banner。 -->
+<div style="position:sticky;top:0;z-index:9999;background:#c0392b;color:#fff;text-align:center;padding:6px 10px;font-size:12px;font-weight:600;">
+  🧪 v3分支（讀取sleep_dashboard_v3_live.html）——正式版待10/1切換
+</div>
+<div class="app">
+
+  <div class="header">
+    <div>
+      <div class="h-date" id="hdate">—</div>
+      <div class="h-title">Daily Optimizer</div>
+    </div>
+    <div style="display:flex;gap:7px;align-items:center">
+      <button class="h-rest" id="restBtn" onclick="toggleRest()">🌿 休假</button>
+      <button class="h-hist" onclick="openHist()">📋 歷史</button>
+      <button class="h-reload" onclick="reloadCombat()">↻ 重新載入</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="clabel">昨晚戰力</div>
+    <div class="prow">
+      <div class="pring">
+        <svg viewBox="0 0 72 72" width="70" height="70">
+          <circle class="ring-bg" cx="36" cy="36" r="30"/>
+          <circle class="ring-fg" id="rfg" cx="36" cy="36" r="30"/>
+        </svg>
+        <div class="ring-txt">
+          <div class="ring-num" id="pnum">—</div>
+          <div class="ring-pct">%</div>
+        </div>
+      </div>
+      <div class="pinfo">
+        <div class="pstatus" id="pstatus">讀取中…</div>
+        <div class="pdesc" id="pdesc">正在連接 Sleep Dashboard</div>
+      </div>
+    </div>
+    <div class="bars">
+      <div class="bi"><div class="bl"><span>Deep</span><span id="dv">—</span></div><div class="bt"><div class="bf" id="db2" style="width:0%;background:#7a8e9e"></div></div></div>
+      <div class="bi"><div class="bl"><span>REM</span><span id="rv">—</span></div><div class="bt"><div class="bf" id="rb" style="width:0%;background:#8e7a9e"></div></div></div>
+      <div class="bi"><div class="bl"><span>Core</span><span id="cv">—</span></div><div class="bt"><div class="bf" id="cb" style="width:0%;background:#7a9e8a"></div></div></div>
+      <div class="bi"><div class="bl"><span>Awake</span><span id="av">—</span></div><div class="bt"><div class="bf" id="ab" style="width:0%;background:#b09870"></div></div></div>
+    </div>
+    <div id="sleep-meta" style="font-size:11px;color:#9a9088;margin-top:8px;padding-top:8px;border-top:1px solid #ece8e0;line-height:1.6;"></div>
+    <div id="depletedRow" style="margin-top:6px;"></div>
+  </div>
+
+  <!-- 手動輸入戰力已於 2026-07-10 移除：戰力一律讀 localStorage（sas_combat_weekday→weighted→rawScore），遠端睡眠明細抓不到時只影響明細顯示 -->
+
+  <!-- 休假模式卡片 -->
+  <div class="rest-card" id="restCard">
+    <div class="rest-title">🌿 休假模式</div>
+    <div class="rest-sub">今日不追蹤行程，可自由記錄當天狀態</div>
+    <textarea class="rest-note" id="restNote" placeholder="例：今天去爬山、看了兩部電影、睡飽休息… 簡單記錄即可"></textarea>
+    <button class="rest-open-btn" onclick="openRestReview()">開始填寫今日覆盤 →</button>
+  </div>
+
+  <!-- 一般規劃區（休假模式時隱藏）-->
+  <div id="planSec">
+  <div class="stitle">今日地點</div>
+  <div class="feel-row" id="loc-row">
+    <button class="obtn" data-loc="分館" onclick="pick(this,'loc')">文化局分館<span class="sub">08:30–19:00</span></button>
+    <button class="obtn" data-loc="總館" onclick="pick(this,'loc')">圖書館總館<span class="sub">09:15–18:00</span></button>
+    <button class="obtn" data-loc="外出日" onclick="pick(this,'loc')">外出日<span class="sub">彈性安排</span></button>
+  </div>
+  <div class="feel-input-wrap hidden" id="loc-input-wrap">
+    <input class="feel-input" id="loc-input" placeholder="輸入自訂地點…" maxlength="14"
+      onkeydown="if(event.key==='Enter')confirmCustomLoc();if(event.key==='Escape')cancelCustomLoc();">
+    <button class="feel-confirm-btn" onclick="confirmCustomLoc()">確認</button>
+  </div>
+
+  <div class="stitle">今日模式</div>
+  <div class="feel-row">
+    <button class="obtn" data-mode="戰鬥日" onclick="pick(this,'mode')">⚡ 戰鬥日<span class="sub">全力衝刺</span></button>
+    <button class="obtn" data-mode="綜合型態" onclick="pick(this,'mode')">🔀 綜合型態<span class="sub">外務＋任務</span></button>
+    <button class="obtn" data-mode="休息日" onclick="pick(this,'mode')">🌿 休息日<span class="sub">低壓恢復</span></button>
+    <button class="obtn" data-mode="工作日" onclick="pick(this,'mode')">🏠 工作日</button>
+  </div>
+
+  <div class="stitle">今日體感</div>
+  <div class="feel-row" id="feel-row">
+    <button class="obtn" data-feel="疲憊" onclick="pick(this,'feel')">😴 疲憊<span class="sub">身體偏重</span></button>
+    <button class="obtn" data-feel="正常" onclick="pick(this,'feel')">🙂 正常<span class="sub">還好</span></button>
+    <button class="obtn" data-feel="有能量" onclick="pick(this,'feel')">✨ 有能量<span class="sub">狀態不錯</span></button>
+  </div>
+  <div class="feel-input-wrap hidden" id="feel-input-wrap">
+    <input class="feel-input" id="feel-input" placeholder="輸入自訂體感標籤…" maxlength="12"
+      onkeydown="if(event.key==='Enter')confirmCustomFeel();if(event.key==='Escape')cancelCustomFeel();">
+    <button class="feel-confirm-btn" onclick="confirmCustomFeel()">確認</button>
+  </div>
+
+  <div class="stitle">📅 今日行程（從 Google Calendar 複製）</div>
+  <div class="wrap">
+    <textarea class="area" id="calInput" rows="4" placeholder="例：
+10:00 皮膚科回診
+14:30 視訊面試 TSMC
+18:00 朋友晚餐"></textarea>
+  </div>
+
+  <div class="stitle">補充說明（選填）</div>
+  <div class="wrap">
+    <textarea class="area" id="notes" rows="2" placeholder="例：今天特別想衝 BQ、身體不舒服、下午要早點走…"></textarea>
+  </div>
+
+  <div class="stitle" style="display:flex;align-items:center;padding-right:16px;">今日任務庫
+    <button onclick="toggleCatMgr()" style="margin-left:auto;font-size:10.5px;color:#9a9088;background:none;border:none;cursor:pointer;letter-spacing:.02em;">⚙ 管理分類</button>
+  </div>
+  <div class="card">
+    <div id="catmgr" class="catmgr">
+      <div id="catmgr-list"></div>
+      <div class="arow" style="padding:6px 0 0;">
+        <div style="width:5px;height:5px;border-radius:50%;background:#ddd8d0;flex-shrink:0;margin-left:2px;opacity:.4"></div>
+        <input class="catmgr-addinput" id="catmgr-input" placeholder="新增分類名稱…" onkeydown="addCat(event)">
+      </div>
+    </div>
+    <div id="tlist"></div>
+    <div class="arow" style="gap:8px;">
+      <div style="width:6px;height:6px;border-radius:50%;background:#ddd8d0;flex-shrink:0;margin-left:2px;opacity:.5"></div>
+      <input class="ainput" id="ainput" placeholder="新增任務…" onkeydown="addT(event)" style="flex:1;">
+      <select class="acat-sel" id="ainput-cat"></select>
+    </div>
+  </div>
+
+
+  <div class="stitle" style="display:flex;align-items:center;padding-right:16px;">⚡ 任務能耗設定
+    <button onclick="toggleEnergyCfg()" id="energyCfgBtn" style="margin-left:auto;font-size:10.5px;color:#9a9088;background:none;border:none;cursor:pointer;letter-spacing:.02em;">展開</button>
+  </div>
+  <div class="card" id="energyCfgCard" style="display:none;padding:8px 16px 4px;">
+    <div style="font-size:10px;color:#9a9088;margin-bottom:8px;line-height:1.5;">為每個任務標記能量消耗等級，AI 排程時會依此決定 Critical 戰力下跳過哪些任務。</div>
+    <div id="energyCfgList"></div>
+  </div>
+
+  <button class="gbtn" id="genBtn" onclick="generate()">✦ 生成今日行程</button>
+
+  </div><!-- /planSec -->
+
+  <div id="outSec" class="hidden">
+    <div id="editingBanner" class="editing-banner" style="display:none"><span id="editingBannerText"></span><button onclick="reloadCombat()" style="font-size:11px;background:#e8ddd0;border:none;border-radius:6px;padding:3px 8px;color:#6b5a42;cursor:pointer;flex-shrink:0">← 返回今日</button></div>
+    <div class="stitle">今日行程</div>
+    <div class="card fi"><div id="sout"></div></div>
+
+    <div id="taskSplitSec" class="hidden">
+      <div class="stitle">任務分配</div>
+      <div class="task-split fi">
+        <div class="split-label"><span class="sl-in">✓</span> 排入行程</div>
+        <div id="tasksIn"></div>
+        <div id="tasksOutWrap" class="hidden" style="margin-top:10px;border-top:1px solid #ddd8d0;padding-top:10px;">
+          <div class="split-label" style="margin-bottom:6px"><span class="sl-out">—</span> 今日跳過</div>
+          <div id="tasksOut"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="stitle">🌙 今日覆盤</div>
+    <div class="review-card fi">
+      <div class="review-header">
+        <div class="review-title">逐項回顧</div>
+      </div>
+      <div id="restNoteDisplay" class="rest-note-display"></div>
+      <div id="reviewList"></div>
+      <div class="add-ri-row">
+        <input class="add-ri-input" id="addRiInput" placeholder="＋ 自訂項目（Enter 新增）" onkeydown="addReviewItem(event)">
+        <button class="add-ri-btn" onclick="addReviewItemBtn()">新增</button>
+      </div>
+      <div class="overall-wrap">
+        <div class="overall-label">整體反饋 / 明日調整</div>
+        <textarea class="overall-input" id="overallFeedback"
+          placeholder="例：BQ 花超時，明天縮短到 30 min。午後能量下滑，明天重任務移到上午。今天外出打亂節奏，下次外出日改早出發…"></textarea>
+      </div>
+      <button class="save-all-btn" onclick="saveReview()" style="width:100%;margin-top:10px;padding:12px;border-radius:10px;font-size:14px;">儲存覆盤</button>
+      <div class="saved-toast" id="savedToast">✓ 覆盤已儲存</div>
+      <button class="ai-fb-btn" id="aiFbBtn" onclick="genReviewFeedback()">✦ 生成 AI 反饋</button>
+      <div class="ai-fb-out" id="aiFbOut"></div>
+    </div>
+
+    <div id="weeklyRecapSec" class="hidden">
+      <div class="stitle">📊 本週回顧（Weekly Recap）</div>
+      <div class="review-card fi">
+        <div class="review-header">
+          <div class="review-title">本週任務總覽</div>
+          <button class="save-all-btn" id="weeklyGenBtn" onclick="genWeeklyRecap()">✦ 生成週報</button>
+        </div>
+        <div id="weeklyPreview"></div>
+        <div class="ai-fb-out" id="weeklyOut" style="margin-top:10px"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 設定區（Groq Key + Gist 同步） -->
+  <div id="keyBanner" class="key-card">
+    <div class="key-title">🔑 Groq API Key（一次設定）</div>
+    <div class="key-row">
+      <input class="key-in" type="password" id="keyInput" placeholder="gsk_…" autocomplete="new-password" autocorrect="off" autocapitalize="none" spellcheck="false">
+      <button onclick="toggleVis('keyInput',this)" style="background:rgba(40,38,32,.07);border:none;border-radius:7px;padding:0 9px;cursor:pointer;font-size:13px;flex-shrink:0;">👁</button>
+      <button class="key-save" onclick="saveKey()">儲存</button>
+    </div>
+    <div class="key-hint">取得：<a href="https://console.groq.com/keys" target="_blank">console.groq.com/keys</a> → Create API Key。免費，Key 只存本機。</div>
+  </div>
+  <div id="keyOk" class="key-ok hidden">
+    <div class="dot dok"></div>
+    <span>Groq Key 已設定（免費）&nbsp;·&nbsp;<a href="#" onclick="clearKey();return false;" style="color:#9a9088">清除</a></span>
+  </div>
+  <div class="key-card" id="gistCard" style="margin-top:8px;">
+    <div class="key-card-hd" id="gistCardHd" onclick="toggleGistCard()">
+      <div class="key-title" style="margin-bottom:0;">☁️ GitHub Gist 雲端同步</div>
+      <span class="chev">▾</span>
+    </div>
+    <div id="gistCardBody" class="key-card-bd">
+    <div id="gist-status-row" style="font-size:12px;color:#9a9088;margin-bottom:10px;"></div>
+    <div id="gist-sync-btns" style="display:none;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
+      <button class="key-save" onclick="syncToGist()">↑ 推送到雲端</button>
+      <button class="key-save" style="background:#8a9e8a;" onclick="syncFromGist()">↓ 從雲端讀取</button>
+    </div>
+    <div id="gist-id-row" style="display:none;margin-bottom:8px;">
+      <div style="font-size:11px;color:#9a9088;margin-bottom:4px;">Gist ID（複製給 iPhone）</div>
+      <div style="display:flex;gap:6px;align-items:center;">
+        <span id="gist-id-label" style="font-family:monospace;font-size:11px;background:#faf8f4;border:1px solid #cec8bf;border-radius:6px;padding:5px 8px;flex:1;word-break:break-all;"></span>
+        <button class="key-save" style="flex-shrink:0;" onclick="copyGistId()">複製</button>
+      </div>
+    </div>
+    <button style="font-size:11px;color:#9a9088;background:none;border:none;cursor:pointer;text-decoration:underline;padding:0;" onclick="toggleGistSetup()">⚙️ 設定 Token / Gist ID</button>
+    <div id="gist-setup-section" style="display:none;margin-top:10px;">
+      <div style="margin-bottom:8px;">
+        <div style="font-size:11px;color:#9a9088;margin-bottom:4px;">GitHub Token（Mac 設定，需 gist 權限）</div>
+        <div class="key-row">
+          <input class="key-in" type="password" id="gist-token-input" placeholder="ghp_…" autocomplete="new-password" autocorrect="off" autocapitalize="none" spellcheck="false">
+          <button onclick="toggleVis('gist-token-input',this)" style="background:rgba(40,38,32,.07);border:none;border-radius:7px;padding:0 9px;cursor:pointer;font-size:13px;flex-shrink:0;">👁</button>
+          <button class="key-save" onclick="saveGistToken()">儲存</button>
+        </div>
+      </div>
+      <div>
+        <div style="font-size:11px;color:#9a9088;margin-bottom:4px;">Gist ID（iPhone 貼入）</div>
+        <div class="key-row">
+          <input class="key-in" type="text" id="gist-id-input" placeholder="貼上 Gist ID…">
+          <button class="key-save" onclick="saveGistId()">套用</button>
+        </div>
+      </div>
+      <button onclick="clearGistSetup()" style="margin-top:8px;font-size:11px;color:#a07070;background:none;border:none;cursor:pointer;text-decoration:underline;padding:0;">清除全部設定</button>
+    </div>
+    <div id="gist-sync-status" class="key-hint" style="margin-top:6px;"></div>
+    </div>
+  </div>
+
+</div><!-- /app -->
+
+<!-- History Panel -->
+<div class="hist-panel" id="histPanel">
+  <div class="hist-header">
+    <button class="hist-back" onclick="closeHist()">← 返回</button>
+    <div class="hist-title">歷史覆盤</div>
+  </div>
+  <div class="hist-filter-wrap" id="histFilterWrap"></div>
+  <div style="display:flex;align-items:center;gap:8px;padding:10px 16px;border-bottom:1px solid #e8e2d8;">
+    <span style="font-size:12px;color:#6b5a42;flex-shrink:0;">📅 補生成過去日期</span>
+    <input type="date" id="backfillDateInput" style="flex:1;font-size:13px;padding:6px 8px;border:1.5px solid #cec8bf;border-radius:8px;background:#f4f1ec;color:#38342e;">
+    <button onclick="backfillDate()" style="font-size:12px;background:#8a9e8a;color:#fff;border:none;border-radius:8px;padding:6px 12px;cursor:pointer;flex-shrink:0;">前往</button>
+  </div>
+  <div id="histContent"></div>
+</div>
+
+<div class="overlay hidden" id="ovl">
+  <div class="ocard">
+    <div class="spin"></div>
+    <div class="otxt" id="ovl-txt">✦ 生成精力水管…</div>
+  </div>
+</div>
+
+<script>
+// 09-30：Daily Optimizer v3分支，唯一改動點就是這行——DASH指向v3-live頁
+// 而非v2頁，deep/rem/core/awake會顯示v3精確算出的數字。fetchSleep()/
+// parseSleep()/showSleep()完全不用改，因為v3-live是v2的逐位元組複製，
+// const RAW={...}的schema一模一樣。combat power仍走sas_combat_weekday/
+// weighted的localStorage fallback鏈，這兩個key由v2自己的排程持續寫入，
+// 在SAS Hub正式切到v3（10/15，視migration monitor period結果決定）之前
+// 不受影響，這是刻意的分階段設計不是遺漏。
+const DASH='https://resolutetinging.github.io/sleep-dashboard/sleep_dashboard_v3_live.html';
+const PROXIES=[u=>`https://corsproxy.io/?${encodeURIComponent(u)}`,u=>`https://api.allorigins.win/get?url=${encodeURIComponent(u)}`,u=>`https://api.codetabs.com/v1/proxy/?quest=${encodeURIComponent(u)}`];
+const GROQ='https://api.groq.com/openai/v1/chat/completions';
+
+// 08-24：429退避＋model備援共用工具（4個Groq呼叫點各自的內容重試/JSON解析
+// 邏輯差異仍很大，不抽共用，維持各自處理；但下面兩個是純工具函式——不含任何
+// 呼叫點特有的內容判斷，只負責「單次fetch要不要因429等一下重打」與「這個錯誤
+// 像不像model本身掛了」，4處疊加時各自呼叫即可，不影響各自既有的重試計數）
+async function groqFetch(body,key){
+  // 單次語意fetch：最多3次嘗試，僅在收到429時退避重打，其餘狀況（含2xx/4xx/5xx）
+  // 原樣把Response回傳給呼叫端自行判斷，不吃掉呼叫端原本的resp.ok檢查邏輯
+  for(let i=0;i<3;i++){
+    const resp=await fetch(GROQ,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+key},body:JSON.stringify(body)});
+    if(resp.status===429&&i<2){
+      const retryAfter=Number(resp.headers.get('retry-after'));
+      await new Promise(res=>setTimeout(res,(retryAfter>0?retryAfter:3)*1000));
+      continue;
+    }
+    return resp;
+  }
+}
+function groqModelLooksDown(status,detail){
+  // 500系列或錯誤訊息像「model被下架/找不到」才判定為model故障，
+  // 避免一般內容類錯誤（如JSON解析失敗）誤觸發換model
+  return status>=500||/decommission|not[ _-]?found|does not exist|invalid model|model_not_active/i.test(detail||'');
+}
+
+/* ── CJK 正規化：僅替換明確有害字元 ── */
+const BAD_CJK={'弾':'彈','习':'習','进':'進','说':'說'};
+function normalizeCJK(t){return t?t.split('').map(c=>BAD_CJK[c]||c).join(''):t;}
+
+/* ── pipe label 白名單（根本防線，避免 LLM 亂造標題） ── */
+const LABEL_OPTIONS={
+  high:['深度高能','高能衝刺'],
+  mid: ['穩定中能','中能輸出'],
+  low: ['輕量時段','輕量緩降','輕量輸出'],
+  rest:['午休充能','傍晚蓄能','強制充能','強制休息'],
+};
+const LABEL_DEFAULT={high:'深度高能',mid:'穩定中能',low:'輕量時段',rest:'強制充能'};
+
+/* ── Fisher-Yates 洗牌後取前 n 個，供 buildHintFromTasks 隨機挑選建議任務用 ── */
+function _shufflePick(arr, n){
+  const a=arr.slice();
+  for(let i=a.length-1;i>0;i--){
+    const j=Math.floor(Math.random()*(i+1));
+    [a[i],a[j]]=[a[j],a[i]];
+  }
+  return a.slice(0,n);
+}
+
+/* ── 從任務庫依 pipe type 組出 hint（取代 LLM 自由發揮） ── */
+function buildHintFromTasks(pipeType, tasks){
+  if(!tasks||!tasks.length)return null;
+  let pool;
+  // 08-04修正：原本用catKey（學習/求職/日常事務）篩選，但使用者實際用「任務能耗設定」
+  // 頁面標的是energy（高耗能/中耗能/輕量），跟pipeType(high/mid/low)是同一套分類。
+  // catKey篩選會選出「類別對但能耗標記不符」的任務（例如英文練習標學習但能耗是輕量，
+  // 卻可能被建議進高強度時段），改用energy篩選才對齊使用者的實際標記，也才對齊
+  // calcPipePressure()算水管壓力時用的同一套energy欄位。
+  if(pipeType==='high'||pipeType==='mid'||pipeType==='low'){
+    pool=tasks.filter(t=>(t.energy||'mid')===pipeType);
+    if(!pool.length)pool=tasks;
+  } else {
+    pool=tasks;
+  }
+  const names=_shufflePick(pool,3).map(t=>t.text);
+  return `💡 適合：${names.join('、')}`;
+}
+
+/* ── 解析 calInput 取得行程名稱集合（支援 HH:MM 和 HH:MM-HH:MM 兩種格式）── */
+function parseCalNames(raw){
+  if(!raw)return new Set();
+  return new Set(raw.split('\n')
+    .map(l=>l.replace(/^\s*\d{1,2}[:：]\d{2}\s*(?:[-–—~～]\s*\d{1,2}[:：]\d{2})?\s*/,'').trim())
+    .filter(s=>s.length>1));
+}
+
+/* ── 解析 calInput 成結構化陣列（含 start/end/name）供強制注入 ── */
+function parseCalEvents(raw){
+  if(!raw)return [];
+  return raw.split('\n').map(l=>l.trim()).filter(Boolean).map(l=>{
+    // HH:MM-HH:MM name
+    let m=l.match(/^(\d{1,2}[:：]\d{2})\s*[-–—~～]\s*(\d{1,2}[:：]\d{2})\s+(.+)/);
+    if(m)return{start:m[1].replace('：',':'),end:m[2].replace('：',':'),name:m[3].trim()};
+    // HH:MM name（end = start + 1h）
+    m=l.match(/^(\d{1,2}[:：]\d{2})\s+(.+)/);
+    if(m){
+      const s=m[1].replace('：',':');
+      const[h,mi]=s.split(':').map(Number);
+      const eh=String((h+1)%24).padStart(2,'0');
+      return{start:s,end:`${eh}:${String(mi).padStart(2,'0')}`,name:m[2].trim()};
+    }
+    return null;
+  }).filter(Boolean).filter(ev=>ev.start!==ev.end); // 08-17實測抓到的bug：Google Calendar
+  // 貼上來的「移動時間」有時會是起訖同一時刻（例如「09:00-09:00 移動」），HH:MM-HH:MM
+  // 那個分支不會驗證起訖是否有效區間，0分鐘的「行程」被強制注入進pipes後會在畫面上
+  // 生出一張時間長度是0的卡片，不是真的行程佔用，直接濾掉這種零長度列
+}
+
+/* ── LLM 輸出後處理：label 白名單 + hint 完全由任務庫生成 ── */
+function sanitizePipes(result, calEvents, tasks, pwr){
+  if(!result||!result.pipes)return result;
+  // 08-17：不管零長度水管是AI自己生成還是後面Calendar強制注入產生，一律先濾掉，
+  // 不要讓「時間長度是0」的卡片出現在畫面上
+  result.pipes=result.pipes.filter(p=>p.start!==p.end);
+  const calNames=parseCalNames(calEvents);
+  result.pipes=result.pipes.map(p=>{
+    let label=normalizeCJK(p.label||'');
+    const isCalEvent=p.type==='rest'&&(calNames.has(label)||calNames.has((p.label||'').trim()));
+    let hint;
+    if(p.type==='rest'){
+      if(isCalEvent){
+        hint='📅 行程佔用，不排任務';
+      } else {
+        hint='🔒 強制休息，不排任務';
+        const valid=new Set(LABEL_OPTIONS.rest);
+        if(!valid.has(label))label=LABEL_DEFAULT.rest;
+      }
+    } else {
+      const valid=new Set(LABEL_OPTIONS[p.type]||[]);
+      if(!valid.has(label))label=LABEL_DEFAULT[p.type]||label;
+      hint=buildHintFromTasks(p.type,tasks)||'💡 請從任務積木中挑選';
+    }
+    return {...p,label,hint};
+  });
+  /* ── 強制注入 AI 漏掉的 Calendar 行程 ── */
+  const parsedCal=parseCalEvents(calEvents);
+  parsedCal.forEach(ev=>{
+    const already=result.pipes.some(p=>p.type==='rest'&&normalizeCJK(p.label)===normalizeCJK(ev.name));
+    if(!already)result.pipes.push({start:ev.start,end:ev.end,type:'rest',label:ev.name,hint:'📅 行程佔用，不排任務'});
+  });
+  /* ── 依時序排序 ── */
+  const toMin=t=>{const[h,m]=(t||'0:0').split(':').map(Number);return h*60+(m||0);};
+  const fmtMin=m=>String(Math.floor(m/60)).padStart(2,'0')+':'+String(m%60).padStart(2,'0');
+
+  /* ── 午餐 13:00–14:00 強制校正（07-28，09-04擴大偵測窗）：AI偶爾未照prompt規則2把
+     午休排在13:00-14:00（例如排到11:30-12:20），完全依賴prompt文字沒有code層防護，
+     跟Calendar行程一樣補一道強制校正。判斷「是否已有午餐」的偵測窗放寬到11:00-15:00
+     （不用精確13:00-14:00）——使用者若在人工行程（calInput）把午餐排到更早（例如
+     12:00-12:30），因為不重疊精確的13:00-14:00會被誤判成沒吃午餐，硬插第二段午休，
+     變成一天兩段午休；放寬後只要人工行程或AI水管在11:00-15:00內有任何佔用就視為
+     午餐已安排，不強制。真的什麼都沒有時，才固定插在13:00-14:00（LUNCH_S/LUNCH_E
+     維持不變，只有「是否已有」的判斷窗變寬，插入位置沒變） ── */
+  const LUNCH_S=toMin('13:00'), LUNCH_E=toMin('14:00');
+  const LUNCH_DETECT_S=toMin('11:00'), LUNCH_DETECT_E=toMin('15:00');
+  const calOverlapsLunch=parsedCal.some(ev=>{
+    const s=toMin(ev.start), e=toMin(ev.end);
+    return s<LUNCH_DETECT_E && e>LUNCH_DETECT_S;
+  });
+  if(!calOverlapsLunch){
+    const hasLunchRest=result.pipes.some(p=>{
+      if(p.type!=='rest')return false;
+      const s=toMin(p.start), e=toMin(p.end);
+      return s<LUNCH_DETECT_E && e>LUNCH_DETECT_S;
+    });
+    if(!hasLunchRest){
+      const rebuilt=[];
+      result.pipes.forEach(p=>{
+        const s=toMin(p.start), e=toMin(p.end);
+        if(e<=LUNCH_S||s>=LUNCH_E){ rebuilt.push(p); return; } // 完全不重疊，原樣保留
+        if(s<LUNCH_S) rebuilt.push({...p,end:fmtMin(LUNCH_S)});   // 保留午餐前的部分
+        if(e>LUNCH_E) rebuilt.push({...p,start:fmtMin(LUNCH_E)}); // 保留午餐後的部分
+        // 該水管完全落在13:00-14:00內：前後都不留，整段被午休取代
+      });
+      rebuilt.push({start:'13:00',end:'14:00',type:'rest',label:'午休充能',hint:'🔒 強制休息，不排任務'});
+      result.pipes=rebuilt;
+    }
+  }
+  result.pipes.sort((a,b)=>toMin(a.start)-toMin(b.start));
+
+  /* ── 段間緩衝強制修正：AI排定的相鄰水管若分秒緊貼(gap<=0)，且兩側都不是Calendar鎖定行程，
+     從前一段末尾切出緩衝時間插入一段「段間緩衝」rest pipe，不完全依賴LLM遵守prompt指示；
+     bufferMin(pwr) 沿用「能耗配置」卡片既有公式，原本只當顯示文字用，這裡才是真正接進生成結果 ── */
+  const buf=bufferMin(pwr||50);
+  const fmt=m=>String(Math.floor(m/60)).padStart(2,'0')+':'+String(m%60).padStart(2,'0');
+  const withBuffer=[];
+  for(let i=0;i<result.pipes.length;i++){
+    const cur=result.pipes[i];
+    withBuffer.push(cur);
+    const next=result.pipes[i+1];
+    if(!next)continue;
+    const curEnd=toMin(cur.end),nextStart=toMin(next.start);
+    if(nextStart-curEnd>0){
+      // 08-18教訓：AI漏排一段時間，跟AI自己留白，程式碼分不出來，過去這裡直接continue
+      // 當「已有間隔」放過不管，結果那段時間在畫面上完全消失、連卡片都不會出現。
+      // 不管是AI真的漏排還是刻意留白，畫面都必須有東西可以顯示，補一段可見的空檔pipe蓋住。
+      // 08-19補：小於10分鐘的縫隙多半只是排程精度誤差，不值得為此多生一張卡造成畫面碎片化，
+      // 門檻以上才補卡；小於門檻的維持原樣（不影響原本畫面，只是不特別標示）
+      if(nextStart-curEnd>=10){
+        withBuffer.push({start:cur.end,end:next.start,type:'rest',label:'彈性時間',hint:'⏸ 這段AI未排定，可自由運用或補任務'});
+      }
+      continue;
+    }
+    const curIsCal=cur.type==='rest'&&calNames.has(normalizeCJK(cur.label));
+    const nextIsCal=next.type==='rest'&&calNames.has(normalizeCJK(next.label));
+    if(curIsCal||nextIsCal)continue; // Calendar鎖定行程前後不強加緩衝
+    const newEndMin=curEnd-buf;
+    if(newEndMin<=toMin(cur.start))continue; // 該段本身太短，硬縮會消失或變負值，跳過
+    const origEnd=cur.end;
+    cur.end=fmt(newEndMin);
+    withBuffer.push({start:cur.end,end:origEnd,type:'rest',label:'段間緩衝',hint:'⏸ 短暫緩衝，不排任務'});
+  }
+  result.pipes=withBuffer;
+
+  if(result.summary)result.summary=normalizeCJK(result.summary);
+  return result;
+}
+
+let selLoc='',selMode='',selFeel='',pwr=0,reviewItems=[];
+
+/* ── Task Library v3 ── */
+const TASKS_KEY='tina_tasks_v3';
+const FREQ_LABELS={daily:'每日',mode_jobsearch:'求職模式',ondemand:'按需'};
+const FREQ_CLASSES={daily:'cf-daily',mode_jobsearch:'cf-job',ondemand:'cf-ondemand'};
+const DEFAULT_CATS=[
+  {key:'learning',label:'學習',freq:'daily'},
+  {key:'jobsearch',label:'求職',freq:'mode_jobsearch'},
+  {key:'daily_tasks',label:'日常事務',freq:'daily'}
+];
+const DEFAULT_TASKS_INIT=[
+  {id:1,text:'英文練習',catKey:'learning'},
+  {id:2,text:'Claude Project 開發',catKey:'learning'},
+  {id:3,text:'半導體／AI 產業研究',catKey:'learning'},
+  {id:4,text:'LinkedIn 職缺快掃',catKey:'jobsearch'},
+  {id:5,text:'BQ 面試練習',catKey:'jobsearch'},
+  {id:6,text:'閱讀',catKey:'daily_tasks'},
+];
+function loadTaskData(){
+  const v3=localStorage.getItem(TASKS_KEY);
+  if(v3){
+    try{
+      const data=JSON.parse(v3);
+      // repair: daily_tasks category still ondemand from older migration
+      const dtCat=data.categories.find(c=>c.key==='daily_tasks');
+      if(dtCat&&dtCat.freq==='ondemand'){dtCat.freq='daily';localStorage.setItem(TASKS_KEY,JSON.stringify(data));}
+      // migration: ensure energy field exists on all tasks
+      if(data.tasks.some(t=>!t.energy)){data.tasks=data.tasks.map(t=>t.energy?t:{...t,energy:'mid'});localStorage.setItem(TASKS_KEY,JSON.stringify(data));}
+      return data;
+    }catch(e){}
+  }
+  // v2 → v3: tasks with no explicit freq get freq:'daily'
+  const v2str=localStorage.getItem('tina_tasks_v2');
+  if(v2str){
+    try{
+      const data=JSON.parse(v2str);
+      data.tasks=data.tasks.map(t=>t.freq?t:{...t,freq:'daily'});
+      // update daily_tasks category freq to daily
+      const dtCat=data.categories.find(c=>c.key==='daily_tasks');
+      if(dtCat)dtCat.freq='daily';
+      localStorage.setItem(TASKS_KEY,JSON.stringify(data));return data;
+    }catch(e){}
+  }
+  // tina_tasks (old flat array)
+  const old=JSON.parse(localStorage.getItem('tina_tasks')||'null');
+  if(old&&old.length){
+    const data={categories:DEFAULT_CATS.map(c=>({...c})),tasks:old.map(t=>({...t,catKey:'daily_tasks',freq:'daily'}))};
+    localStorage.setItem(TASKS_KEY,JSON.stringify(data));return data;
+  }
+  return{categories:DEFAULT_CATS.map(c=>({...c})),tasks:DEFAULT_TASKS_INIT.map(t=>({...t}))};
+}
+let taskData=loadTaskData();
+let nid=Math.max(...taskData.tasks.map(t=>t.id),9)+1;
+let jobsearchMode=localStorage.getItem('optimizer_jobsearch_mode')==='1';
+const saveTaskData=()=>localStorage.setItem(TASKS_KEY,JSON.stringify(taskData));
+function getEffectiveTasks(){
+  return taskData.tasks.filter(t=>{
+    const cat=taskData.categories.find(c=>c.key===t.catKey);
+    if(!cat)return false;
+    const freq=t.freq||cat.freq;
+    if(freq==='daily')return true;
+    if(freq==='mode_jobsearch')return jobsearchMode;
+    return false; // ondemand → excluded
+  });
+}
+const todayKey=()=>{const d=new Date();return 'review_'+d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');};
+let displayKey=todayKey(); // 追蹤當前編輯的 key，存檔跟著顯示的日期走
+
+/* gist card toggle */
+function toggleGistCard(){
+  const h=document.getElementById('gistCardHd');
+  const b=document.getElementById('gistCardBody');
+  h.classList.toggle('coll');
+  b.classList.toggle('coll');
+  localStorage.setItem('do_gist_coll',h.classList.contains('coll')?'1':'');
+}
+function initGistCard(){
+  if(localStorage.getItem('do_gist_coll')==='1'){
+    const h=document.getElementById('gistCardHd');
+    const b=document.getElementById('gistCardBody');
+    if(h)h.classList.add('coll');
+    if(b)b.classList.add('coll');
+  }
+}
+
+/* key */
+function toggleVis(id,btn){const el=document.getElementById(id);if(!el)return;el.type=el.type==='password'?'text':'password';btn.textContent=el.type==='password'?'👁':'🙈';}
+function saveKey(){const k=document.getElementById('keyInput').value.trim();if(!k.startsWith('gsk_')){alert('Groq Key 應以 gsk_ 開頭');return;}localStorage.setItem('groq_key',k);renderKey();}
+function clearKey(){localStorage.removeItem('groq_key');localStorage.removeItem('tina_groq');localStorage.removeItem('oasis_groq_key');document.getElementById('keyInput').value='';renderKey();}
+function renderKey(){const has=!!getKey();document.getElementById('keyBanner').classList.toggle('hidden',has);document.getElementById('keyOk').classList.toggle('hidden',!has);}
+const getKey=()=>localStorage.getItem('groq_key')||localStorage.getItem('tina_groq')||localStorage.getItem('oasis_groq_key')||'';
+
+/* ── Rest Mode ── */
+let restMode=false;
+function toggleRest(){
+  restMode=!restMode;
+  const btn=document.getElementById('restBtn');
+  const plan=document.getElementById('planSec');
+  const card=document.getElementById('restCard');
+  const outSec=document.getElementById('outSec');
+  btn.classList.toggle('on', restMode);
+  btn.textContent=restMode?'✓ 休假中':'🌿 休假';
+  plan.style.display=restMode?'none':'block';
+  card.classList.toggle('show', restMode);
+  if(!restMode){
+    outSec.classList.add('hidden');
+  } else {
+    // 切入休假模式：清除 normal mode 留下的覆盤資料
+    reviewItems=[];
+    renderReviewFromItems();
+    document.getElementById('overallFeedback').value='';
+    const fo=document.getElementById('aiFbOut');
+    fo.style.display='none';fo.textContent='';
+    const fb=document.getElementById('aiFbBtn');
+    fb.disabled=false;fb.textContent='✦ 生成 AI 反饋';
+  }
+}
+
+function openRestReview(){
+  const note=document.getElementById('restNote').value.trim();
+  const existing=JSON.parse(localStorage.getItem(displayKey)||'{}');
+  localStorage.setItem(displayKey, JSON.stringify({
+    ...existing,
+    restMode: true,
+    restNote: note,
+    combatPower: pwr,
+    taskLibrary: getEffectiveTasks().map(t=>t.text),
+  }));
+  // Show output section
+  const outSec=document.getElementById('outSec');
+  outSec.classList.remove('hidden');
+  // Hide schedule card and task split
+  const schedCard=document.getElementById('sout')?.closest('.card');
+  if(schedCard) schedCard.style.display='none';
+  const splitSec=document.getElementById('taskSplitSec');
+  if(splitSec) splitSec.style.display='none';
+  // 清除 AI 反饋顯示（避免殘留 normal mode 或舊 session 的內容）
+  const fo=document.getElementById('aiFbOut');
+  fo.style.display='none';fo.textContent='';
+  const fb=document.getElementById('aiFbBtn');
+  fb.disabled=false;fb.textContent='✦ 生成 AI 反饋';
+  // Render review — rest mode starts fresh (fresh=true: 不回填 overall)
+  renderReview([], true, true);
+  outSec.scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+window.onload=()=>{setDate();renderT();renderKey();refreshGistUI();fetchSleep();loadSavedReview();initGistCard();renderLocRow();renderCustomFeelBtns();setInterval(()=>highlightCurrentPipe(false),60000);};
+
+function setDate(){const d=new Date(),w=['週日','週一','週二','週三','週四','週五','週六'];document.getElementById('hdate').textContent=`${d.getMonth()+1}月${d.getDate()}日　${w[d.getDay()]}`;}
+
+/* sleep */
+async function reloadCombat(){
+  // 重置為今日 key，並隱藏歷史編輯 banner
+  displayKey=todayKey();
+  updateGenBtnLabel();
+  const banner=document.getElementById('editingBanner');
+  if(banner)banner.style.display='none';
+  // 清除覆盤區，避免殘留昨日資料
+  const outSec=document.getElementById('outSec');
+  outSec.classList.add('hidden');
+  reviewItems=[];
+  renderReviewFromItems();
+  document.getElementById('overallFeedback').value='';
+  const fo=document.getElementById('aiFbOut');
+  fo.style.display='none';fo.textContent='';
+  document.getElementById('aiFbBtn').disabled=false;
+  document.getElementById('aiFbBtn').textContent='✦ 生成 AI 反饋';
+  // 重新載入今日 combat
+  await fetchSleep();
+  // 若 generate() 已在 fetchSleep 等待期間完成渲染，不覆蓋
+  if(!document.getElementById('sout')?.querySelector('.pipe-track'))
+    loadSavedReview();
+}
+async function fetchSleep(){
+  setFS('load','正在讀取睡眠數據…');
+  try{const r=await fetch(DASH);if(r.ok){const h=await r.text();if(parseSleep(h))return;}}catch(e){}
+  for(const px of PROXIES){try{const r=await fetch(px(DASH));const j=await r.json();const h=j.contents||j;if(typeof h==='string'&&parseSleep(h))return;}catch(e){}}
+  /* 睡眠明細抓不到時，戰力仍走 localStorage 同一條 fallback 鏈（不再要求手動輸入） */
+  setFS('err','無法讀取睡眠明細 · 戰力已改用本機快取值');
+  const _wd=parseInt(localStorage.getItem('sas_combat_weekday')||'');
+  const _wt=parseInt(localStorage.getItem('sas_combat_weighted')||'');
+  setPwr((!isNaN(_wd)&&_wd>0)?_wd:(!isNaN(_wt)&&_wt>0)?_wt:50);
+}
+function parseSleep(html){
+  const m=html.match(/const RAW = (\{[\s\S]+?\});\s*\n/);if(!m)return false;
+  let d;try{d=JSON.parse(m[1]);}catch(e){return false;}
+  if(!d||!Array.isArray(d.summary)||!d.summary.length)return false;
+  showSleep(d.summary);return true;
+}
+function showSleep(s){
+  const fd=x=>x.toISOString().slice(0,10);
+  const t=new Date(),y=new Date(Date.now()-864e5);
+  let e=s.find(r=>r.date===fd(t))||s.find(r=>r.date===fd(y))||s[s.length-1];
+  const deep=e.deep_min||0, rem=e.rem_min||0, core=e.core_min||0;
+  const awake=e.awake_min||0;
+  const totalSleep=deep+rem+core;            // dashboard 公式分母（不含 awake）
+  const totalDisplay=totalSleep+awake;       // 顯示用（含 awake）= 8h2m 那個數字
+
+  // ── 完全對齊 sleep-dashboard 公式 ──
+  const deepPct   = totalSleep>0 ? deep/totalSleep*100 : 0;
+  const remPct    = totalSleep>0 ? rem/totalSleep*100  : 0;
+  const deepScore = Math.min(deepPct/18*100,   100);   // AASM deep 建議 18%
+  const remScore  = Math.min(remPct/22.5*100,  100);   // AASM rem  建議 22.5%
+  const rawScore  = deepScore*0.7 + remScore*0.3;
+
+  // 戰力＝Sleep Dashboard 寫入的「恆排除週末」3 夜加權 sas_combat_weekday（2026-07-07 新規）：
+  // 不論 dashboard 的「排除週末」開關狀態，Optimizer 一律用週間池計算的值。
+  // 計算只在 Sleep Dashboard 本尊（v2.9 教訓：勿在此自算，公式會漂移且違反 debt 不 clamp 規則）。
+  // fallback 順序：weekday（恆排週末）→ weighted（隨開關值）→ 當夜 rawScore（不含 debt）。
+  const weekday=parseInt(localStorage.getItem('sas_combat_weekday')||'');
+  const weighted=parseInt(localStorage.getItem('sas_combat_weighted')||'');
+  const v=(!isNaN(weekday)&&weekday>0)?weekday:(!isNaN(weighted)&&weighted>0)?weighted:Math.round(rawScore);
+
+  setPwr(v);
+  const fmt=m=>m>=60?`${(m/60).toFixed(1)}h`:`${m}min`;
+  document.getElementById('dv').textContent=fmt(deep);
+  document.getElementById('rv').textContent=fmt(rem);
+  document.getElementById('cv').textContent=fmt(core);
+  document.getElementById('av').textContent=fmt(awake);
+  document.getElementById('db2').style.width=Math.min(deepPct/23*100,100)+'%';
+  document.getElementById('rb').style.width=Math.min(remPct/25*100,100)+'%';
+  document.getElementById('cb').style.width=Math.min(core/totalSleep*100/60*100,100)+'%';
+  document.getElementById('ab').style.width=Math.min(awake/60*100,100)+'%';
+  setFS('ok','數據已載入');
+  const meta=document.getElementById('sleep-meta');
+  if(meta) meta.textContent=`數據日期：${e.date}　睡眠 ${fmt(totalDisplay)}　睡眠債 ${debtHours.toFixed(1)}h`;
+}
+function setPwr(v){
+  pwr=v;
+  // 完全對齊 sleep-dashboard 顏色與標籤（手動模式已於 2026-07-10 移除，戰力一律來自查詢值）
+  let rc,lvLabel,lvDesc;
+  if(v>=80)     {rc='#5e8f7e';lvLabel='🔥 Peak';    lvDesc='深度任務全開，今日最佳狀態';}
+  else if(v>=70){rc='#5c7a96';lvLabel='⚡ Stable';  lvDesc='穩定能量，適合常規學習任務';}
+  else if(v>=60){rc='#e67e22';lvLabel='⚠ Caution'; lvDesc='能量偏低，注意專注力管理';}
+  else          {rc='#c0392b';lvLabel='🔴 Critical';lvDesc='嚴重睡眠不足，今日以輕任務為主';}
+  const ring=document.getElementById('rfg');
+  setTimeout(()=>{ring.style.strokeDashoffset=(188.5*(1-v/100)).toFixed(2);ring.style.stroke=rc;},120);
+  document.getElementById('pnum').textContent=v;
+  document.getElementById('pnum').style.color=rc;
+  const ps=document.getElementById('pstatus');
+  ps.textContent=lvLabel;
+  ps.style.color=rc;
+  document.getElementById('pdesc').textContent=lvDesc;
+}
+function setFS(st,txt){
+  const fdot=document.getElementById('fdot'),ftxt=document.getElementById('ftxt');
+  if(fdot)fdot.className='dot '+(st==='load'?'dspin':st==='ok'?'dok':'derr');
+  if(ftxt)ftxt.textContent=txt;
+  if(st==='err'){const m=document.getElementById('sleep-meta');if(m)m.textContent=txt;}
+}
+
+/* options */
+function pick(btn,g){
+  document.querySelectorAll(`[data-${g}]`).forEach(b=>b.classList.remove('sel-blue','sel-sage','sel-sand','sel-mauve','sel-rose','sel-warm'));
+  let cls='sel-blue';
+  if(btn.dataset.mode==='休息日') cls='sel-sage';
+  else if(btn.dataset.mode==='綜合型態') cls='sel-mauve';
+  else if(btn.dataset.loc==='外出日') cls='sel-sand';
+  else if(btn.dataset.mode==='工作日') cls='sel-sand';
+  else if(btn.dataset.feel==='疲憊') cls='sel-warm';
+  else if(btn.dataset.feel==='有能量') cls='sel-sage';
+  btn.classList.add(cls);
+  if(g==='loc') selLoc=btn.dataset.loc;
+  else if(g==='mode') selMode=btn.dataset.mode;
+  else if(g==='feel') selFeel=btn.dataset.feel;
+}
+
+/* custom loc tags */
+const CUSTOM_LOC_KEY='optimizer_custom_locs';
+function loadCustomLocs(){try{const a=JSON.parse(localStorage.getItem(CUSTOM_LOC_KEY)||'[]');return Array.isArray(a)?a:[];}catch{return[];}}
+function saveCustomLocs(arr){localStorage.setItem(CUSTOM_LOC_KEY,JSON.stringify(arr));}
+function renderLocRow(){
+  const row=document.getElementById('loc-row');
+  row.querySelectorAll('.feel-custom-pill,.feel-add-btn').forEach(el=>el.remove());
+  const arr=loadCustomLocs();
+  arr.forEach((label,i)=>{
+    const span=document.createElement('span');
+    span.className='feel-custom-pill';span.dataset.loc=label;
+    span.onclick=function(e){if(e.target.classList.contains('rm'))return;pickCustomLoc(this,label);};
+    span.innerHTML=`${label}<span class="rm" onclick="removeCustomLoc(${i})">✕</span>`;
+    if(selLoc===label)span.classList.add('sel-blue');
+    row.appendChild(span);
+  });
+  const add=document.createElement('button');add.className='feel-add-btn';add.textContent='＋ 自訂';
+  add.onclick=()=>{document.getElementById('loc-input-wrap').classList.remove('hidden');document.getElementById('loc-input').value='';document.getElementById('loc-input').focus();};
+  row.appendChild(add);
+}
+function pickCustomLoc(el,label){
+  document.querySelectorAll('[data-loc]').forEach(b=>b.classList.remove('sel-blue','sel-sage','sel-sand','sel-mauve','sel-rose','sel-warm'));
+  document.querySelectorAll('#loc-row .feel-custom-pill').forEach(b=>b.classList.remove('sel-blue'));
+  el.classList.add('sel-blue');selLoc=label;
+}
+function cancelCustomLoc(){document.getElementById('loc-input-wrap').classList.add('hidden');}
+function confirmCustomLoc(){
+  const val=document.getElementById('loc-input').value.trim();
+  if(!val){cancelCustomLoc();return;}
+  const arr=loadCustomLocs();if(!arr.includes(val)){arr.push(val);saveCustomLocs(arr);}
+  cancelCustomLoc();renderLocRow();
+  const el=document.getElementById('loc-row').querySelector(`[data-loc="${val}"]`);
+  if(el)pickCustomLoc(el,val);
+}
+function removeCustomLoc(idx){
+  const arr=loadCustomLocs();const removed=arr[idx];arr.splice(idx,1);saveCustomLocs(arr);
+  if(selLoc===removed)selLoc='';renderLocRow();
+}
+
+/* custom feel tags */
+const FEEL_KEY='optimizer_custom_feels';
+function loadCustomFeels(){
+  let arr=[];
+  try{arr=JSON.parse(localStorage.getItem(FEEL_KEY)||'[]');}catch{}
+  return Array.isArray(arr)?arr:[];
+}
+function saveCustomFeels(arr){ localStorage.setItem(FEEL_KEY,JSON.stringify(arr)); }
+function renderCustomFeelBtns(){
+  const row=document.getElementById('feel-row');
+  // 移除舊自訂按鈕和「＋」
+  row.querySelectorAll('.feel-custom-pill,.feel-add-btn').forEach(el=>el.remove());
+  const arr=loadCustomFeels();
+  arr.forEach((label,i)=>{
+    const span=document.createElement('span');
+    span.className='feel-custom-pill';
+    span.dataset.feel=label;
+    span.onclick=function(e){ if(e.target.classList.contains('rm'))return; pickCustomFeel(this,label); };
+    span.innerHTML=`${label}<span class="rm" onclick="removeCustomFeel(${i})">✕</span>`;
+    if(selFeel===label) span.classList.add('sel-blue');
+    row.appendChild(span);
+  });
+  // 加＋按鈕
+  const add=document.createElement('button');
+  add.className='feel-add-btn';
+  add.textContent='＋ 自訂';
+  add.onclick=openCustomFeelInput;
+  row.appendChild(add);
+}
+function pickCustomFeel(el,label){
+  document.querySelectorAll('[data-feel]').forEach(b=>b.classList.remove('sel-blue','sel-sage','sel-sand','sel-mauve','sel-rose','sel-warm'));
+  document.querySelectorAll('.feel-custom-pill').forEach(b=>b.classList.remove('sel-blue'));
+  el.classList.add('sel-blue');
+  selFeel=label;
+}
+function openCustomFeelInput(){
+  document.getElementById('feel-input-wrap').classList.remove('hidden');
+  document.getElementById('feel-input').value='';
+  document.getElementById('feel-input').focus();
+}
+function cancelCustomFeel(){ document.getElementById('feel-input-wrap').classList.add('hidden'); }
+function confirmCustomFeel(){
+  const val=document.getElementById('feel-input').value.trim();
+  if(!val){cancelCustomFeel();return;}
+  const arr=loadCustomFeels();
+  if(!arr.includes(val)){ arr.push(val); saveCustomFeels(arr); }
+  cancelCustomFeel();
+  renderCustomFeelBtns();
+  // 自動選取剛新增的標籤
+  const newBtn=document.getElementById('feel-row').querySelector(`[data-feel="${val}"]`);
+  if(newBtn){ pickCustomFeel(newBtn,val); }
+}
+function removeCustomFeel(idx){
+  const arr=loadCustomFeels();
+  const removed=arr[idx];
+  arr.splice(idx,1);
+  saveCustomFeels(arr);
+  if(selFeel===removed) selFeel='';
+  renderCustomFeelBtns();
+}
+
+/* tasks */
+let dragSrc=null;
+const esc=s=>(s==null?'':String(s)).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+function renderTaskLib(){
+  const el=document.getElementById('tlist');el.innerHTML='';
+  const catSel=document.getElementById('ainput-cat');
+  if(catSel)catSel.innerHTML=taskData.categories.map(c=>`<option value="${c.key}">${esc(c.label)}</option>`).join('');
+  taskData.categories.forEach(cat=>{
+    const catTasks=taskData.tasks.filter(t=>t.catKey===cat.key);
+    const sec=document.createElement('div');sec.className='cat-sec';
+    const jsHtml=cat.freq==='mode_jobsearch'?`<div class="cat-js-wrap"><span class="cat-js-lbl">求職模式</span><label class="js-toggle"><input type="checkbox" ${jobsearchMode?'checked':''} onchange="toggleJobSearch(this.checked)"><span class="js-slider"></span></label></div>`:'';
+    sec.innerHTML=`<div class="cat-hd"><span class="cat-lbl">${esc(cat.label)}</span><span class="cat-freq ${FREQ_CLASSES[cat.freq]||''}">${FREQ_LABELS[cat.freq]||cat.freq}</span>${jsHtml}</div><div id="cat-items-${cat.key}" class="cat-items"></div>`;
+    el.appendChild(sec);
+    const itemsEl=document.getElementById('cat-items-'+cat.key);
+    catTasks.forEach(t=>{
+      const tfreq=t.freq||cat.freq;
+      const inactive=(tfreq==='mode_jobsearch'&&!jobsearchMode)||(tfreq==='ondemand');
+      const d=document.createElement('div');d.className='ti';d.draggable=true;d.dataset.id=t.id;
+      if(inactive)d.style.opacity='0.4';
+      const isJobCat=cat.freq==='mode_jobsearch';
+      const isOn=tfreq!=='ondemand'&&!(tfreq==='mode_jobsearch'&&!jobsearchMode);
+      const jobToggleTitle=isOn?'點擊：改為按需（不自動排入）':'點擊：改為每日（模式開啟時自動排入）';
+      const toggleHtml=`<label class="ti-onoff" title="${isJobCat?jobToggleTitle:(isOn?'點擊：從行程移除':'點擊：加入行程')}"><input type="checkbox" ${isOn?'checked':''} onchange="toggleTaskActive(${t.id},this.checked)"><span class="ti-onoff-sl"></span></label>`;
+      d.innerHTML=`<div class="ti-dot"></div>
+        <div contenteditable="true" class="tt" onblur="upt(${t.id},this.textContent.trim())" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur()}">${esc(t.text)}</div>
+        ${toggleHtml}<span class="dh">⠿</span><span class="db" onclick="del(${t.id})">×</span>`;
+      d.addEventListener('dragstart',function(e){
+        if(e.target.isContentEditable||e.target.tagName==='INPUT'||e.target.tagName==='BUTTON'){e.preventDefault();return;}
+        dragSrc=this;this.classList.add('drag');
+      });
+      d.addEventListener('dragover',e=>e.preventDefault());
+      d.addEventListener('drop',function(e){
+        e.preventDefault();e.stopPropagation();if(dragSrc===this)return;
+        const si=taskData.tasks.findIndex(t=>t.id==dragSrc.dataset.id);
+        const ti=taskData.tasks.findIndex(t=>t.id==this.dataset.id);
+        if(si<0||ti<0)return;
+        // cross-category: update catKey to target task's category
+        if(taskData.tasks[si].catKey!==taskData.tasks[ti].catKey)
+          taskData.tasks[si].catKey=taskData.tasks[ti].catKey;
+        const[item]=taskData.tasks.splice(si,1);taskData.tasks.splice(ti,0,item);
+        renderTaskLib();
+      });
+      d.addEventListener('dragend',()=>{
+        document.querySelectorAll('.ti').forEach(el=>el.classList.remove('drag'));
+        document.querySelectorAll('.cat-items').forEach(el=>el.classList.remove('cat-drop-over'));
+      });
+      itemsEl.appendChild(d);
+    });
+    // drop on empty category area → append to that category
+    itemsEl.addEventListener('dragover',e=>e.preventDefault());
+    itemsEl.addEventListener('dragenter',function(){this.classList.add('cat-drop-over');});
+    itemsEl.addEventListener('dragleave',function(e){if(!this.contains(e.relatedTarget))this.classList.remove('cat-drop-over');});
+    itemsEl.addEventListener('drop',function(e){
+      e.preventDefault();this.classList.remove('cat-drop-over');
+      if(!dragSrc)return;
+      const srcId=parseInt(dragSrc.dataset.id);
+      const srcTask=taskData.tasks.find(t=>t.id===srcId);
+      if(!srcTask)return;
+      const catKey=this.id.replace('cat-items-','');
+      if(srcTask.catKey!==catKey){srcTask.catKey=catKey;renderTaskLib();}
+    });
+  });
+  saveTaskData();
+  // 若能耗卡片開著，同步刷新
+  if(document.getElementById('energyCfgCard')?.style.display!=='none') renderEnergySettings();
+}
+const renderT=renderTaskLib;
+
+function toggleEnergyCfg(){
+  const card=document.getElementById('energyCfgCard');
+  const btn=document.getElementById('energyCfgBtn');
+  if(!card||!btn)return;
+  const shown=card.style.display!=='none';
+  card.style.display=shown?'none':'';
+  btn.textContent=shown?'展開':'收合';
+  if(!shown)renderEnergySettings();
+}
+function renderEnergySettings(){
+  const el=document.getElementById('energyCfgList');if(!el)return;
+  el.innerHTML='';
+  const lvs=[['high','高耗能','e-high'],['mid','中耗能','e-mid'],['low','輕量','e-low']];
+  taskData.tasks.forEach(t=>{
+    const row=document.createElement('div');row.className='energy-row';
+    const nm=document.createElement('div');nm.className='energy-task-name';nm.textContent=t.text;
+    const cat=taskData.categories.find(c=>c.key===t.catKey);
+    if(cat){const tag=document.createElement('span');tag.className='energy-cat-tag';tag.textContent=cat.label;nm.appendChild(tag);}
+    const btns=document.createElement('div');btns.className='energy-btns';
+    lvs.forEach(([lv,lbl,cls])=>{
+      const b=document.createElement('button');
+      b.className='energy-btn'+((t.energy||'mid')===lv?' '+cls:'');
+      b.textContent=lbl;
+      b.onclick=()=>setTaskEnergy(t.id,lv);
+      btns.appendChild(b);
+    });
+    row.appendChild(nm);row.appendChild(btns);el.appendChild(row);
+  });
+}
+function setTaskEnergy(id,level){
+  const t=taskData.tasks.find(t=>t.id===id);if(!t)return;
+  t.energy=level;saveTaskData();renderEnergySettings();
+}
+
+const upt=(id,tx)=>{const t=taskData.tasks.find(t=>t.id===id);if(t&&tx){t.text=tx;saveTaskData();}};
+const del=id=>{taskData.tasks=taskData.tasks.filter(t=>t.id!==id);renderTaskLib();};
+function addT(e){
+  if(e.key!=='Enter')return;e.preventDefault();
+  const i=document.getElementById('ainput'),tx=i.value.trim();if(!tx)return;
+  const catSel=document.getElementById('ainput-cat');
+  const catKey=catSel?catSel.value:(taskData.categories[0]?.key||'daily_tasks');
+  const cat=taskData.categories.find(c=>c.key===catKey);
+  // set explicit freq so new tasks are always visible regardless of category default
+  const freq=cat?.freq==='mode_jobsearch'?'mode_jobsearch':'daily';
+  taskData.tasks.push({id:nid++,text:tx,catKey,freq});i.value='';renderTaskLib();
+}
+function toggleJobSearch(checked){
+  jobsearchMode=checked;localStorage.setItem('optimizer_jobsearch_mode',checked?'1':'0');renderTaskLib();
+}
+function toggleTaskActive(id,active){
+  const t=taskData.tasks.find(t=>t.id===id);if(!t)return;
+  const cat=taskData.categories.find(c=>c.key===t.catKey);
+  t.freq=active?(cat?.freq==='mode_jobsearch'?'mode_jobsearch':'daily'):'ondemand';
+  saveTaskData();renderTaskLib();
+}
+
+/* Category Management */
+function toggleCatMgr(){
+  const el=document.getElementById('catmgr');el.classList.toggle('show');
+  if(el.classList.contains('show'))renderCatMgr();
+}
+function renderCatMgr(){
+  document.getElementById('catmgr-list').innerHTML=taskData.categories.map(cat=>`
+    <div class="catmgr-row">
+      <span class="catmgr-lbl">${esc(cat.label)}</span>
+      <select class="catmgr-freq" onchange="setCatFreq('${cat.key}',this.value)">
+        <option value="daily" ${cat.freq==='daily'?'selected':''}>每日</option>
+        <option value="mode_jobsearch" ${cat.freq==='mode_jobsearch'?'selected':''}>求職模式</option>
+        <option value="ondemand" ${cat.freq==='ondemand'?'selected':''}>按需</option>
+      </select>
+      <span class="catmgr-del" onclick="delCat('${cat.key}')">×</span>
+    </div>`).join('');
+}
+function addCat(e){
+  if(e.key!=='Enter')return;e.preventDefault();
+  const i=document.getElementById('catmgr-input'),label=i.value.trim();if(!label)return;
+  taskData.categories.push({key:'cat_'+Date.now(),label,freq:'ondemand'});
+  i.value='';saveTaskData();renderCatMgr();renderTaskLib();
+}
+function delCat(key){
+  const inUse=taskData.tasks.some(t=>t.catKey===key);
+  if(inUse&&!confirm('此分類下有任務，刪除後將移至「日常事務」，確認？'))return;
+  if(inUse){const fb=taskData.categories.find(c=>c.key==='daily_tasks')?.key||taskData.categories[0]?.key;taskData.tasks.forEach(t=>{if(t.catKey===key)t.catKey=fb||key;});}
+  taskData.categories=taskData.categories.filter(c=>c.key!==key);
+  saveTaskData();renderCatMgr();renderTaskLib();
+}
+function setCatFreq(key,freq){
+  const cat=taskData.categories.find(c=>c.key===key);if(cat)cat.freq=freq;saveTaskData();renderTaskLib();
+}
+
+
+/* generate */
+async function generate(){
+  const key=getKey();
+  if(!key){alert('請先設定 Groq API Key');return;}
+  if(!selLoc){alert('請選擇今日地點');return;}
+  if(!selMode){alert('請選擇今日模式');return;}
+  if(selMode==='工作日'){renderWorkdayOut();return;}
+
+  // 08-18新增：補生成過去日期時，displayKey會是review_YYYY-MM-DD（非今天），
+  // 這裡一律從displayKey反推日期（而非new Date()），星期幾/閉館時間/prompt裡
+  // 的「今天」欄位才會對到真正要生成的那天，不會誤用即時系統日期；戰力值也優先
+  // 讀該天既有存檔的combatPower（若有），沒有才退回目前pwr（例如當天第一次生成）
+  const isBackfill=displayKey!==todayKey();
+  const d=new Date(displayKey.replace('review_','')+'T12:00:00');
+  const wDays=['週日','週一','週二','週三','週四','週五','週六'];
+  const dateLabel=`${d.getMonth()+1}月${d.getDate()}日　${wDays[d.getDay()]}`;
+  const backfillPwr=isBackfill?JSON.parse(localStorage.getItem(displayKey)||'{}').combatPower:null;
+  const p=backfillPwr||pwr||50;
+  // renderPipeSandbox()存檔時讀的是全域pwr（combatPower:pwr），同步成p才不會
+  // 把補生成當天算出的正確歷史戰力值，存檔時被目前(今天)的即時pwr覆蓋掉
+  pwr=p;
+  const calEvents=document.getElementById('calInput').value.trim();
+  const notes=document.getElementById('notes').value.trim();
+  const dow=d.getDay(),isMon=dow===1,isThu=dow===4,isOut=selLoc==='外出日';
+  const closeH=isMon?17:selLoc==='分館'?19:18;
+  const close=isOut?'依行程':`${closeH}:00`;
+  const lv=p>=80?'Peak(80+)':p>=70?'Stable(70-79)':p>=60?'Caution(60-69)':'Critical(<60)';
+  const energyLabel={'high':'高耗能','mid':'中耗能','low':'輕量'};
+  const taskList=getEffectiveTasks().map((t,i)=>{
+    const cat=taskData.categories.find(c=>c.key===t.catKey);
+    const catTag=cat?` [${cat.label}]`:'';
+    const eTag=` [${energyLabel[t.energy||'mid']}]`;
+    return`${i+1}. ${t.text}${catTag}${eTag}`;
+  }).join('\n');
+
+  const sys=`你是我的私人效能顧問。根據今日三夜加權戰力值，將一日行程切分為數個「精力屬性大時段水管」。不要把任務硬塞入時間軸，只輸出骨架結構。
+
+【語言規定】全程嚴格使用繁體中文（台灣用語）。嚴禁簡體字、中國大陸用語、日文漢字。常見錯誤：任务→任務、强制→強制、纳入→排入、班经→行程；日文漢字如弾（U+5F3E）嚴禁使用，應用繁體彈（U+5F48）。hint 欄位禁止出現任何日文字元或非繁體中文字元。
+
+【最高強制 - Calendar 鎖定，不可違反】
+- 使用者輸入的「今日 Calendar」每一筆行程，不論內容為何，必須全部轉為獨立 pipe。
+- 轉換規則：type 固定為 "rest"，label 原封不動複製行程名稱（禁止翻譯、縮寫或修改任何字），hint 固定輸出「📅 行程佔用，不排任務」（此字串一字不改）。
+- Calendar pipe 必須依照行程時間排入 pipes 陣列，AI 安排的其他 pipe 時間絕對不得與 Calendar 行程時間重疊。
+- 若 Calendar 為（無），此規則不適用。
+
+水管類型（type）與允許的 label（一字不差，嚴禁自創其他詞彙）：
+- type=high → label 只能是「深度高能」或「高能衝刺」
+- type=mid  → label 只能是「穩定中能」或「中能輸出」
+- type=low  → label 只能是「輕量時段」或「輕量緩降」或「輕量輸出」
+- type=rest（非Calendar行程）→ label 只能是「午休充能」或「傍晚蓄能」或「強制充能」
+- type=rest（Calendar行程）→ label 原封不動用行程名稱
+
+規則：
+1. 起始時間最早 09:30
+2. 午餐 13:00–14:00：若 Calendar 行程未佔用 13:00–14:00，才插入 rest（label:"午休充能"，hint:"🔒 強制休息，不排任務"）；若 Calendar 已覆蓋該時段，完全略過。
+3. 傍晚（17:00 後）至少一段 rest，hint 固定寫「🔒 強制休息，不排任務」
+4. skipTasks：從任務庫原始名稱挑選今日建議跳過的任務，字串必須完全一致。任務庫已標記能量等級（[高耗能]/[中耗能]/[輕量]），按以下規則：
+   - Critical(<60%)：必須從 [高耗能] 任務中選出至少 2 項跳過；若 [高耗能] 不足 2 項，再從 [中耗能] 補選
+   - Caution(60-69%)：從 [高耗能] 任務中選出 1–2 項跳過
+   - Stable(70-79%) 以上：skipTasks 可為空陣列
+   - [輕量] 任務不應加入 skipTasks
+5. hint 欄位：留空字串 ""（系統會自動填入，不需 AI 生成）
+6. 輸出純 JSON，無 markdown；pipes 陣列依 start 時間升序排列
+7. 單一水管（非Calendar行程）建議不超過2小時；同屬性任務需求時間更長時，拆成兩段水管，中間插入短暫rest緩衝
+8. AI排定的相鄰水管之間（不含Calendar鎖定行程前後）應留數分鐘緩衝，不必分秒緊貼相接
+
+格式：{"summary":"一句話策略叮嚀（45字內）","pipes":[{"start":"09:30","end":"12:00","type":"high","label":"深度高能","hint":""}],"skipTasks":["原始任務名"]}`;
+
+  const usr=`今天：${dateLabel}
+地點：${selLoc}${isOut?'':` 開館${selLoc==='分館'?'08:30':'09:15'} 閉館${close}`}
+模式：${selMode} | 戰力：${p}%（${lv}）
+體感：${selFeel||'未填寫'}
+週四：${isThu?'是，需安排斗數筆記整理':'否'} | 週一：${isMon&&!isOut?'17:00閉館':'否'}
+今日 Calendar：
+${calEvents||'（無）'}
+任務庫：
+${taskList}
+補充：${notes||'無'}`;
+
+  document.getElementById('overallFeedback').value='';
+  document.getElementById('aiFbOut').style.display='none';
+  document.getElementById('aiFbOut').textContent='';
+  document.getElementById('aiFbBtn').disabled=false;
+  document.getElementById('aiFbBtn').textContent='✦ 生成 AI 反饋';
+  document.getElementById('savedToast').style.display='none';
+  document.getElementById('ovl').classList.remove('hidden');
+
+  try{
+    // 08-17實測抓到的真實bug（分六階段修）：openai/gpt-oss-120b原本用
+    // response_format:json_object會json_validate_failed；拿掉後配
+    // reasoning_format:'hidden'一度只剩「陣列漏逗號」語法小錯；一度以為
+    // reasoning_format:hidden能讓response_format安全並用，加回實測後
+    // json_validate_failed原樣重現，證實是model跟response_format:json_object
+    // 組合本身不穩定（跟社群回報一致），改回不用response_format+自動重試2次。
+    // 但使用者用真實較長的Calendar內容實測，又出現「Unterminated string in
+    // JSON at position 33」——content在很前面就被截斷，代表真實prompt較長時
+    // 推理過程吃掉的token比先前簡短測試情境更多，max_tokens:1500仍不夠，重試
+    // 也救不了系統性的長度不足。官方文件model最大輸出65536 tokens，拉高到
+    // 4000留足安全邊際
+    // 08-19更正：上面提到的reasoning_format:'hidden'其實對gpt-oss系列完全不支援
+    // （查證console.groq.com/docs/reasoning），Groq靜默忽略、不是真正生效的修法，
+    // 已從呼叫參數移除；真正有效的是reasoning_effort:'low'（官方文件證實支援，
+    // 控制推理耗用深度）與拿掉response_format/拉高max_tokens這兩項
+    // 08-24：補齊「隱藏推理吃光max_tokens導致content為空字串」的偵測——
+    // finish_reason==='length'且content為空時，不是JSON格式錯誤，是預算不夠，
+    // 放大max_tokens再試一次比原地重試更有機會成功（英文小教室驗證過的解法）
+    // 08-24（第二輪）：補齊429退避＋model故障備援。429退避下放到groqFetch()
+    // 單次fetch內部（不影響下面attempt<2這個既有迴圈的計數方式）；model備援則
+    // 包在最外層——primary的attempt<2整個迴圈都失敗、且判定是model本身故障
+    // （非JSON/長度問題）才整個迴圈換backup model重跑一次，邏輯清楚、風險最低，
+    // 不去動迴圈內部已經很複雜的JSON parse＋長度重試糾纏邏輯
+    const GEN_PRIMARY_MODEL='openai/gpt-oss-120b',GEN_BACKUP_MODEL='openai/gpt-oss-20b';
+    async function runGenerateAttempt(model){
+      let raw,lastErr,curMax=4000;
+      for(let attempt=0;attempt<2;attempt++){
+        try{
+          const resp=await groqFetch({model,messages:[{role:'system',content:sys},{role:'user',content:usr}],temperature:0.5,max_tokens:curMax,reasoning_effort:'low'},key);
+          if(!resp.ok){
+            const err=await resp.json().catch(()=>({}));
+            const e=new Error(err.error?.message||`HTTP ${resp.status}`);
+            e.status=resp.status;e.detail=err.error?.message||'';
+            throw e;
+          }
+          const data=await resp.json();
+          const choice=data.choices?.[0];
+          let content=(choice?.message?.content||'').replace(/```json|```/g,'').trim();
+          if(choice?.finish_reason==='length'){
+            // 08-26修正：原本要求content完全空白才觸發，但殘句（非空但沒寫完的JSON片段）
+            // 一樣是finish_reason===length，不該漏放——這裡提早攔截可以立刻放大curMax
+            // 重試，比放給下面JSON.parse失敗後才靠parse-error分支重試更準（那條路徑
+            // 不會放大curMax，同預算重試大機率再截斷一次）
+            curMax=Math.round(curMax*1.8);
+            throw new Error('推理耗盡max_tokens導致內容不完整，放大額度重試');
+          }
+          try{ raw=JSON.parse(content); }
+          catch(parseErr){
+            const braceStart=content.indexOf('{'),braceEnd=content.lastIndexOf('}');
+            if(braceStart===-1||braceEnd===-1||braceEnd<=braceStart) throw parseErr;
+            raw=JSON.parse(content.slice(braceStart,braceEnd+1));
+          }
+          break;
+        }catch(e){lastErr=e;raw=undefined;}
+      }
+      if(raw===undefined) throw lastErr||new Error('重試2次仍失敗');
+      return raw;
+    }
+    let raw;
+    try{
+      raw=await runGenerateAttempt(GEN_PRIMARY_MODEL);
+    }catch(e1){
+      if(groqModelLooksDown(e1.status,e1.detail)){
+        console.warn('generate()：primary model疑似故障，切換backup重試',e1);
+        raw=await runGenerateAttempt(GEN_BACKUP_MODEL);
+      }else{
+        throw e1;
+      }
+    }
+    // 繁中保底：cc_zht.js 為外部非同步載入的共用檔，未就緒時原樣顯示不報錯
+    const zhSafe=(typeof s2tDeep==='function')?s2tDeep(raw):raw;
+    const result=sanitizePipes(zhSafe,calEvents,getEffectiveTasks(),p);
+    document.getElementById('ovl').classList.add('hidden');
+    // 若 Groq 回傳舊格式（無 pipes 欄位），自動改用示範資料
+    if(!result.pipes||!result.pipes.length) renderPipeSandbox(getMockPipes(p),true,'Groq回傳內容缺少pipes欄位（格式異常，非連線失敗）');
+    else renderPipeSandbox(result);
+  }catch(e){
+    document.getElementById('ovl').classList.add('hidden');
+    console.error('generate() 失敗：',e);
+    try{renderPipeSandbox(getMockPipes(p),true,e.message);}
+    catch(e2){alert('水管渲染失敗：'+e2.message);}
+  }
+}
+
+function renderWorkdayOut(){
+  const sc=document.getElementById('sout');
+  const schedCard=sc?.closest('.card');
+  if(schedCard)schedCard.style.display='';
+  const splitSec=document.getElementById('taskSplitSec');
+  if(splitSec)splitSec.style.display='';
+  // 讀取已存的自由行程
+  const saved=JSON.parse(localStorage.getItem(displayKey)||'{}');
+  sc.innerHTML=`<div style="font-size:11px;color:#9a9088;text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px;">工作日行程（自由填寫）</div>
+    <textarea id="workday-sched-ta"
+      style="width:100%;min-height:110px;resize:vertical;background:#f4f1ec;border:1.5px solid #cec8bf;border-radius:10px;padding:10px 12px;font-size:13px;color:#38342e;font-family:inherit;line-height:1.6;box-sizing:border-box;"
+      placeholder="例：09:30 整理筆記&#10;11:00 BQ practice&#10;14:00 LinkedIn 投遞…"
+      oninput="saveWorkdaySched(this.value)">${esc(saved.workdaySchedule||'')}</textarea>`;
+  // 任務全部列入，不做 AI 分配
+  const allNames=getEffectiveTasks().map(t=>t.text);
+  document.getElementById('tasksIn').innerHTML=allNames.length
+    ?allNames.map(n=>`<div class="t-in-row"><div class="t-dot-in"></div>${esc(n)}</div>`).join('')
+    :'<div style="font-size:12px;color:#9a9088;padding:4px 0">（任務庫為空）</div>';
+  document.getElementById('tasksOutWrap').classList.add('hidden');
+  document.getElementById('taskSplitSec').classList.remove('hidden');
+  // 清除 AI 反饋殘留
+  document.getElementById('overallFeedback').value=saved.overall||'';
+  document.getElementById('aiFbOut').style.display='none';document.getElementById('aiFbOut').textContent='';
+  document.getElementById('aiFbBtn').disabled=false;document.getElementById('aiFbBtn').textContent='✦ 生成 AI 反饋';
+  document.getElementById('savedToast').style.display='none';
+  // 存 workdayMode 標記
+  const existing=JSON.parse(localStorage.getItem(displayKey)||'{}');
+  localStorage.setItem(displayKey,JSON.stringify({...existing,workdayMode:true,combatPower:pwr,mode:selMode,feel:selFeel,taskLibrary:allNames}));
+  // 覆盤：正常模式，帶入所有任務
+  renderReview(allNames);
+  const o=document.getElementById('outSec');
+  o.classList.remove('hidden');o.classList.add('fi');
+  setTimeout(()=>o.scrollIntoView({behavior:'smooth',block:'start'}),100);
+}
+function saveWorkdaySched(val){
+  const existing=JSON.parse(localStorage.getItem(displayKey)||'{}');
+  localStorage.setItem(displayKey,JSON.stringify({...existing,workdaySchedule:val}));
+}
+
+function getTaskCatLabel(taskText){
+  const t=taskData.tasks.find(t=>t.text===taskText);if(!t)return null;
+  const cat=taskData.categories.find(c=>c.key===t.catKey);return cat?cat.label:null;
+}
+function renderOut(r){
+  const tc={high:'t-h',med:'t-m',low:'t-l',break:'t-b',cal:'t-cal'};
+  const tl={high:'重點',med:'常規',low:'輕鬆',break:'休息',cal:'行程'};
+  // 清除休假模式留下的 inline display:none
+  const sc=document.getElementById('sout');
+  const schedCard=sc?.closest('.card');
+  if(schedCard) schedCard.style.display='';
+  const splitSec=document.getElementById('taskSplitSec');
+  if(splitSec) splitSec.style.display='';
+  sc.innerHTML=r.summary?`<div class="sbox">${r.summary}</div>`:'';
+  (r.schedule||[]).forEach(item=>{
+    const d=document.createElement('div');d.className='si';
+    const _t=(item.tag==='cal'&&(!item.task||item.task==='cal'))?(item.note||''):(item.task||'');
+    const _n=(item.tag==='cal'&&(!item.task||item.task==='cal'))?'':(item.note||'');
+    const _cl=item.tag!=='cal'&&item.tag!=='break'?getTaskCatLabel(_t):null;
+    const _td=_cl?`<span class="si-cat-lbl">[${_cl}]</span>${esc(_t)}`:esc(_t);
+    d.innerHTML=`<div class="tlbl">${item.time||''}</div><div class="sb"><div class="stask-row"><div class="stask">${_td}</div>${item.tag?`<span class="tag ${tc[item.tag]||'t-m'}">${tl[item.tag]||item.tag}</span>`:''}</div>${_n?`<div class="snote">${esc(_n)}</div>`:''}</div>`;
+    sc.appendChild(d);
+  });
+
+  // ── Within / Without split ──
+  const selectedNames = r.reviewTasks||[];
+  const allTaskNames  = getEffectiveTasks().map(t=>t.text);
+  const inList  = allTaskNames.filter(n=>selectedNames.some(s=>s===n||n.includes(s.slice(0,4))));
+  const outList = allTaskNames.filter(n=>!inList.includes(n));
+
+  const tasksIn=document.getElementById('tasksIn');
+  tasksIn.innerHTML=inList.length
+    ? inList.map(n=>`<div class="t-in-row"><div class="t-dot-in"></div>${esc(n)}</div>`).join('')
+    : '<div style="font-size:12px;color:#9a9088;padding:4px 0">（AI 未指定，將使用所有任務）</div>';
+
+  const outWrap=document.getElementById('tasksOutWrap');
+  const tasksOut=document.getElementById('tasksOut');
+  if(outList.length){
+    tasksOut.innerHTML=outList.map((n,i)=>`
+      <div class="t-out-row" id="outrow-${i}">
+        <div class="t-dot-out"></div>
+        <span>${esc(n)}</span>
+        <button class="t-add-btn" onclick="addToReview('${n.replace(/'/g,"\\'")}',${i})">＋ 加入覆盤</button>
+      </div>`).join('');
+    outWrap.classList.remove('hidden');
+  } else {
+    outWrap.classList.add('hidden');
+  }
+  document.getElementById('taskSplitSec').classList.remove('hidden');
+
+  // 把 AI 預排行程、Calendar、任務庫存起來，供覆盤反饋做比對
+  const aiScheduled = (r.schedule||[])
+    .filter(s=>s.tag!=='break'&&s.tag!=='cal')
+    .map(s=>({time:s.time,task:s.task,note:s.note||''}));
+  const existing = JSON.parse(localStorage.getItem(displayKey)||'{}');
+  localStorage.setItem(displayKey, JSON.stringify({
+    ...existing,
+    aiScheduled,
+    fullSchedule: r.schedule||[],
+    summary: r.summary||'',
+    calEvents: document.getElementById('calInput').value.trim(),
+    taskLibrary: getEffectiveTasks().map(t=>t.text),
+    combatPower: pwr,
+    mode: selMode,
+    feel: selFeel,
+  }));
+
+  // pass exact matched names to review
+  const reviewNames = inList.length ? inList : selectedNames.length ? selectedNames : getEffectiveTasks().slice(0,5).map(t=>t.text);
+  renderReview(reviewNames);
+
+  const o=document.getElementById('outSec');
+  o.classList.remove('hidden');o.classList.add('fi');
+  setTimeout(()=>o.scrollIntoView({behavior:'smooth',block:'start'}),100);
+
+  // 週五才顯示 Weekly Recap
+  const isFri=new Date().getDay()===5;
+  const wr=document.getElementById('weeklyRecapSec');
+  if(isFri){wr.classList.remove('hidden');renderWeeklyPreview();}
+  else{wr.classList.add('hidden');}
+}
+
+/* ═══════════════════════════════════════════════════════
+   PIPE SANDBOX — 雙軌制水管沙盒
+═══════════════════════════════════════════════════════ */
+let _pipes=[], _pipeAssign={}, _skipTasks=[], _selPipeIdx=null, _selBrickText=null, _tempBricks=[];
+let _durEstimates={}; // {taskName:{ideal,actual}} — 供覆盤系統綁定代償分鐘數
+const REST_BRICKS=['💤 午休蓄能','🌿 傍晚充能','🔋 快充小憩'];
+const TASK_WEIGHT={high:1.5,mid:1.0,low:0.5};
+
+function getMockPipes(p){
+  const summary=p>=75?'⚡ 示範資料：戰力充足，今日早段衝刺核心難題，午後維持節奏。'
+    :p>=55?'⚖️ 示範資料：穩健配速日，任務上限 3 件，避免午後耗盡。'
+    :'🚨 示範資料：戰力偏低，任務減半，18:00 後禁止燒腦。';
+  const tasks=getEffectiveTasks();
+  if(p>=75){
+    return{summary,pipes:[
+      {start:'09:30',end:'12:00',type:'high',label:'深度高能',hint:'💡 適合：英文練習、BQ 練習、核心難題'},
+      {start:'12:00',end:'13:00',type:'rest',label:'午休充能',hint:'🔒 強制休息，不排任務'},
+      {start:'13:00',end:'15:30',type:'mid', label:'穩定中能',hint:'💡 適合：產業研究、LinkedIn 投遞'},
+      {start:'15:30',end:'17:00',type:'low', label:'輕量緩降',hint:'💡 適合：整理筆記、回顧、輕量瀏覽'},
+      {start:'17:00',end:'19:00',type:'rest',label:'傍晚蓄能',hint:'🔒 禁止燒腦任務，強制充能'},
+    ],skipTasks:[]};
+  }else if(p>=55){
+    return{summary,pipes:[
+      {start:'09:30',end:'11:30',type:'mid', label:'穩定中能',hint:'💡 適合：中度認知任務、產業研究'},
+      {start:'11:30',end:'12:00',type:'low', label:'輕量緩衝',hint:'💡 適合：整理、瀏覽、記錄'},
+      {start:'12:00',end:'13:00',type:'rest',label:'午休充能',hint:'🔒 強制休息，不排任務'},
+      {start:'13:00',end:'15:00',type:'mid', label:'穩定中能',hint:'💡 適合：LinkedIn、輕量英文練習'},
+      {start:'15:00',end:'19:00',type:'rest',label:'傍晚防禦',hint:'🔒 下午後段強制充能，禁止燒腦'},
+    ],skipTasks:tasks.slice(0,1).map(t=>t.text)};
+  }else{
+    return{summary,pipes:[
+      {start:'09:30',end:'11:00',type:'low', label:'輕量起動',hint:'💡 最輕量任務，保存腦力'},
+      {start:'11:00',end:'13:00',type:'rest',label:'提前蓄能',hint:'🔒 強制休息，含午休'},
+      {start:'13:00',end:'14:30',type:'low', label:'輕量輸出',hint:'💡 只排最重要的 1 件任務'},
+      {start:'14:30',end:'19:00',type:'rest',label:'強制充能',hint:'🔒 今日以恢復優先，禁止燒腦'},
+    ],skipTasks:tasks.slice(0,2).map(t=>t.text)};
+  }
+}
+
+// 暖色漸變：diff = 體能續航極限時刻 - 水管開始時刻（小時）
+function pipeWarmthStyle(type,startStr,endH){
+  if(type==='rest')return{item:'',badge:''};
+  const p=startStr.split(':').map(Number);
+  const diff=endH-(p[0]+p[1]/60);
+  if(diff>4)return{item:'',badge:''}; // 早段：維持 CSS class 原色
+  if(diff>2)return{                   // 接近極限（~2-4h前）：暖琥珀
+    item:'background:rgba(168,124,62,.12);border-color:rgba(168,124,62,.28);',
+    badge:'background:rgba(168,124,62,.16);color:#664618;'};
+  if(diff>0)return{                   // 進入危險區（0-2h前）：深琥珀橙
+    item:'background:rgba(190,102,44,.14);border-color:rgba(190,102,44,.32);',
+    badge:'background:rgba(190,102,44,.18);color:#742e0c;'};
+  return{                             // 超過極限：暖磚紅
+    item:'background:rgba(182,72,50,.14);border-color:rgba(182,72,50,.32);',
+    badge:'background:rgba(182,72,50,.17);color:#7a2010;'};
+}
+
+function bufferMin(v){
+  if(v>=80)return 15; if(v>=65)return 12; if(v>=50)return 10; return 10;
+}
+
+function buildDurCard(p){
+  const v=Math.min(100,Math.max(0,p||60));
+  const fuel=Math.round(v*3.4); // 高效續航總分鐘（背景對照）
+  const r=bufferMin(v);
+  const types=[
+    {type:'high',emoji:'🔥',lbl:'高能任務預估'},
+    {type:'mid', emoji:'☕',lbl:'中能任務預估'},
+    {type:'low', emoji:'🍃',lbl:'輕量任務預估'}
+  ];
+  const groupsHtml=types.map(t=>`
+    <div class="dur-type-group">
+      <div class="dur-type-hdr"><span class="dur-type-lbl">${t.emoji} ${t.lbl}</span></div>
+      <div class="dur-type-tasks" id="dur-tasks-${t.type}">
+        <span style="font-size:10.5px;color:#b0a898;">推算中…</span>
+      </div>
+    </div>`).join('');
+  const coef=(100/v).toFixed(2);
+  const formulaHtml=`<div class="dur-formula-box" id="dur-formula-box">
+    <b>計算公式說明（戰力 ${v}%）</b><br>
+    • <b>高效續航燃料</b> = 戰力% × 3.4 → ${v} × 3.4 = ${fuel} 分<br>
+    &nbsp;&nbsp;代表今日在最高效狀態下可用的大腦淨專注時間上限（背景對照）<br>
+    • <b>生理安全預算</b> = 高效續航燃料（${fuel} 分）依各任務認知負荷比例分配<br>
+    &nbsp;&nbsp;所有任務的生理安全預算加總 = ${fuel} 分（守恆）<br>
+    • <b>現實破碎預期</b> = 生理安全預算 ÷ 戰力%<br>
+    &nbsp;&nbsp;→ 代償係數 ×${coef}（今日每 1 分高效需 ${coef} 分物理時間）<br>
+    &nbsp;&nbsp;→ 例：30 分 ÷ ${v}% = ${Math.round(3000/v)} 分
+  </div>`;
+  return`<div class="dur-card">
+    <div style="display:flex;align-items:center;gap:6px;margin-bottom:5px;">
+      <div class="dur-card-hdr" style="margin:0;flex:1">⏱ 當前能耗配置與代償對照（戰力 ${v}%）</div>
+      <span class="dur-collapse-btn" onclick="(function(b,btn){var o=b.classList.toggle('open');btn.textContent=o?'▴':'▾';})(document.getElementById('dur-card-body'),this)">▾</span>
+      <span class="dur-formula-toggle" onclick="this.textContent=this.textContent.includes('▾')?'公式 ▴':'公式 ▾';document.getElementById('dur-formula-box').classList.toggle('open')">公式 ▾</span>
+    </div>
+    <div class="dur-card-body" id="dur-card-body">
+      ${formulaHtml}
+      <div class="dur-fuel-ref">📊 生理水庫基礎：今日高效續航燃料 ➔ ${fuel} 分鐘（背景對照）</div>
+      ${groupsHtml}
+      <div class="dur-buffer"><span class="dur-badge dr">⏸ 段間緩衝</span><span class="dur-val">每段至少 ${r} 分</span></div>
+    </div>
+  </div>`;
+}
+
+async function loadTaskDurations(p){
+  const key=getKey(); if(!key) return;
+  const tasks=getEffectiveTasks(); if(!tasks.length) return;
+  const v=Math.min(100,Math.max(0,p||60));
+  const fuel=Math.round(v*3.4); // 生理水庫總量，所有任務生理安全預算加總必須等於此值
+  const prompt=`You are a productivity advisor. Total cognitive fuel today: ${fuel} minutes.
+Tasks:
+${tasks.map(t=>t.text).join('\n')}
+
+Distribute the ${fuel} minutes among ALL tasks based on their relative cognitive load.
+The sum of ALL "ideal" values MUST equal EXACTLY ${fuel}.
+Also classify each task as high/mid/low energy demand.
+Return ONLY JSON: [{"t":"task name","type":"high","ideal":30},...]`;
+  try{
+    // 08-18：gpt-oss-20b跟120b同屬reasoning model系列，同樣補reasoning_effort:'low'
+    // （08-19更正：原本這裡也補過reasoning_format:'hidden'，查證後這個參數對
+    // gpt-oss系列不支援、被靜默忽略，已移除，真正有效的是reasoning_effort）
+    // 08-24：這裡原本沒有任何重試，content為空時jm.match()直接失敗return，
+    // 使用者看到的是任務時長區塊完全空白。補上「finish_reason===length
+    // 且content為空」時放大max_tokens重試一次
+    // 08-24（第二輪）：原本這裡連resp.ok都沒檢查，429/model故障時會直接靜默
+    // 落到jm=null的return。補429退避（groqFetch內建）＋model備援（外層try/catch），
+    // 跟既有length放大重試疊加，最外層本來就有try/catch(e){清空UI}兜底
+    const DUR_PRIMARY_MODEL='openai/gpt-oss-20b',DUR_BACKUP_MODEL='openai/gpt-oss-120b';
+    async function runDurAttempt(model){
+      let resp=await groqFetch({model,messages:[{role:'user',content:prompt}],temperature:0.3,max_tokens:600,reasoning_effort:'low'},key);
+      if(!resp.ok){
+        const errBody=await resp.json().catch(()=>({}));
+        const e=new Error(errBody.error?.message||`HTTP ${resp.status}`);
+        e.status=resp.status;e.detail=errBody.error?.message||'';
+        throw e;
+      }
+      let j=await resp.json();
+      let choice=j.choices?.[0];
+      if(choice?.finish_reason==='length'){ // 08-26：不再要求content空白，殘句同樣算截斷
+        resp=await groqFetch({model,messages:[{role:'user',content:prompt}],temperature:0.3,max_tokens:1080,reasoning_effort:'low'},key);
+        if(!resp.ok){
+          const errBody=await resp.json().catch(()=>({}));
+          const e=new Error(errBody.error?.message||`HTTP ${resp.status}`);
+          e.status=resp.status;e.detail=errBody.error?.message||'';
+          throw e;
+        }
+        j=await resp.json();
+        choice=j.choices?.[0];
+      }
+      return choice?.message?.content||'';
+    }
+    let raw;
+    try{
+      raw=await runDurAttempt(DUR_PRIMARY_MODEL);
+    }catch(e1){
+      if(groqModelLooksDown(e1.status,e1.detail)) raw=await runDurAttempt(DUR_BACKUP_MODEL);
+      else throw e1;
+    }
+    const jm=raw.match(/\[[\s\S]*\]/);
+    if(!jm) return;
+    const parsedItems=JSON.parse(jm[0]);
+    const items=(typeof s2tDeep==='function')?s2tDeep(parsedItems):parsedItems;
+
+    // 前端強制正規化：確保 ideal 加總 = fuel（修正 Groq 可能的偏差）
+    const rawSum=items.reduce((s,it)=>s+(it.ideal||0),0);
+    if(rawSum>0) items.forEach(it=>it.ideal=Math.max(1,Math.round((it.ideal||0)*fuel/rawSum)));
+    // 修正捨入誤差（補到最後一個任務）
+    const fixedSum=items.reduce((s,it)=>s+it.ideal,0);
+    if(fixedSum!==fuel&&items.length) items[items.length-1].ideal+=fuel-fixedSum;
+
+    _durEstimates={};
+    ['high','mid','low'].forEach(tp=>{
+      const el=document.getElementById('dur-tasks-'+tp);
+      if(!el) return;
+      const group=items.filter(it=>it.type===tp);
+      if(!group.length){el.innerHTML='<span style="font-size:10.5px;color:#c0b8b0;">無任務</span>';return;}
+      el.innerHTML=group.map(it=>{
+        const ideal=it.ideal;
+        const actual=Math.round(ideal*100/v); // 現實破碎預期 = 生理安全預算 ÷ 戰力%
+        _durEstimates[it.t]={ideal,actual};
+        return`<div class="dur-task-block">
+          <span class="dur-task-name">${esc(String(it.t||''))}</span>
+          <div class="dur-sub-row">
+            <span class="dur-sub-icon">💧</span>
+            <span class="dur-ideal-min">生理安全預算：${ideal} 分（大腦高效淨時間）</span>
+          </div>
+          <div class="dur-sub-row">
+            <span class="dur-sub-icon">🚗</span>
+            <span class="dur-actual-min">現實破碎預期：${actual} 分</span>
+          </div>
+        </div>`;
+      }).join('');
+    });
+  }catch(e){
+    ['high','mid','low'].forEach(tp=>{
+      const el=document.getElementById('dur-tasks-'+tp);
+      if(el) el.innerHTML='';
+    });
+  }
+}
+
+function renderPipeSandbox(result,isMock=false,errMsg=''){
+  _pipes=result.pipes||[];_skipTasks=result.skipTasks||[];
+  _pipeAssign={};_selPipeIdx=null;_selBrickText=null;
+
+  const sc=document.getElementById('sout');
+  const schedCard=sc?.closest('.card');
+  if(schedCard)schedCard.style.display='';
+  document.getElementById('taskSplitSec').style.display='none';
+
+  // 08-17：原本錯誤訊息被catch區塊整個吞掉，使用者完全看不到API失敗的實際原因，
+  // 只能看到「API未回應」這句話，連判斷是model問題、key問題還是rate limit都做不到。
+  // 改成把e.message一併顯示出來，之後每次失敗都能直接看到具體錯誤
+  const mockNotice=isMock?`<div class="mock-notice">⚠ API 未回應，已載入示範資料。所有互動功能完整可用。${errMsg?`<div style="margin-top:4px;font-size:12px;opacity:.85;">錯誤訊息：${esc(errMsg)}</div>`:''}</div>`:'';
+  const sumHtml=result.summary?`<div class="pipe-summary">${esc(result.summary)}</div>`:'';
+
+  const badgeLabel={high:'高能',mid:'中能',low:'輕量',rest:'休息'};
+  const endH=8+Math.floor((pwr||60)/100*14);
+  const pipesHtml=_pipes.map((p,i)=>{
+    const ws=pipeWarmthStyle(p.type,p.start,endH);
+    return`<div class="pipe-item type-${p.type}" id="pipe-${i}" onclick="onPipeClick(${i})" style="${ws.item}">
+      <div class="pipe-hd">
+        <span class="pipe-time-range">${p.start}–${p.end}</span>
+        <span class="pipe-type-badge" style="${ws.badge}">${badgeLabel[p.type]||p.type}</span>
+      </div>
+      <div class="pipe-lbl">${esc(p.label)}</div>
+      <div class="pipe-hint">${esc(p.hint)}</div>
+      <div class="pipe-chips" id="pchips-${i}"></div>
+    </div>`;
+  }).join('');
+
+  // 載入既有臨時積木
+  const exData=JSON.parse(localStorage.getItem(displayKey)||'{}');
+  _tempBricks=exData.tempBricks||[];
+
+  sc.innerHTML=mockNotice+sumHtml
+    +`<div class="pipe-track">${pipesHtml}</div>`
+    +buildDurCard(pwr)
+    +'<div class="brick-pool-sec">'
+      +'<div class="brick-pool-hd"><span class="bph-ic">📦</span><span>任務積木池</span></div>'
+      +'<div class="brick-pool-desc"><span class="bph-ic">⚡</span><span>半透明虛線 = AI 建議今日跳過</span></div>'
+      +'<div class="sandbox-hint" id="sandboxHint" style="margin-bottom:10px;"><span class="bph-ic">👇</span><span>點選時段水管，再點下方任務積木放入（或反向：先選積木，再選時段）</span></div>'
+      +'<div class="brick-pool" id="brickPool"></div>'
+      +'<div class="temp-brick-row">'
+        +'<input class="temp-brick-input" id="tempBrickInput" placeholder="＋ 自訂臨時任務…" maxlength="30" onkeydown="if(event.key===\'Enter\')addTempBrick(this.value)">'
+        +'<button class="temp-brick-btn" onclick="addTempBrick(document.getElementById(\'tempBrickInput\').value)">新增</button>'
+      +'</div>'
+    +'</div>';
+
+  renderBrickPool();
+  loadTaskDurations(pwr);
+
+  // 存基礎資料到 localStorage
+  const ex=JSON.parse(localStorage.getItem(displayKey)||'{}');
+  const allReviewNames=[...getEffectiveTasks().map(t=>t.text),..._tempBricks];
+  localStorage.setItem(displayKey,JSON.stringify({...ex,
+    pipes:_pipes,skipTasks:_skipTasks,pipeAssignments:{},tempBricks:_tempBricks,
+    summary:result.summary||'',
+    calEvents:document.getElementById('calInput').value.trim(),
+    taskLibrary:getEffectiveTasks().map(t=>t.text),
+    combatPower:pwr,mode:selMode,feel:selFeel,
+  }));
+
+  renderReview(allReviewNames);
+  const o=document.getElementById('outSec');
+  o.classList.remove('hidden');o.classList.add('fi');
+  setTimeout(()=>o.scrollIntoView({behavior:'smooth',block:'start'}),100);
+  const isFri=new Date().getDay()===5;
+  const wr=document.getElementById('weeklyRecapSec');
+  if(isFri){wr.classList.remove('hidden');renderWeeklyPreview();}else{wr.classList.add('hidden');}
+  highlightCurrentPipe(false); // 剛生成時已有捲到 outSec 的動作，不再搶著捲到當前方塊
+}
+
+function renderBrickPool(){
+  const pool=document.getElementById('brickPool');if(!pool)return;
+  const tasks=getEffectiveTasks();
+  // 計算每個任務被放入幾個 pipe（允許多 pipe 共用同一積木）
+  const cntMap={};
+  Object.values(_pipeAssign).forEach(arr=>arr.forEach(t=>{cntMap[t]=(cntMap[t]||0)+1;}));
+  // 一般任務積木
+  const regularHtml=tasks.map((t,i)=>{
+    const cnt=cntMap[t.text]||0;
+    const isSkip=_skipTasks.includes(t.text);
+    const isSel=_selBrickText===t.text;
+    let cls='brick';
+    if(isSel)cls+=' selected';
+    else if(isSkip)cls+=' skip-sug';
+    const dot=isSkip?'<span class="brick-warn-dot">⚡</span>':'';
+    const cntBadge=cnt?`<span class="brick-cnt">×${cnt}</span>`:'';
+    const cat=taskData.categories.find(c=>c.key===t.catKey);
+    const catTag=cat?`<span style="font-size:9px;opacity:.55;margin-left:3px;">[${esc(cat.label)}]</span>`:'';
+    return`<div class="${cls}" id="brick-${i}" onclick="onBrickClick('${t.text.replace(/'/g,"\\'")}',${i})">${dot}${esc(t.text)}${catTag}${cntBadge}</div>`;
+  }).join('');
+  // 臨時自訂積木
+  const offset=tasks.length;
+  const tempHtml=_tempBricks.map((txt,i)=>{
+    const cnt=cntMap[txt]||0;
+    const isSel=_selBrickText===txt;
+    let cls='brick temp-brick'+(isSel?' selected':'');
+    const cntBadge=cnt?`<span class="brick-cnt">×${cnt}</span>`:'';
+    return`<div class="${cls}" id="brick-tmp-${i}" onclick="onBrickClick('${txt.replace(/'/g,"\\'")}',${offset+i})">✦ ${esc(txt)}${cntBadge}</div>`;
+  }).join('');
+  // 休息積木（固定顯示，可重複置入不鎖灰）
+  const rOff=tasks.length+_tempBricks.length;
+  const restHtml=REST_BRICKS.map((txt,i)=>{
+    const isSel=_selBrickText===txt;
+    return`<div class="brick rest-brick${isSel?' selected':''}" id="brick-rb-${i}" onclick="onBrickClick('${txt.replace(/'/g,"\\'")}',${rOff+i})">${esc(txt)}</div>`;
+  }).join('');
+  pool.innerHTML=regularHtml+tempHtml+restHtml;
+}
+
+function onPipeClick(idx){
+  const pipe=_pipes[idx];if(!pipe)return;
+  if(_selBrickText){
+    assignBrickToPipe(_selBrickText,idx);
+    _selBrickText=null;_selPipeIdx=null;
+  }else{
+    _selPipeIdx=idx;
+    document.querySelectorAll('.pipe-item').forEach((el,i)=>el.classList.toggle('selected',i===idx));
+    updateSandboxHint();
+  }
+}
+
+function onBrickClick(taskText){
+  if(_selPipeIdx!==null){
+    assignBrickToPipe(taskText,_selPipeIdx);
+    _selBrickText=null;
+  }else{
+    _selBrickText=taskText;
+    renderBrickPool();
+    updateSandboxHint();
+  }
+}
+
+// 能量加權密度制（取代舊「每任務+1」不看時長的 calcPressureScore）
+// 任務權重：high=1.5／mid=1.0／low=0.5（曾跳過的任務權重 ×2）
+// 密度＝Σ權重 ÷ max(時段小時數,0.5)；門檻：≥4.5→💥(3)｜≥3→🔥(2)｜≥1.5→⚠️(1)｜否則 0
+// 獨立規則：低能/休息時段塞 >2 件工作任務 → 警示等級至少 🔥(2)，不受密度除法影響
+function getTaskEnergyMap(){
+  const m={};
+  taskData.tasks.forEach(t=>{ m[t.text]=t.energy||'mid'; });
+  return m;
+}
+function pipeHours(pipe){
+  if(!pipe||!pipe.start||!pipe.end)return 0.5;
+  const[sh,sm]=pipe.start.split(':').map(Number);
+  const[eh,em]=pipe.end.split(':').map(Number);
+  let mins=(eh*60+em)-(sh*60+sm);
+  if(mins<=0)mins=30; // 防呆：end<=start（含誤植的跨日情況）視為最短 0.5hr，避免除以 0/負值
+  return mins/60;
+}
+// 標示目前所在的時段水管，scrollTo=true 時（首次渲染後）自動捲動到該方塊
+function highlightCurrentPipe(scrollTo){
+  document.querySelectorAll('.pipe-now-badge').forEach(el=>el.remove());
+  document.querySelectorAll('.pipe-item.pipe-now').forEach(el=>el.classList.remove('pipe-now'));
+  if(!_pipes||!_pipes.length)return;
+  const toMin=t=>{if(!t)return NaN;const[h,m]=t.split(':').map(Number);return h*60+m;};
+  const nowMin=new Date().getHours()*60+new Date().getMinutes();
+  const idx=_pipes.findIndex(p=>{
+    const s=toMin(p.start),e=toMin(p.end);
+    return !isNaN(s)&&!isNaN(e)&&nowMin>=s&&nowMin<e;
+  });
+  if(idx<0)return;
+  const el=document.getElementById(`pipe-${idx}`);
+  if(!el)return;
+  el.classList.add('pipe-now');
+  const hd=el.querySelector('.pipe-hd');
+  if(hd){
+    const badge=document.createElement('span');
+    badge.className='pipe-now-badge';
+    badge.innerHTML='<span class="pipe-now-dot"></span>現在';
+    hd.appendChild(badge);
+  }
+  if(scrollTo)setTimeout(()=>el.scrollIntoView({behavior:'smooth',block:'center'}),150);
+}
+function calcPipePressure(pipe,tasks,skipTasks){
+  const workTasks=(tasks||[]).filter(t=>!REST_BRICKS.includes(t));
+  const energyMap=getTaskEnergyMap();
+  skipTasks=skipTasks||[];
+  // 讀SAS Hub算好的高強度任務校正係數（連續3+天提早斷電觸發，08-04接上）——
+  // 之前這個係數只在SAS Hub顯示「已校正」但排程從未真的套用過，見cc_energy_weights寫入端
+  let hiMult=1.0;
+  try{
+    const ew=JSON.parse(localStorage.getItem('cc_energy_weights')||'{}');
+    if(ew.highIntensity) hiMult=ew.highIntensity;
+  }catch(e){}
+  let weight=0;
+  workTasks.forEach(t=>{
+    const lvl=energyMap[t]||'mid';
+    let w=TASK_WEIGHT[lvl];
+    if(lvl==='high') w*=hiMult;
+    weight+=skipTasks.includes(t)?w*2:w;
+  });
+  const hours=Math.max(pipeHours(pipe),0.5);
+  const density=weight/hours;
+  let level=density>=4.5?3:density>=3?2:density>=1.5?1:0;
+  if(pipe&&(pipe.type==='low'||pipe.type==='rest')&&workTasks.length>2&&level<2)level=2;
+  return {density,level,weight,hours,tasks:workTasks};
+}
+
+// 單一事實來源：哪些時段算過載、當天是否扛過去，genReviewFeedback 與 logOverloadDay 共用
+function computeOverloadInfo(saved){
+  const savedPipes=saved.pipes||[];
+  const savedAssign=saved.pipeAssignments||{};
+  const overloadedPipes=[];
+  Object.entries(savedAssign).forEach(([pi,tasks])=>{
+    const pipe=savedPipes[parseInt(pi)];
+    if(!pipe||!tasks.length)return;
+    const workTasks=tasks.filter(t=>!REST_BRICKS.includes(t));
+    if(!workTasks.length)return;
+    const pressure=calcPipePressure(pipe,workTasks,saved.skipTasks||[]);
+    const isOverload=pipe.type==='rest'?workTasks.length>0:pressure.level>=2;
+    if(isOverload){
+      const statuses=workTasks.map(t=>{
+        const ri=saved.items?.find(i=>i.name===t);
+        return ri?ri.status:'未記錄';
+      });
+      // 09-09修復：使用者反映「某時段只做了一個任務的部分內容，但pipeline
+      // 警示會以一整個任務去計算」——根因是這裡原本把'part'(部分完成)跟
+      // 'done'(完全完成)同等計分，導致某任務只做一半，這個過載時段卻被
+      // allDone判定成「全部做完」，AI反饋因此誤報「💪撐住了」而非誠實反映
+      // 只做了部分。改成只有status嚴格等於'done'才計入，'part'不算數，
+      // 這樣才會誠實反映「還沒真的做完」而非灌水成完成。
+      const doneCount=statuses.filter(s=>s==='done').length;
+      overloadedPipes.push({
+        range:`${pipe.start}–${pipe.end}`,label:pipe.label,type:pipe.type,
+        tasks:workTasks,count:workTasks.length,doneCount,allDone:doneCount===workTasks.length,
+        density:pressure.density
+      });
+    }
+  });
+  const allOverloadDone=overloadedPipes.length>0&&overloadedPipes.every(o=>o.allDone);
+  return {overloadedPipes,allOverloadDone};
+}
+
+// 跨天過載頻率記錄：saveReview() 每天自動寫入，不依賴「生成AI反饋」按鈕，避免沒點按鈕的日子留下空缺
+const OVERLOAD_LOG_KEY='sas_overload_log';
+// 跨天配速對齊記錄（rolling array，上限 30 筆），供 SAS Hub 算「近14天無視警告率」
+const PIPE_REVIEW_KEY='sas_pipe_review';
+function logOverloadDay(saved,dateStr){
+  if(saved.restMode)return; // 休假不計分母
+  if(!saved.pipes||!saved.pipes.length)return; // 當天沒生成水管排程，無從判定過載
+  const{overloadedPipes,allOverloadDone}=computeOverloadInfo(saved);
+  try{
+    let log=JSON.parse(localStorage.getItem(OVERLOAD_LOG_KEY)||'[]');
+    log=log.filter(e=>e.date!==dateStr);
+    log.push({date:dateStr,overloadCount:overloadedPipes.length,allDone:overloadedPipes.length?allOverloadDone:null});
+    log.sort((a,b)=>a.date.localeCompare(b.date));
+    if(log.length>60)log=log.slice(-60);
+    localStorage.setItem(OVERLOAD_LOG_KEY,JSON.stringify(log));
+  }catch(e){}
+}
+
+function updatePipeWarnIcon(pipeIdx){
+  const el=document.getElementById(`pipe-${pipeIdx}`);if(!el)return;
+  el.querySelector('.pipe-warn-ico')?.remove();
+  el.classList.remove('pipe-warn-1','pipe-warn-2','pipe-warn-3');
+  el.title='';
+  const pipe=_pipes[pipeIdx];if(!pipe)return;
+  const{density,level}=calcPipePressure(pipe,_pipeAssign[pipeIdx]||[],_skipTasks);
+  if(level<=0)return;
+  const densityTxt=`（密度 ${density.toFixed(1)}件/hr）`;
+  let emoji,title,cls;
+  if(level>=3){
+    emoji='💥';cls='pipe-warn-3';
+    title='危險：雙重核爆臨界點！今晚覆盤此區塊極大概率全滅，強烈建議手動停損、移回積木池。'+densityTxt;
+  }else if(level===2){
+    emoji='🔥';cls='pipe-warn-2';
+    title='警告：時段任務過載！過多的任務切換將導致大腦卡死，高機率流產。'+densityTxt;
+  }else{
+    emoji='⚠️';cls='pipe-warn-1';
+    title='注意：時段能耗配速不對，此任務做起來會較為卡頓，請心理代償準備。'+densityTxt;
+  }
+  void el.offsetWidth;
+  el.classList.add(cls);
+  const ic=document.createElement('span');
+  ic.className='pipe-warn-ico';ic.title=title;ic.textContent=emoji;
+  el.appendChild(ic);
+}
+
+function assignBrickToPipe(taskText,pipeIdx){
+  if(!_pipeAssign[pipeIdx])_pipeAssign[pipeIdx]=[];
+  if(_pipeAssign[pipeIdx].includes(taskText))return;
+  _pipeAssign[pipeIdx].push(taskText);
+  renderPipeChips(pipeIdx);
+  renderBrickPool();
+  updatePipeWarnIcon(pipeIdx);
+  savePipeAssignments();
+  deselectSandbox();
+}
+
+function renderPipeChips(pipeIdx){
+  const el=document.getElementById(`pchips-${pipeIdx}`);if(!el)return;
+  el.innerHTML=(_pipeAssign[pipeIdx]||[]).map(txt=>`<div class="pipe-chip" onclick="removeFromPipe('${txt.replace(/'/g,"\\'")}',${pipeIdx})">${esc(txt)}<span class="prm">✕</span></div>`).join('');
+}
+
+function removeFromPipe(taskText,pipeIdx){
+  if(!_pipeAssign[pipeIdx])return;
+  _pipeAssign[pipeIdx]=_pipeAssign[pipeIdx].filter(t=>t!==taskText);
+  if(!_pipeAssign[pipeIdx].length)delete _pipeAssign[pipeIdx];
+  updatePipeWarnIcon(pipeIdx);
+  renderPipeChips(pipeIdx);renderBrickPool();savePipeAssignments();
+}
+
+function deselectSandbox(){
+  _selPipeIdx=null;_selBrickText=null;
+  document.querySelectorAll('.pipe-item').forEach(el=>el.classList.remove('selected'));
+  renderBrickPool();updateSandboxHint();
+}
+
+function updateSandboxHint(){
+  const el=document.getElementById('sandboxHint');if(!el)return;
+  const spans=el.querySelectorAll('span');
+  const icEl=spans[0],txtEl=spans[1];
+  if(_selPipeIdx!==null){
+    const p=_pipes[_selPipeIdx];
+    if(icEl)icEl.textContent='✦';
+    if(txtEl)txtEl.textContent=`${p.start}–${p.end}「${p.label}」已選定 → 點選下方任務積木放入`;
+    el.style.color='#5a7e9e';
+  }else if(_selBrickText){
+    if(icEl)icEl.textContent='✦';
+    if(txtEl)txtEl.textContent=`「${_selBrickText}」已選定 → 點選上方時段水管放入`;
+    el.style.color='#5a7e9e';
+  }else{
+    if(icEl)icEl.textContent='👇';
+    if(txtEl)txtEl.textContent='點選時段水管，再點下方任務積木放入（或反向：先選積木，再選時段）';
+    el.style.color='#9a9088';
+  }
+}
+
+function addTempBrick(name){
+  name=(name||'').trim();if(!name)return;
+  if(_tempBricks.includes(name))return;
+  _tempBricks.push(name);
+  // 即時加入覆盤清單（自訂 custom 項目）
+  if(!reviewItems.find(r=>r.name===name)){
+    reviewItems.push({name,status:'',feedback:'',custom:true});
+    renderReviewFromItems();
+  }
+  // 存 localStorage
+  const ex=JSON.parse(localStorage.getItem(displayKey)||'{}');
+  localStorage.setItem(displayKey,JSON.stringify({...ex,tempBricks:_tempBricks}));
+  renderBrickPool();
+  const inp=document.getElementById('tempBrickInput');
+  if(inp){inp.value='';inp.focus();}
+}
+
+function savePipeAssignments(){
+  const aiScheduled=[];
+  Object.entries(_pipeAssign).forEach(([pi,tasks])=>{
+    const p=_pipes[parseInt(pi)];if(!p)return;
+    tasks.forEach(t=>aiScheduled.push({time:p.start,task:t,note:p.label}));
+  });
+  const ex=JSON.parse(localStorage.getItem(displayKey)||'{}');
+  localStorage.setItem(displayKey,JSON.stringify({...ex,pipeAssignments:_pipeAssign,aiScheduled}));
+}
+
+function renderSavedPipeSandbox(saved){
+  _pipes=saved.pipes||[];_skipTasks=saved.skipTasks||[];
+  _pipeAssign=saved.pipeAssignments||{};_selPipeIdx=null;_selBrickText=null;
+
+  const sc=document.getElementById('sout');
+  const schedCard=sc?.closest('.card');
+  if(schedCard)schedCard.style.display='';
+  document.getElementById('taskSplitSec').style.display='none';
+
+  const sumHtml=saved.summary?`<div class="pipe-summary">${esc(saved.summary)}</div>`:'';
+  const badgeLabel={high:'高能',mid:'中能',low:'輕量',rest:'休息'};
+  const endH=8+Math.floor((saved.combatPower||pwr||60)/100*14);
+  const pipesHtml=_pipes.map((p,i)=>{
+    const ws=pipeWarmthStyle(p.type,p.start,endH);
+    return`<div class="pipe-item type-${p.type}" id="pipe-${i}" onclick="onPipeClick(${i})" style="${ws.item}">
+      <div class="pipe-hd">
+        <span class="pipe-time-range">${p.start}–${p.end}</span>
+        <span class="pipe-type-badge" style="${ws.badge}">${badgeLabel[p.type]||p.type}</span>
+      </div>
+      <div class="pipe-lbl">${esc(p.label)}</div>
+      <div class="pipe-hint">${esc(p.hint)}</div>
+      <div class="pipe-chips" id="pchips-${i}"></div>
+    </div>`;
+  }).join('');
+
+  _tempBricks=saved.tempBricks||[];
+
+  sc.innerHTML=sumHtml
+    +`<div class="pipe-track">${pipesHtml}</div>`
+    +buildDurCard(saved.combatPower||pwr)
+    +'<div class="brick-pool-sec">'
+      +'<div class="brick-pool-hd"><span class="bph-ic">📦</span><span>任務積木池</span></div>'
+      +'<div class="brick-pool-desc"><span class="bph-ic">⚡</span><span>半透明虛線 = AI 建議今日跳過</span></div>'
+      +'<div class="sandbox-hint" id="sandboxHint" style="margin-bottom:10px;"><span class="bph-ic">👇</span><span>點選時段水管，再點下方任務積木放入（或反向：先選積木，再選時段）</span></div>'
+      +'<div class="brick-pool" id="brickPool"></div>'
+      +'<div class="temp-brick-row">'
+        +'<input class="temp-brick-input" id="tempBrickInput" placeholder="＋ 自訂臨時任務…" maxlength="30" onkeydown="if(event.key===\'Enter\')addTempBrick(this.value)">'
+        +'<button class="temp-brick-btn" onclick="addTempBrick(document.getElementById(\'tempBrickInput\').value)">新增</button>'
+      +'</div>'
+    +'</div>';
+
+  loadTaskDurations(saved.combatPower||pwr);
+  Object.keys(_pipeAssign).forEach(pi=>{ renderPipeChips(parseInt(pi)); updatePipeWarnIcon(parseInt(pi)); });
+  renderBrickPool();
+  highlightCurrentPipe(true); // 回來查看已存排程時直接捲到當前方塊，省得手動找
+}
+/* ─── end pipe sandbox ─── */
+
+function addToReview(name, rowIdx){
+  // add this skipped task into reviewItems and re-render review
+  if(!reviewItems.find(r=>r.name===name)){
+    reviewItems.push({name,status:'',feedback:''});
+    renderReviewFromItems();
+  }
+  // visually mark as moved
+  const row=document.getElementById(`outrow-${rowIdx}`);
+  if(row){
+    row.innerHTML=`<div class="t-dot-in" style="background:#7a9e8a"></div><span style="color:#38342e">${esc(name)}</span><span style="margin-left:auto;font-size:11px;color:#7a9e8a">已加入覆盤</span>`;
+  }
+}
+
+/* ── Per-item review ── */
+function renderReview(names, isRestMode=false, fresh=false){
+  reviewItems=names.map(name=>({name,status:'',feedback:''}));
+  const saved=JSON.parse(localStorage.getItem(displayKey)||'{}');
+  // restore saved statuses — in rest mode only restore custom items (not old task library)
+  if(saved.items) saved.items.forEach((s,i)=>{
+    const existing=reviewItems.find(r=>r.name===s.name);
+    if(existing){existing.status=s.status||'';existing.feedback=s.feedback||'';}
+    else if(s.name&&(!isRestMode||s.custom)){
+      // restore custom items always; restore task-library items only in normal mode
+      reviewItems.push({name:s.name,status:s.status||'',feedback:s.feedback||'',custom:true});
+    }
+  });
+  // fresh=true (openRestReview 主動呼叫) 不回填 overall，避免殘留 normal mode 資料
+  if(!fresh && saved.overall) document.getElementById('overallFeedback').value=saved.overall;
+  // show rest note if present
+  const nd=document.getElementById('restNoteDisplay');
+  if(saved.restNote&&saved.restNote.trim()){
+    nd.textContent='📝 今日備注：\n'+saved.restNote;
+    nd.classList.add('show');
+  } else { nd.classList.remove('show'); }
+  renderDepletedRow();
+  renderReviewFromItems();
+}
+
+function renderDepletedRow(){
+  const el=document.getElementById('depletedRow');if(!el)return;
+  el.innerHTML='';
+  const saved=JSON.parse(localStorage.getItem(displayKey)||'{}');
+  const log=saved.energy_log||[];
+  if(!log.length){
+    const btn=document.createElement('button');
+    btn.className='depleted-pill';
+    btn.textContent='⚡ 能量低點 · 記錄當下';
+    btn.onclick=()=>recordEnergyEvent('low','腦霧');
+    el.appendChild(btn);
+    return;
+  }
+  // 顯示事件時間軸
+  const wrap=document.createElement('div');
+  wrap.style.cssText='display:flex;flex-direction:column;gap:4px;';
+  const evRow=document.createElement('div');
+  evRow.style.cssText='display:flex;align-items:center;flex-wrap:wrap;gap:4px;';
+  const icons={low:'⚡',rest:'🌿',recovery:'💚'};
+  const colors={low:'#b07848',rest:'#5e8f7e',recovery:'#5c7a96'};
+  log.forEach(function(evt,i){
+    const tag=document.createElement('span');
+    tag.style.cssText='font-size:10.5px;padding:2px 8px;border-radius:12px;border:1px solid #cec8bf;background:#faf8f4;color:'+(colors[evt.type]||'#7a7570')+';white-space:nowrap;';
+    tag.textContent=(icons[evt.type]||'•')+' '+evt.time+' '+evt.label;
+    evRow.appendChild(tag);
+    if(i<log.length-1){
+      const arr=document.createElement('span');
+      arr.style.cssText='font-size:10px;color:#c0bab0;';
+      arr.textContent='→';
+      evRow.appendChild(arr);
+    }
+  });
+  const clr=document.createElement('span');
+  clr.className='depleted-clr';clr.textContent='×';clr.title='清除';
+  clr.onclick=clearDepleted;
+  evRow.appendChild(clr);
+  wrap.appendChild(evRow);
+  // 新增事件按鈕（只顯示尚未記錄的類型）
+  const types=log.map(e=>e.type);
+  const addRow=document.createElement('div');
+  addRow.style.cssText='display:flex;gap:5px;';
+  [['🌿','小休','rest'],['💚','恢復','recovery']].forEach(function([icon,lbl,type]){
+    if(types.includes(type)) return; // 已記錄則不再顯示
+    const b=document.createElement('button');
+    b.className='depleted-pill';
+    b.style.cssText='font-size:10px;padding:2px 9px;';
+    b.textContent=icon+' '+lbl;
+    b.onclick=()=>recordEnergyEvent(type,lbl);
+    addRow.appendChild(b);
+  });
+  if(addRow.children.length) wrap.appendChild(addRow);
+  el.appendChild(wrap);
+}
+function recordEnergyEvent(type,label){
+  const now=new Date();
+  const t=String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0');
+  const ex=JSON.parse(localStorage.getItem(displayKey)||'{}');
+  const log=ex.energy_log||[];
+  log.push({time:t,label:label,type:type});
+  const firstLow=log.find(e=>e.type==='low');
+  localStorage.setItem(displayKey,JSON.stringify({...ex,energy_log:log,depleted_at:firstLow?firstLow.time:(ex.depleted_at||null)}));
+  renderDepletedRow();
+}
+function recordDepleted(){ recordEnergyEvent('low','腦霧'); }  // backward compat
+function clearDepleted(){
+  const ex=JSON.parse(localStorage.getItem(displayKey)||'{}');
+  delete ex.depleted_at; delete ex.energy_log;
+  localStorage.setItem(displayKey,JSON.stringify(ex));
+  renderDepletedRow();
+}
+
+function addReviewItem(e){
+  if(e.key!=='Enter')return;
+  e.preventDefault();
+  doAddReviewItem();
+}
+function addReviewItemBtn(){ doAddReviewItem(); }
+function doAddReviewItem(){
+  const inp=document.getElementById('addRiInput');
+  const tx=inp.value.trim();
+  if(!tx)return;
+  if(reviewItems.find(r=>r.name===tx)){inp.value='';return;}
+  reviewItems.push({name:tx,status:'',feedback:'',custom:true});
+  inp.value='';
+  renderReviewFromItems();
+  setTimeout(()=>{
+    const list=document.getElementById('reviewList');
+    list.lastElementChild?.scrollIntoView({behavior:'smooth',block:'nearest'});
+  },80);
+}
+
+function renderReviewFromItems(){
+  const list=document.getElementById('reviewList');
+  list.innerHTML='';
+  reviewItems.forEach((item,i)=>{
+    const div=document.createElement('div');div.className='ri';div.dataset.idx=i;
+    div.innerHTML=`
+      <div class="ri-top">
+        <div class="ri-name">${esc(item.name)}</div>
+        <div class="ri-btns" id="btns-${i}">
+          <button class="rb" data-val="done" onclick="setStatus(${i},'done')">✓ 完成</button>
+          <button class="rb" data-val="part" onclick="setStatus(${i},'part')">◑ 部分</button>
+          <button class="rb" data-val="skip" onclick="setStatus(${i},'skip')">— 未做</button>
+          <button class="rb" data-val="no" onclick="setStatus(${i},'no')">⊘ 不做</button>
+          <button class="ri-del" onclick="deleteReviewItem(${i})" title="從覆盤移除">✕</button>
+        </div>
+      </div>
+      <div class="ri-feedback" id="fb-${i}">
+        <textarea class="ri-fb-input" id="fbin-${i}"
+          placeholder="心得、遇到什麼、下次怎麼調整…"
+          oninput="reviewItems[${i}].feedback=this.value"
+        >${esc(item.feedback)}</textarea>
+      </div>`;
+    list.appendChild(div);
+    if(item.status) applyStatus(i,item.status);
+    if(item.status||item.feedback) document.getElementById(`fb-${i}`).classList.add('show');
+  });
+}
+
+function deleteReviewItem(idx){
+  reviewItems.splice(idx,1);
+  renderReviewFromItems();
+}
+function setStatus(idx,val){
+  reviewItems[idx].status=val;
+  applyStatus(idx,val);
+  document.getElementById(`fb-${idx}`).classList.add('show');
+  setTimeout(()=>document.getElementById(`fbin-${idx}`)?.focus(),50);
+}
+function applyStatus(idx,val){
+  const btns=document.getElementById(`btns-${idx}`);
+  if(!btns)return;
+  btns.querySelectorAll('.rb').forEach(b=>{
+    b.classList.remove('on-done','on-part','on-skip','on-no');
+    if(b.dataset.val===val) b.classList.add(val==='done'?'on-done':val==='part'?'on-part':val==='no'?'on-no':'on-skip');
+  });
+}
+
+async function saveReview(){
+  const overall=document.getElementById('overallFeedback').value.trim();
+  const existing=JSON.parse(localStorage.getItem(displayKey)||'{}');
+  const data={...existing,items:reviewItems.map(i=>{
+    const est=_durEstimates[i.name]||{};
+    return{name:i.name,status:i.status,feedback:i.feedback,
+           idealMin:est.ideal||null,actualMin:est.actual||null};
+  }),overall,savedAt:new Date().toISOString()};
+  localStorage.setItem(displayKey,JSON.stringify(data));
+  logOverloadDay(data,displayKey.replace('review_',''));
+  const toast=document.getElementById('savedToast');
+  toast.style.display='block';
+  setTimeout(()=>toast.style.display='none',2200);
+  // ── snapshot capture 已移除（2026-07-07）──
+  // 歷史頁已改用 buildMiniPipeView 依 pipes 即時重繪，snapshot 欄位無任何讀取端；
+  // 舊機制每天寫入數百 KB 死圖片是 localStorage 肥大主因之一，勿恢復。
+}
+
+// ── 一次性清理：移除歷史 review_* 內的死 snapshot 欄位（2026-07-07）──
+// 冪等：清完後每次載入掃描皆無命中，成本極低；pipes 資料不動，歷史顯示不受影響。
+(function stripDeadSnapshots(){
+  try{
+    let cleaned=0,freedChars=0;
+    for(let i=localStorage.length-1;i>=0;i--){
+      const k=localStorage.key(i);
+      if(!k||!k.startsWith('review_'))continue;
+      const raw=localStorage.getItem(k)||'';
+      if(raw.indexOf('"snapshot"')===-1)continue;
+      try{
+        const d=JSON.parse(raw);
+        if(d&&typeof d==='object'&&'snapshot' in d){
+          delete d.snapshot;
+          const slim=JSON.stringify(d);
+          localStorage.setItem(k,slim);
+          cleaned++;freedChars+=raw.length-slim.length;
+        }
+      }catch(e){}
+    }
+    if(cleaned)console.log('[cleanup] 已移除 '+cleaned+' 筆覆盤的死截圖欄位，釋放約 '+(freedChars*2/1048576).toFixed(1)+' MB');
+  }catch(e){}
+})();
+
+// 09-08：AI反饋改可視化指標卡（badge+一句話+短建議），取代原本的長段落文字，
+// 使用者反映原本三段式長文太饒口不好讀。fbData是genReviewFeedback()解析出的
+// 結構化JSON；isVacation決定用休假模式(charge/trend)還是一般模式(status/
+// overload/align)的badge組合。舊資料(09-08前存的純文字字串)不會走這個函式，
+// 呼叫端會先判斷typeof再決定要不要呼叫。
+function renderFeedbackCard(fbData,isVacation){
+  if(!fbData||typeof fbData!=='object')return '';
+  const badge=(cls,label)=>`<span class="fb-badge ${cls}">${label}</span>`;
+  let badges='';
+  if(isVacation){
+    badges+=fbData.charge==='real'?badge('fb-good','🔋 真正充電'):badge('fb-warn','😮‍💨 隱性焦慮假休');
+    badges+=fbData.trend==='up'?badge('fb-good','📈 明日回升'):badge('fb-warn','🛡 仍需保護');
+  } else {
+    const statusMap={above:['fb-good','🔼 超出預期'],meet:['fb-neutral','✅ 符合預期'],below:['fb-warn','🔽 低於預期']};
+    if(statusMap[fbData.status])badges+=badge(statusMap[fbData.status][0],statusMap[fbData.status][1]);
+    const overloadMap={burnout:['fb-warn','🔥 燃燒式衝刺'],sustainable:['fb-good','💪 撐住了']};
+    if(overloadMap[fbData.overload])badges+=badge(overloadMap[fbData.overload][0],overloadMap[fbData.overload][1]);
+    const alignMap={breakthrough:['fb-good','⚡ 心流突破'],fatigue_lag:['fb-warn','😴 疲勞滯後'],accurate:['fb-neutral','🎯 防禦準確']};
+    if(alignMap[fbData.align])badges+=badge(alignMap[fbData.align][0],alignMap[fbData.align][1]);
+  }
+  const reasonHtml=fbData.reason?`<div class="fb-reason">${esc(fbData.reason)}</div>`:'';
+  // 09-09：insight取代原本的diagnosis欄位（字數上限太緊只能吐重述現象的一句話，
+  // 使用者反映缺分析見解），舊資料(09-08當天存的)還是diagnosis欄位名，兩者都吃
+  // 才不會讓昨天存的反饋重新打開時顯示空白。
+  const insightText=fbData.insight||fbData.diagnosis;
+  const insightHtml=(!isVacation&&insightText)?`<div class="fb-reason">${esc(insightText)}</div>`:'';
+  const dirHtml=Array.isArray(fbData.directions)&&fbData.directions.length
+    ?`<div class="fb-directions">${fbData.directions.map(d=>`<div class="fb-dir-item">${esc(d)}</div>`).join('')}</div>`
+    :'';
+  // 09-09新增：本週配速建議，只在有本週歷史資料時才會出現，跟明日行動視覺區隔
+  const weekHtml=(!isVacation&&fbData.week_plan)
+    ?`<div class="fb-week"><span class="fb-week-lbl">📅 本週配速</span>${esc(fbData.week_plan)}</div>`
+    :'';
+  return `<div class="fb-badge-row">${badges}</div>${reasonHtml}${insightHtml}${dirHtml}${weekHtml}`;
+}
+async function genReviewFeedback(){
+  const key=getKey();
+  if(!key){alert('請先設定 Groq API Key');return;}
+  const saved=JSON.parse(localStorage.getItem(displayKey)||'{}');
+  if(!saved.items||!saved.items.length){alert('請先儲存今日覆盤');return;}
+
+  const btn=document.getElementById('aiFbBtn');
+  const out=document.getElementById('aiFbOut');
+  btn.textContent='分析中…';btn.disabled=true;
+  out.style.display='none';
+
+  // 09-09修復（比getWeekData那個更根本的同類bug）：#hdate這個DOM欄位只在
+  // window.onload時用真實今天的日期設定過一次，切到歷史記錄編輯時完全沒有
+  // 跟著更新，導致重新生成過去某天的反饋時，prompt裡「日期：」那行永遠寫的
+  // 是瀏覽器打開當下的真實今天，跟實際覆盤資料的日期對不上，讓LLM誤以為在
+  // 分析今天而非displayKey代表的那一天，時間軸因此錯亂。改直接從displayKey
+  // 反推正確日期文字，不依賴可能過期的DOM顯示內容。
+  const _dsD=new Date(displayKey.replace('review_','')+'T12:00:00');
+  const _dsW=['週日','週一','週二','週三','週四','週五','週六'];
+  const dateStr=`${_dsD.getMonth()+1}月${_dsD.getDate()}日　${_dsW[_dsD.getDay()]}`;
+  const NL='\n';
+  const cp=saved.combatPower||pwr||0;
+  const cpLabel=cp>=80?'🔥 Peak（80+）':cp>=70?'⚡ Stable（70-79）':cp>=60?'⚠ Caution（60-69）':'🔴 Critical（<60）';
+  const isVacation=!!saved.restMode;
+
+  // ── 計畫層：優先用 aiScheduled，沒有就用任務庫 ──
+  const aiScheduled=saved.aiScheduled||[];
+  const taskLib=saved.taskLibrary||getEffectiveTasks().map(t=>t.text);
+  const cal=saved.calEvents||'';
+  const hasAiPlan=aiScheduled.length>0;
+
+  let planSection='';
+  if(hasAiPlan){
+    planSection='【AI 預排任務（當日生成行程中的學習任務）】'+NL
+      +aiScheduled.map(s=>'  '+s.time+' '+s.task+(s.note?'（'+s.note+'）':'')).join(NL);
+  } else {
+    planSection='【計畫基準（無 AI 預排記錄，以任務庫為參照）】'+NL
+      +taskLib.map(t=>'  · '+t).join(NL)
+      +(cal?NL+'【今日 Calendar 行程】'+NL+cal.split(NL).map(l=>'  '+l).join(NL):'');
+  }
+
+  // ── 實際覆盤結果 ──
+  const reviewedNames=saved.items.map(i=>i.name);
+  const actualItems=saved.items.map(i=>{
+    const st=i.status==='done'?'✓ 完成':i.status==='part'?'◑ 部分完成':i.status==='skip'?'— 未做':i.status==='no'?'⊘ 不做（有意識決定）':'未記錄';
+    let tag='';
+    if(hasAiPlan&&!isVacation){
+      tag=aiScheduled.some(s=>s.task===i.name)?'[預排]':'[人工加入]';
+    }
+    return '  '+(tag?tag+' ':'')+i.name+'：'+st+(i.feedback?NL+'    → '+i.feedback:'');
+  }).join(NL);
+
+  const overall=saved.overall?NL+'【整體反饋（本人填寫）】'+NL+'  '+saved.overall:'';
+
+  // 09-30：使用者截圖回報戰力51%（Critical等級，cpExpect明寫「能完成任何任務
+  // 都值得肯定」最寬鬆標準）、8項裡7項done只有1項因身體不適skip，status卻被
+  // 判below，跟給LLM的期待基準文字直接矛盾——LLM似乎只機械式看到「有1項沒做」
+  // 就扣分，沒有真的對齊cpExpect的寬鬆度。修法：算出跟weekLines/renderWeeklyPreview
+  // 同一套加權(done=1/part=0.5/skip與no皆0，分母含no)的完成率數字，明確餵給
+  // LLM當判斷status的錨點，不能只憑印象評分。
+  const completionScore=saved.items.reduce((s,i)=>s+(i.status==='done'?1:i.status==='part'?0.5:0),0);
+  const completionPct=saved.items.length?Math.round(completionScore/saved.items.length*100):null;
+
+  // ── 休假模式：完全不帶產出期待標準，走獨立 prompt ──
+  let prompt;
+  if(isVacation){
+    const restNote=saved.restNote?'今日休假備註：'+saved.restNote+NL:'';
+    prompt='你是我的效能顧問。今天是【休假日】，不做績效評估，只看充電品質。'+NL+NL
+      +'日期：'+dateStr+'　戰力：'+cp+'% '+cpLabel+NL
+      +restNote
+      +'【今日活動記錄】'+NL+actualItems+overall+NL+NL
+      +'只能輸出一個JSON物件，不要有其他文字、不要用markdown code fence包住，務必使用繁體中文（台灣正體），嚴禁簡體字與日文（含漢字新字體與假名）。schema如下：'+NL
+      +'{"charge":"real或anxious（今天是真正充電還是隱性焦慮的假休）",'+NL
+      +'"trend":"up或protect（明天能量會回升還是仍需保護）",'+NL
+      +'"reason":"一句話原因，18字以內",'+NL
+      +'"directions":["①時間＋具體事項（不用可以、建議等模糊詞，15-20字內）"]（1-2項，根據今日活動記錄產生，禁止用範例文字，語氣溫和直接、不評產出、不過度鼓勵'
+      +(saved.overall?'，且須直接回應本人整體反饋中的關切點':'')+'）}';
+  } else {
+    // ── 非休假：原有產出期待 + 水管分析流程 ──
+
+    // 預排但未出現在覆盤的任務
+    let missedText='';
+    if(hasAiPlan){
+      const missed=aiScheduled.filter(s=>!reviewedNames.includes(s.task));
+      if(missed.length) missedText=NL+'【預排但未納入覆盤】'+NL+missed.map(s=>'  '+s.time+' '+s.task).join(NL);
+    }
+
+    // ── 戰力基準期待值說明 ──
+    const cpExpect=cp>=80?'Peak 狀態下，預期可完成所有高優先任務，若有任務未做值得特別追問原因。'
+      :cp>=70?'Stable 狀態下，預期完成 3-4 項常規任務屬正常，若有大量跳過則需分析原因。'
+      :cp>=60?'Caution 狀態下，完成 2-3 項輕中度任務即屬合理，高強度任務跳過可理解。'
+      :'Critical 狀態下，能完成任何任務都值得肯定，重點是識別今日狀態對明日的影響。';
+
+    // ── 水管過載分析（單一事實來源見 computeOverloadInfo，logOverloadDay 也共用同一函式寫跨天記錄） ──
+    const{overloadedPipes,allOverloadDone}=computeOverloadInfo(saved);
+    const overloadSection=overloadedPipes.length
+      ? NL+'【水管過載記錄（白天配速記錄）】'+NL
+        +overloadedPipes.map(o=>`  ${o.range}「${o.label}」(${o.type})：共 ${o.count} 件任務 [${o.tasks.join('、')}]，密度 ${o.density.toFixed(1)}件/hr，完成 ${o.doneCount}/${o.count} 件`).join(NL)
+      : '';
+
+    // ── 配速對齊校正：⚠️ 警告任務 × 實際完成 → 一致/不一致 ──
+    const savedPipes=saved.pipes||[];
+    const savedAssign=saved.pipeAssignments||{};
+    const pipeAlignItems=[];
+    Object.entries(savedAssign).forEach(([pi,tasks])=>{
+      const pipe=savedPipes[parseInt(pi)];if(!pipe)return;
+      const warnedTasks=tasks.filter(t=>(saved.skipTasks||[]).includes(t)&&!REST_BRICKS.includes(t));
+      if(!warnedTasks.length)return;
+      if(pipe.type!=='low'&&pipe.type!=='rest')return;
+      warnedTasks.forEach(t=>{
+        const item=saved.items?.find(i=>i.name===t);
+        const done=item&&(item.status==='done'||item.status==='part');
+        pipeAlignItems.push({
+          time:`${pipe.start}–${pipe.end}`,pipeType:pipe.type,pipeLabel:pipe.label,
+          task:t,completion:item?.status||'none',verdict:done?'inconsistent':'consistent'
+        });
+      });
+    });
+    // 寫入 localStorage，供 SAS Hub 三維圖表讀取（rolling array，格式比照 logOverloadDay）
+    try{
+      const prDate=displayKey.replace('review_','');
+      let prLog=JSON.parse(localStorage.getItem(PIPE_REVIEW_KEY)||'[]');
+      // 08-05 前為單一物件舊格式：包成一筆歷史繼續累積（勿丟棄，SAS Hub 讀得到就不該消失）；徹底損壞的值才重新開始
+      if(!Array.isArray(prLog))prLog=(prLog&&typeof prLog==='object'&&prLog.date)?[prLog]:[];
+      prLog=prLog.filter(e=>e&&e.date!==prDate); // 防 null 元素拋 TypeError 被外層 catch 吞掉導致靜默不記錄
+      prLog.push({date:prDate,combatPower:cp,depletedAt:saved.depleted_at||null,items:pipeAlignItems});
+      prLog.sort((a,b)=>a.date.localeCompare(b.date));
+      if(prLog.length>30)prLog=prLog.slice(-30);
+      localStorage.setItem(PIPE_REVIEW_KEY,JSON.stringify(prLog));
+    }catch(e){}
+    const alignSection=pipeAlignItems.length
+      ? NL+'【配速對齊驗證（戰力模型校正信號）】'+NL
+        +pipeAlignItems.map(a=>`  「${a.task}」置入${a.pipeType==='rest'?'休息':'輕量'}時段「${a.pipeLabel}」（有 ⚠️ 警告）→ `
+          +(a.completion==='done'?'✓ 完成':a.completion==='part'?'◑ 部分完成':'— 未完成')
+          +' ['+(a.verdict==='inconsistent'?'不一致：模型校正信號':'一致：防禦準確')+']').join(NL)
+      : '';
+
+    // 09-09：使用者反映反饋改可視化指標卡後內容變成只是重述現象的summarize，
+    // 缺分析見解跟隔週計畫建議。診斷欄位(原diagnosis)字數上限太緊(22字)逼LLM
+    // 只能吐一句話重述，改放寬成insight允許2-3句真正講因果；另外新增week_plan
+    // 需要本週實際數字才能給不虛構的配速建議，這裡重用getWeekData()（週報
+    // 功能既有的資料來源）算出本週已記錄天數/戰力/過載天數餵給prompt，
+    // 明確禁止編造這個區塊沒列出的天數或數字。
+    const weekDays=getWeekDataEndingAt(displayKey.replace('review_',''));
+    const weekLines=weekDays.map(({date,data})=>{
+      const{overloadedPipes:wOverload}=computeOverloadInfo(data);
+      const total=(data.items||[]).length;
+      // 09-09同步修正：跟computeOverloadInfo()同一種「part當done算」的誤差，
+      // 改用renderWeeklyPreview()既有的加權算法（part算0.5分）維持全app一致，
+      // 避免完成率虛高誤導week_plan的配速建議。
+      const doneScore=(data.items||[]).reduce((s,i)=>s+(i.status==='done'?1:i.status==='part'?0.5:0),0);
+      const pct=total?Math.round(doneScore/total*100):null;
+      return `  ${date.slice(5)}：戰力${data.combatPower??'—'}%`+(pct!=null?`、完成率${pct}%`:'')+(wOverload.length?'、有過載':'');
+    });
+    const weekContextSection=weekDays.length>1
+      ? NL+'【本週記錄（week_plan只能引用這裡列出的天數/數字，禁止虛構超出範圍的內容）】'+NL+weekLines.join(NL)
+      : '';
+
+    prompt='你是我的效能顧問，給精準、簡短的覆盤。禁止重述事實，只給判斷和行動。'+NL
+      +'設計背景：AI 精力水管為當日 fixed plan；[人工加入]代表使用者手動追加。'+NL
+      +'嚴禁提及【實際覆盤結果】【AI 預排任務】【今日 Calendar 行程】以外的任何活動或事項名稱，不可自行編造具體事件（例如晚餐、逛街、看書店等未列出的活動）。'+NL+NL
+      +'日期：'+dateStr+'　模式：'+(saved.mode||'未知')+'　體感：'+(saved.feel||'未知')+NL
+      +'今日戰力：'+cp+'% '+cpLabel+'　期待基準：'+cpExpect+NL
+      +(completionPct!=null?'今日完成率：'+completionPct+'%（'+saved.items.length+'項中done算1分、part算0.5分加總）'+NL:'')
+      +(saved.depleted_at?'⚡ 能量低點：'+saved.depleted_at+NL:'')
+      +planSection+overloadSection+alignSection+weekContextSection+NL+NL
+      +'【實際覆盤結果】'+NL+actualItems+missedText+overall+NL+NL
+      +'只能輸出一個JSON物件，不要有其他文字、不要用markdown code fence包住，務必使用繁體中文（台灣正體），嚴禁簡體字與日文（含漢字新字體與假名）。schema如下：'+NL
+      +'{"status":"above或meet或below（必須真正對齊上面「期待基準」文字描述的寬鬆或嚴格程度來判斷，不能只看有沒有項目沒完成就機械式扣分——例如期待基準寫「能完成任何任務都值得肯定」這種低戰力寬鬆標準時，完成率明顯偏高（例如今日的'+(completionPct??'?')+'%）不可以判below，即使其中1項因故skip；只有完成率明顯低於該期待基準所述門檻時才判below，必須與【實際覆盤結果】的完成狀態一致，不可矛盾）",'+NL
+      +'"overload":"'+(overloadedPipes.length?(allOverloadDone?'sustainable（過載任務全部完成，撐過去了但要判斷是否可持續，不可說塞爆或燃意志力不足）':'burnout（水管過載且有任務未完成，直接判定為塞爆或燃意志力不足）'):'none（今日無水管過載記錄，固定填none）')+'",'+NL
+      +'"align":"'+(pipeAlignItems.length?'breakthrough或fatigue_lag或accurate（⚠️警告任務若完成，判斷是心流突破(breakthrough)還是疲勞滯後未顯(fatigue_lag)；若未完成，填accurate代表防禦準確）':'none（今日無配速警告任務，固定填none）')+'",'+NL
+      +'"reason":"一句話，18字以內，說明status判斷的關鍵原因",'+NL
+      +'"insight":"2-3句話的分析見解，不是重述【實際覆盤結果】已經寫的事實，要講因果或型態——'
+      +(hasAiPlan?'AI水管vs實際最大落差點，原因是計畫問題還是當日狀態問題':'今日任務選擇反映了什麼決策傾向')
+      +'，並指出這對日後排程設計的啟示",'+NL
+      +'"directions":["①時間或場景＋具體事項（不用可以考慮、建議等模糊詞，15-20字內）"]（2-3項，明日行動，必須根據【實際覆盤結果】的今日實際任務和狀態產生，禁止使用任何預設範例文字'
+      +(saved.overall?'，且須直接回應本人整體反饋中的關切點':'')+'）'
+      +(weekDays.length>1?',"week_plan":"1-2句話，只能根據上方【本週記錄】列出的實際天數與數字，給本週剩餘時間的配速調整建議，禁止提及【本週記錄】沒列出的日期或數字。若提及連續過載或特定天數（例如「已連續兩天過載」），必須把確切日期以括號附在該句文字後面，日期只能用上方【本週記錄】列出的MM-DD格式，例如「本週已連續兩天過載(09-08、09-09)」"':'')
+      +'}'
+      +NL+'嚴禁提及【實際覆盤結果】【AI 預排任務】【今日 Calendar 行程】'+(weekDays.length>1?'【本週記錄】':'')+'以外的任何活動、事項名稱或數字，不可自行編造具體事件。語氣直接，不鼓勵，不重述事實。';
+  }
+
+  try{
+    // 08-18：跟generate()踩過同一個坑——openai/gpt-oss-120b是reasoning model，
+    // 隱藏推理會吃掉max_tokens預算，這裡是純文字輸出沒有JSON.parse會拋錯，
+    // 後果是靜默輸出空字串或被截斷的半句話，使用者看到的就是「反饋跑不出來」
+    // 而非明確錯誤。拉高max_tokens+加reasoning_effort:'low'解法比照generate()
+    // （08-19更正：原本這裡也加過reasoning_format:'hidden'，查證後對gpt-oss
+    // 系列不支援、被靜默忽略，已移除）
+    // 08-24：補齊finish_reason===length且content為空的偵測——原本content||''
+    // 直接顯示，隱藏推理吃光max_tokens時使用者看到的是「反饋跑不出來」的空白區塊
+    // 08-24（第二輪）：補429退避（groqFetch內建）＋model故障備援，跟既有的
+    // length放大重試疊加；最外層本來就有try/catch(e)顯示「生成失敗」訊息兜底
+    // 09-08：反饋改結構化JSON輸出（可視化指標+短建議），解析邏輯比照generate()
+    // 既有的穩健作法——finish_reason===length先放大額度重試，JSON.parse失敗
+    // 再退而求其次抓第一個{到最後一個}之間的片段重試一次。
+    const FB_PRIMARY_MODEL='openai/gpt-oss-120b',FB_BACKUP_MODEL='openai/gpt-oss-20b';
+    async function fetchFeedbackContent(model,maxTok){
+      const resp=await groqFetch({model,messages:[{role:'user',content:prompt}],temperature:0.5,max_tokens:maxTok,reasoning_effort:'low'},key);
+      if(!resp.ok){
+        const errBody=await resp.json().catch(()=>({}));
+        const e=new Error('HTTP '+resp.status);e.status=resp.status;e.detail=errBody.error?.message||'';
+        throw e;
+      }
+      const data=await resp.json();
+      const choice=data.choices?.[0];
+      return {content:(choice?.message?.content||'').replace(/```json|```/g,'').trim(),finishReason:choice?.finish_reason};
+    }
+    async function runFeedbackAttempt(model){
+      let{content,finishReason}=await fetchFeedbackContent(model,1200);
+      if(finishReason==='length'){ // 08-26：不再要求content空白，殘句同樣算截斷
+        ({content,finishReason}=await fetchFeedbackContent(model,2160));
+      }
+      try{ return JSON.parse(content); }
+      catch(parseErr){
+        const braceStart=content.indexOf('{'),braceEnd=content.lastIndexOf('}');
+        if(braceStart===-1||braceEnd===-1||braceEnd<=braceStart) throw parseErr;
+        return JSON.parse(content.slice(braceStart,braceEnd+1));
+      }
+    }
+    let fbData;
+    try{
+      fbData=await runFeedbackAttempt(FB_PRIMARY_MODEL);
+    }catch(e1){
+      if(groqModelLooksDown(e1.status,e1.detail)) fbData=await runFeedbackAttempt(FB_BACKUP_MODEL);
+      else throw e1;
+    }
+    // 繁中保底：cc_zht.js 為外部非同步載入的共用檔，未就緒時原樣顯示不報錯
+    const zht=(typeof s2t==='function')?s2t:(s=>s);
+    if(fbData.reason)fbData.reason=zht(fbData.reason);
+    if(fbData.diagnosis)fbData.diagnosis=zht(fbData.diagnosis);
+    if(Array.isArray(fbData.directions))fbData.directions=fbData.directions.map(zht);
+    out.innerHTML=renderFeedbackCard(fbData,isVacation);
+    out.style.display='block';
+    const ex=JSON.parse(localStorage.getItem(displayKey)||'{}');
+    localStorage.setItem(displayKey,JSON.stringify({...ex,aiFeedback:fbData}));
+  }catch(e){
+    out.textContent='生成失敗：'+e.message;
+    out.style.display='block';
+  }finally{
+    btn.textContent='✦ 生成 AI 反饋';btn.disabled=false;
+  }
+}
+function loadSavedReview(key){
+  displayKey=key||todayKey();
+  const saved=JSON.parse(localStorage.getItem(displayKey)||'{}');
+  renderDepletedRow();
+  if(saved.overall)document.getElementById('overallFeedback').value=saved.overall;
+  if(saved.aiFeedback){
+    const out=document.getElementById('aiFbOut');
+    // 09-08前存的是純文字舊格式，之後是結構化物件；兩種都要能正常顯示
+    if(typeof saved.aiFeedback==='string'){
+      out.textContent=saved.aiFeedback;
+    } else {
+      out.innerHTML=renderFeedbackCard(saved.aiFeedback,!!saved.restMode);
+    }
+    out.style.display='block';
+  }
+  if(saved.workdayMode){
+    document.getElementById('outSec').classList.remove('hidden');
+    const sc=document.getElementById('sout');
+    const schedCard=sc?.closest('.card');
+    if(schedCard)schedCard.style.display='';
+    document.getElementById('taskSplitSec').style.display='';
+    document.getElementById('taskSplitSec').classList.remove('hidden');
+    sc.innerHTML=`<div style="font-size:11px;color:#9a9088;text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px;">工作日行程（自由填寫）</div>
+      <textarea id="workday-sched-ta"
+        style="width:100%;min-height:110px;resize:vertical;background:#f4f1ec;border:1.5px solid #cec8bf;border-radius:10px;padding:10px 12px;font-size:13px;color:#38342e;font-family:inherit;line-height:1.6;box-sizing:border-box;"
+        placeholder="例：09:30 整理筆記&#10;11:00 BQ practice&#10;14:00 LinkedIn 投遞…"
+        oninput="saveWorkdaySched(this.value)">${esc(saved.workdaySchedule||'')}</textarea>`;
+    const allNames=getEffectiveTasks().map(t=>t.text);
+    document.getElementById('tasksIn').innerHTML=allNames.length
+      ?allNames.map(n=>`<div class="t-in-row"><div class="t-dot-in"></div>${esc(n)}</div>`).join('')
+      :'<div style="font-size:12px;color:#9a9088;padding:4px 0">（任務庫為空）</div>';
+    document.getElementById('tasksOutWrap').classList.add('hidden');
+    // 每次載入都用即時 getEffectiveTasks()（非凍結的 saved.items），讓事後才切換成「每日」的任務能補進覆盤；
+    // renderReview 內建的還原邏輯會把舊 saved.items 裡沒出現在 allNames 的項目（含 custom）加回來，不會丟資料
+    renderReview(allNames);
+  } else if(saved.restMode&&saved.items&&saved.items.length){
+    restMode=true;
+    const btn=document.getElementById('restBtn');
+    btn.classList.add('on');btn.textContent='✓ 休假中';
+    document.getElementById('planSec').style.display='none';
+    document.getElementById('restCard').classList.add('show');
+    if(saved.restNote)document.getElementById('restNote').value=saved.restNote;
+    document.getElementById('outSec').classList.remove('hidden');
+    const schedCard=document.getElementById('sout')?.closest('.card');
+    if(schedCard)schedCard.style.display='none';
+    document.getElementById('taskSplitSec').style.display='none';
+    renderReview(saved.items.map(i=>i.name),true);
+  }else if(saved.pipes&&saved.pipes.length){
+    document.getElementById('outSec').classList.remove('hidden');
+    renderSavedSchedule(saved);
+  }else if(saved.fullSchedule&&saved.fullSchedule.length){
+    document.getElementById('outSec').classList.remove('hidden');
+    renderSavedSchedule(saved);
+  }
+}
+
+function renderSavedSchedule(saved){
+  // 新水管格式優先
+  if(saved.pipes&&saved.pipes.length){
+    renderSavedPipeSandbox(saved);
+    // 每次載入都用即時 getEffectiveTasks()（非凍結的 saved.items），讓事後才切換成「每日」的任務能補進覆盤；
+    // renderReview 內建的還原邏輯會把舊 saved.items 裡沒出現在此清單的項目（含 custom／臨時積木）加回來，不會丟資料
+    renderReview(getEffectiveTasks().map(t=>t.text));
+    return;
+  }
+  // ── 以下為舊格式相容 ──
+  const tc={high:'t-h',med:'t-m',low:'t-l',break:'t-b',cal:'t-cal'};
+  const tl={high:'重點',med:'常規',low:'輕鬆',break:'休息',cal:'行程'};
+  const sc=document.getElementById('sout');
+  sc.innerHTML=saved.summary?`<div class="sbox">${saved.summary}</div>`:'';
+  (saved.fullSchedule||[]).forEach(item=>{
+    const d=document.createElement('div');d.className='si';
+    const _t=(item.tag==='cal'&&(!item.task||item.task==='cal'))?(item.note||''):(item.task||'');
+    const _n=(item.tag==='cal'&&(!item.task||item.task==='cal'))?'':(item.note||'');
+    const _cl=item.tag!=='cal'&&item.tag!=='break'?getTaskCatLabel(_t):null;
+    const _td=_cl?`<span class="si-cat-lbl">[${_cl}]</span>${esc(_t)}`:esc(_t);
+    d.innerHTML=`<div class="tlbl">${item.time||''}</div><div class="sb"><div class="stask-row"><div class="stask">${_td}</div>${item.tag?`<span class="tag ${tc[item.tag]||'t-m'}">${tl[item.tag]||item.tag}</span>`:''}</div>${_n?`<div class="snote">${esc(_n)}</div>`:''}</div>`;
+    sc.appendChild(d);
+  });
+  const selectedNames=(saved.aiScheduled||[]).map(s=>s.task);
+  const allTaskNames=getEffectiveTasks().map(t=>t.text);
+  const inList=allTaskNames.filter(n=>selectedNames.some(s=>s===n||n.includes(s.slice(0,4))));
+  const outList=allTaskNames.filter(n=>!inList.includes(n));
+  document.getElementById('tasksIn').innerHTML=inList.length
+    ?inList.map(n=>`<div class="t-in-row"><div class="t-dot-in"></div>${esc(n)}</div>`).join('')
+    :'<div style="font-size:12px;color:#9a9088;padding:4px 0">（無任務分配記錄）</div>';
+  if(outList.length){
+    document.getElementById('tasksOut').innerHTML=outList.map((n,i)=>`
+      <div class="t-out-row" id="outrow-${i}">
+        <div class="t-dot-out"></div>
+        <span>${esc(n)}</span>
+        <button class="t-add-btn" onclick="addToReview('${n.replace(/'/g,"\\'")}',${i})">＋ 加入覆盤</button>
+      </div>`).join('');
+    document.getElementById('tasksOutWrap').classList.remove('hidden');
+  }
+  document.getElementById('taskSplitSec').classList.remove('hidden');
+  const reviewNames=inList.length?inList:selectedNames.length?selectedNames:[];
+  renderReview(reviewNames);
+}
+
+/* ── Weekly Recap ── */
+// 09-09修復：原本寫死用new Date()（瀏覽器當下的真實今天），使用者叫出09-08
+// 歷史記錄重新生成AI反饋時，本週配速區塊卻用09-09當錨點抓資料，時間軸對不
+// 起來（甚至把「今天」尚未發生的09-09也算進09-08那次分析的本週脈絡）。拆成
+// 通用的getWeekDataEndingAt(anchorDateStr)以指定日期為錨點，Weekly Recap
+// 面板本身仍應永遠看「真實現在」的本週，繼續呼叫不帶參數的getWeekData()；
+// genReviewFeedback()改呼叫帶displayKey日期錨點的版本。
+function getWeekDataEndingAt(anchorDateStr){
+  // T12:00:00（非T00:00:00）：UTC+8時區下午夜錨點經toISOString()轉UTC會
+  // 往前多跳一天(00:00 CST = 前一天16:00 UTC)，正午錨點才能穩定落在同一
+  // 曆日，比照這個檔案其他地方(如編輯歷史banner)已經在用的同一種寫法
+  const anchor=new Date(anchorDateStr+'T12:00:00');
+  const days=[];
+  for(let i=4;i>=0;i--){
+    const d=new Date(anchor);
+    d.setDate(anchor.getDate()-i);
+    const key='review_'+d.toISOString().slice(0,10);
+    const data=JSON.parse(localStorage.getItem(key)||'null');
+    if(data) days.push({date:d.toISOString().slice(0,10),data});
+  }
+  return days;
+}
+function getWeekData(){
+  // 取本週一到今天（週五）的覆盤資料——Weekly Recap面板永遠看真實現在的本週
+  return getWeekDataEndingAt(new Date().toISOString().slice(0,10));
+}
+
+function renderWeeklyPreview(){
+  const days=getWeekData();
+  const el=document.getElementById('weeklyPreview');
+  if(!days.length){
+    el.innerHTML='<div style="font-size:13px;color:#9a9088;padding:8px 0">本週尚無覆盤記錄</div>';
+    return;
+  }
+  // 統計每個任務的完成率
+  const taskStats={};
+  days.forEach(({date,data})=>{
+    (data.items||[]).forEach(item=>{
+      if(!taskStats[item.name]) taskStats[item.name]={done:0,part:0,skip:0,no:0,total:0};
+      taskStats[item.name].total++;
+      if(item.status==='done') taskStats[item.name].done++;
+      else if(item.status==='part') taskStats[item.name].part++;
+      else if(item.status==='skip') taskStats[item.name].skip++;
+      else if(item.status==='no') taskStats[item.name].no++;
+    });
+  });
+  const wDays=['日','一','二','三','四','五'];
+  const rows=Object.entries(taskStats).map(([name,s])=>{
+    const pct=s.total>0?Math.round((s.done+s.part*0.5)/s.total*100):0;
+    const bar=`<div style="height:4px;border-radius:2px;background:#cec8bf;overflow:hidden;margin-top:4px"><div style="height:100%;width:${pct}%;background:${pct>=80?'#7a9e8a':pct>=50?'#7a8e9e':'#b09870'};border-radius:2px"></div></div>`;
+    return `<div style="padding:8px 0;border-bottom:1px solid #ddd8d0">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <span style="font-size:13px;font-weight:500;color:#38342e">${esc(name)}</span>
+        <span style="font-size:11px;color:#9a9088">✓${s.done} ◑${s.part} —${s.skip} ⊘${s.no||0}</span>
+      </div>${bar}</div>`;
+  }).join('');
+  const dateRange=days.length?`${days[0].date.slice(5)} – ${days[days.length-1].date.slice(5)}`:'';
+  el.innerHTML=`<div style="font-size:11px;color:#9a9088;margin-bottom:10px">${dateRange}　共 ${days.length} 天記錄</div>${rows}`;
+}
+
+async function genWeeklyRecap(){
+  const key=getKey();
+  if(!key){alert('請先設定 Groq API Key');return;}
+  const days=getWeekData();
+  if(!days.length){alert('本週尚無覆盤記錄，無法生成週報');return;}
+
+  const btn=document.querySelector('#weeklyRecapSec .save-all-btn');
+  const out=document.getElementById('weeklyOut');
+  btn.textContent='分析中…';btn.disabled=true;
+  out.style.display='none';
+
+  // 整理本週資料
+  const wDays=['日','一','二','三','四','五','六'];
+  const weekSummary=days.map(({date,data})=>{
+    const d=new Date(date+'T12:00:00');
+    const dayLabel=`${parseInt(date.slice(5,7))}/${parseInt(date.slice(8))}（週${wDays[d.getDay()]}）`;
+    const items=(data.items||[]).map(i=>`  ${i.name}：${i.status==='done'?'✓':i.status==='part'?'◑':'—'}${i.feedback?` → ${i.feedback}`:''}`).join('\n');
+    const overall=data.overall?`  整體：${data.overall}`:'';
+    return `${dayLabel}\n${items}${overall?'\n'+overall:''}`;
+  }).join('\n\n');
+
+  const prompt=`你是我的效能顧問。請根據本週的覆盤記錄，生成一份週回顧報告。
+
+【本週覆盤記錄】
+${weekSummary}
+
+請務必使用繁體中文（台灣正體）作答，嚴禁簡體字，嚴禁日文（含漢字新字體與假名），以下格式輸出：
+
+【本週總結】
+一段話描述本週整體表現（50字以內）
+
+【任務完成分析】
+針對出現頻率高的任務，分析完成狀況和可能原因（2-3點，每點一行）
+
+【本週亮點】
+列出 1-2 個做得好的地方
+
+【下週建議】
+列出 2-3 個具體可執行的調整方向
+
+語氣直接，不過度鼓勵，給出真實觀察。`;
+
+  try{
+    // 08-18：同generate()/genReviewFeedback()的reasoning token坑，加
+    // reasoning_effort:'low'+拉高max_tokens（08-19更正：原本也加過
+    // reasoning_format:'hidden'，對gpt-oss系列不支援、被靜默忽略，已移除）
+    // 08-24：同上，補finish_reason===length且content為空時放大max_tokens重試一次
+    // 08-24（第二輪）：補429退避（groqFetch內建）＋model故障備援，跟既有的
+    // length放大重試疊加；最外層本來就有try/catch(e)顯示「生成失敗」訊息兜底
+    const RECAP_PRIMARY_MODEL='openai/gpt-oss-120b',RECAP_BACKUP_MODEL='openai/gpt-oss-20b';
+    async function runRecapAttempt(model){
+      let resp=await groqFetch({model,messages:[{role:'user',content:prompt}],temperature:0.5,max_tokens:1500,reasoning_effort:'low'},key);
+      if(!resp.ok){
+        const errBody=await resp.json().catch(()=>({}));
+        const e=new Error(`HTTP ${resp.status}`);e.status=resp.status;e.detail=errBody.error?.message||'';
+        throw e;
+      }
+      let data=await resp.json();
+      let recapChoice=data.choices?.[0];
+      if(recapChoice?.finish_reason==='length'){ // 08-26：不再要求content空白，殘句同樣算截斷
+        resp=await groqFetch({model,messages:[{role:'user',content:prompt}],temperature:0.5,max_tokens:2700,reasoning_effort:'low'},key);
+        if(!resp.ok){
+          const errBody=await resp.json().catch(()=>({}));
+          const e=new Error(`HTTP ${resp.status}`);e.status=resp.status;e.detail=errBody.error?.message||'';
+          throw e;
+        }
+        data=await resp.json();
+        recapChoice=data.choices?.[0];
+      }
+      return recapChoice?.message?.content||'';
+    }
+    let rawRecap;
+    try{
+      rawRecap=await runRecapAttempt(RECAP_PRIMARY_MODEL);
+    }catch(e1){
+      if(groqModelLooksDown(e1.status,e1.detail)) rawRecap=await runRecapAttempt(RECAP_BACKUP_MODEL);
+      else throw e1;
+    }
+    // 繁中保底：cc_zht.js 為外部非同步載入的共用檔，未就緒時原樣顯示不報錯
+    out.textContent=(typeof s2t==='function')?s2t(rawRecap):rawRecap;
+    out.style.display='block';
+  }catch(e){
+    out.textContent='生成失敗：'+e.message;
+    out.style.display='block';
+  }finally{
+    btn.textContent='✦ 生成週報';btn.disabled=false;
+  }
+}
+
+/* ── History ── */
+function loadHistEntry(key){
+  closeHist();
+  // 清空目前覆盤區，避免舊 DOM 殘留
+  document.getElementById('outSec').classList.add('hidden');
+  reviewItems=[];
+  renderReviewFromItems();
+  document.getElementById('overallFeedback').value='';
+  const fo=document.getElementById('aiFbOut');
+  fo.style.display='none';fo.textContent='';
+  document.getElementById('aiFbBtn').disabled=false;
+  document.getElementById('aiFbBtn').textContent='✦ 生成 AI 反饋';
+  // 顯示「正在編輯」banner
+  const dateStr=key.replace('review_','');
+  const d=new Date(dateStr+'T12:00:00');
+  const days=['週日','週一','週二','週三','週四','週五','週六'];
+  const banner=document.getElementById('editingBanner');
+  document.getElementById('editingBannerText').textContent=`📅 正在編輯 ${d.getMonth()+1}月${d.getDate()}日（${days[d.getDay()]}）記錄`;
+  banner.style.display='flex';
+  loadSavedReview(key);
+  updateGenBtnLabel();
+  setTimeout(()=>document.getElementById('outSec').scrollIntoView({behavior:'smooth',block:'start'}),100);
+}
+// 08-18新增：補生成過去日期。日期選擇器選了哪天，就沿用既有的loadHistEntry
+// 切換displayKey到那天的review_key（不存在也沒關係，loadSavedReview對缺key
+// 已有{}預設值的容錯），使用者再點「生成」即可補生成該天行程
+function backfillDate(){
+  const v=document.getElementById('backfillDateInput').value;
+  if(!v){alert('請先選擇日期');return;}
+  const todayStr=todayKey().replace('review_','');
+  if(v>=todayStr){alert('補生成只能選過去日期，今天請直接用上方生成');return;}
+  loadHistEntry('review_'+v);
+}
+// 依displayKey是否為今天，切換生成按鈕文字，避免使用者搞混究竟在生成哪一天
+function updateGenBtnLabel(){
+  const btn=document.getElementById('genBtn');
+  if(!btn)return;
+  if(displayKey===todayKey()){btn.textContent='✦ 生成今日行程';return;}
+  const dateStr=displayKey.replace('review_','');
+  const d=new Date(dateStr+'T12:00:00');
+  btn.textContent=`✦ 補生成 ${d.getMonth()+1}/${d.getDate()} 行程`;
+}
+function deleteHistEntry(key,e){
+  e.stopPropagation();
+  const dateStr=key.replace('review_','');
+  if(!confirm('確定刪除 '+dateStr+' 的覆盤記錄？'))return;
+  localStorage.removeItem(key);
+  if(displayKey===key){
+    reloadCombat();
+  }
+  renderHist();
+}
+let _histYears=new Set(), _histMonths=new Set(), _histDays=new Set();
+
+function openHist(){
+  const panel=document.getElementById('histPanel');
+  panel.classList.add('open');
+  _histYears=new Set(); _histMonths=new Set(); _histDays=new Set();
+  renderHist();
+}
+function closeHist(){
+  document.getElementById('histPanel').classList.remove('open');
+}
+
+function renderHist(){
+  const content=document.getElementById('histContent');
+  const allKeys=[];
+  for(let i=0;i<localStorage.length;i++){
+    const k=localStorage.key(i);
+    if(k&&k.startsWith('review_'))allKeys.push(k);
+  }
+  allKeys.sort((a,b)=>b.localeCompare(a));
+
+  // Build filter (year row + month row)
+  const wrap=document.getElementById('histFilterWrap');
+  if(wrap){
+    const allDates=allKeys.map(k=>k.replace('review_',''));
+    const years=[...new Set(allDates.map(d=>d.slice(0,4)))].sort((a,b)=>b.localeCompare(a));
+    // months visible: if years selected → only those years; else all
+    const visYears=_histYears.size>0?[..._histYears]:years;
+    const allMonths=[...new Set(allDates.map(d=>d.slice(0,7)))].sort((a,b)=>b.localeCompare(a));
+    const visMonths=allMonths.filter(m=>visYears.includes(m.slice(0,4)));
+
+    const mkRow=(lbl,pills)=>{
+      const row=document.createElement('div');
+      row.className='hist-filter-row';
+      row.style.marginBottom='5px';
+      const l=document.createElement('span');
+      l.className='hist-filter-lbl';
+      l.textContent=lbl;
+      row.appendChild(l);
+      pills.forEach(({label,val,set,clear})=>{
+        const b=document.createElement('button');
+        b.className='hfp'+(set.has(val)?' active':'');
+        b.textContent=label;
+        b.onclick=()=>{
+          if(val===null){clear();} // 全部
+          else if(set.has(val)) set.delete(val);
+          else set.add(val);
+          renderHist();
+        };
+        row.appendChild(b);
+      });
+      return row;
+    };
+
+    wrap.innerHTML='';
+    // Year row
+    const yearPills=[{label:'全部',val:null,set:_histYears,clear:()=>{_histYears=new Set();_histMonths=new Set();}}];
+    years.forEach(y=>yearPills.push({label:y+'年',val:y,set:_histYears,clear:null}));
+    wrap.appendChild(mkRow('年',yearPills));
+    // Month row (only if months available)
+    if(visMonths.length){
+      const monthPills=[{label:'全月',val:null,set:_histMonths,clear:()=>{_histMonths=new Set();_histDays=new Set();}}];
+      visMonths.forEach(ym=>{
+        const m=parseInt(ym.split('-')[1]);
+        monthPills.push({label:m+'月',val:ym,set:_histMonths,clear:null});
+      });
+      wrap.appendChild(mkRow('月',monthPills));
+    }
+    // Day-range row（固定三段，可複選）
+    const dayRanges=[{label:'全日',val:null},{label:'1–10',val:'1-10'},{label:'11–20',val:'11-20'},{label:'21–31',val:'21-31'}];
+    const dayPills=dayRanges.map(({label,val})=>({
+      label,val,set:_histDays,clear:val===null?()=>{_histDays=new Set();}:null
+    }));
+    wrap.appendChild(mkRow('日',dayPills));
+  }
+
+  function dayInRange(dateStr){
+    if(_histDays.size===0) return true;
+    const day=parseInt(dateStr.slice(8,10));
+    return [..._histDays].some(r=>{
+      if(r==='1-10')  return day>=1  && day<=10;
+      if(r==='11-20') return day>=11 && day<=20;
+      if(r==='21-31') return day>=21;
+      return false;
+    });
+  }
+
+  // Apply filter
+  const keys=allKeys.filter(k=>{
+    const d=k.replace('review_','');
+    const yearOk=_histYears.size===0||_histYears.has(d.slice(0,4));
+    const monthOk=_histMonths.size===0||_histMonths.has(d.slice(0,7));
+    return yearOk&&monthOk&&dayInRange(d);
+  });
+
+  if(!keys.length){
+    content.innerHTML='<div class="hist-empty">此時段沒有覆盤記錄</div>';
+    return;
+  }
+
+  content.innerHTML='';
+  keys.forEach(key=>{
+    const dateStr=key.replace('review_','');
+    const data=JSON.parse(localStorage.getItem(key)||'{}');
+    const items=data.items||[];
+    const doneCount=items.filter(i=>i.status==='done').length;
+    const partCount=items.filter(i=>i.status==='part').length;
+    const skipCount=items.filter(i=>i.status==='skip').length;
+    const noCount=items.filter(i=>i.status==='no').length;
+
+    const d=new Date(dateStr+'T12:00:00');
+    const days=['週日','週一','週二','週三','週四','週五','週六'];
+    const dateLabel=`${d.getMonth()+1}月${d.getDate()}日 ${days[d.getDay()]}`;
+
+    const statsHtml=[
+      doneCount?`<span class="stat-pill sp-done">✓ ${doneCount}</span>`:'',
+      partCount?`<span class="stat-pill sp-part">◑ ${partCount}</span>`:'',
+      skipCount?`<span class="stat-pill sp-skip">— ${skipCount}</span>`:'',
+      noCount?`<span class="stat-pill sp-no">⊘ ${noCount}</span>`:'',
+    ].filter(Boolean).join('');
+
+    const snapshotHtml=(data.pipes&&data.pipes.length)
+      ?`<div class="hist-snapshot">${buildMiniPipeView(data)}</div>`
+      :`<div class="hist-snapshot-none">無水管記錄</div>`;
+
+    const itemsHtml=items.map(item=>`
+      <div class="hist-item">
+        <div class="hist-item-top">
+          <div class="hist-item-name">${esc(item.name||'')}</div>
+          <span class="hist-status ${item.status==='done'?'hs-done':item.status==='part'?'hs-part':item.status==='skip'?'hs-skip':item.status==='no'?'hs-no':'hs-none'}">
+            ${item.status==='done'?'✓ 完成':item.status==='part'?'◑ 部分':item.status==='skip'?'— 未做':item.status==='no'?'⊘ 不做':'未記錄'}
+          </span>
+        </div>
+        ${item.feedback?`<div class="hist-item-fb">${esc(item.feedback)}</div>`:''}
+      </div>`).join('');
+
+    const overallHtml=data.overall
+      ?`<div class="hist-overall"><div class="hist-overall-label">整體反饋</div><div style="white-space:pre-wrap">${esc(data.overall.trim().replace(/\n{2,}/g,'\n'))}</div></div>`:'';
+    // 09-08前存的是純文字舊格式，之後是結構化物件；兩種都要能正常顯示
+    const aiFbHtml=data.aiFeedback
+      ?`<div class="hist-overall"><div class="hist-overall-label">AI 反饋</div>`
+        +(typeof data.aiFeedback==='string'
+          ?`<div style="white-space:pre-wrap">${esc(data.aiFeedback.trim().replace(/\n{2,}/g,'\n'))}</div>`
+          :renderFeedbackCard(data.aiFeedback,!!data.restMode))
+        +`</div>`
+      :'';
+
+    const dayDiv=document.createElement('div');
+    dayDiv.className='hist-day';
+    const uid=key.replace(/[^a-z0-9]/gi,'_');
+    dayDiv.innerHTML=`
+      <div class="hist-day-top">
+        <div>
+          <div class="hist-day-date">${dateLabel}</div>
+          <div class="hist-day-meta">${data.savedAt?new Date(data.savedAt).toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit'})+'儲存':''}</div>
+        </div>
+        <div class="hist-day-stats">${statsHtml}</div>
+      </div>
+      <div class="hist-card-body">
+        <div class="hist-left">${itemsHtml}${overallHtml}${aiFbHtml}</div>
+        <div class="hist-right">${snapshotHtml}</div>
+      </div>
+      <div class="hist-actions">
+        <button class="hist-act-btn" style="background:#e8f0e8;color:#4a7a4a" onclick="loadHistEntry('${key}')">✏️ 編輯</button>
+        <button class="hist-act-btn${data.restMode?' on':''}" style="background:#f4f1ec;border:1px solid #cec8bf;color:#7a7570" onclick="toggleHistRest('${key}',event)">${data.restMode?'✓ 休假':'🌿 標記休假'}</button>
+        <button class="hist-act-btn" style="background:#f0e8e8;color:#8a4a4a;margin-left:auto" onclick="deleteHistEntry('${key}',event)">🗑 刪除</button>
+      </div>`;
+
+    // attach toggle fn dynamically to avoid closure issues
+    window[`toggleHistDay_${uid}`]=function(btn){
+      const body=document.getElementById(`hbody_${uid}`);
+      const chev=btn.querySelector('.hist-chevron');
+      const open=body.style.display!=='block';
+      body.style.display=open?'block':'none';
+      chev.classList.toggle('open',open);
+    };
+
+    content.appendChild(dayDiv);
+  });
+}
+
+/* ── Mini Pipe View（歷史右欄，從 pipes+pipeAssignments 資料直接 render） ── */
+function buildMiniPipeView(data){
+  const pipes=data.pipes||[];
+  const assign=data.pipeAssignments||{};
+  const items=data.items||[];
+  const cp=data.combatPower||60;
+  const tColor={high:'#5a7fa8',mid:'#6a9a6a',low:'#9a8a5a',rest:'#5a9a8a'};
+  const tEmoji={high:'🔥',mid:'☕',low:'🍃',rest:'⏸'};
+  const tLabel={high:'高能',mid:'中能',low:'輕量',rest:'休息'};
+
+  // 水管行
+  const pipeRows=pipes.map((p,i)=>{
+    const tasks=assign[i]||assign[String(i)]||[];
+    const color=tColor[p.type]||'#888888';
+    const chipsHtml=tasks.length
+      ?'<div class="mpipe-chips">'+tasks.map(t=>`<span class="mpipe-chip">${esc(t)}</span>`).join('')+'</div>'
+      :'';
+    return`<div class="mpipe-row">
+      <div class="mpipe-hd">
+        <span class="mpipe-badge" style="background:${color}1a;color:${color};border:1px solid ${color}44">${tLabel[p.type]||p.type}</span>
+        <span class="mpipe-time">${p.start}–${p.end}</span>
+      </div>
+      <div class="mpipe-label">${esc(p.label||'')}</div>
+      ${chipsHtml}
+    </div>`;
+  }).join('');
+
+  // 能耗配置 × 代償對照：依 type 分組，任務縮排顯示
+  const toMin=t=>{const[h,m]=(t||'0:0').split(':').map(Number);return h*60+(m||0);};
+  const stSym={done:'✓',part:'◑',skip:'—',no:'⊘','':'·'};
+  const stCol={done:'#4a7e5e',part:'#5a7e3e',skip:'#7a6050',no:'#8a4040','':'#b0a898'};
+
+  // 建立 type → {totalMin, tasks[]} 對照
+  const typeOrder=['high','mid','low','rest'];
+  const typeGroups={};
+  pipes.forEach((p,i)=>{
+    const dur=toMin(p.end)-toMin(p.start);
+    if(dur<=0) return;
+    if(!typeGroups[p.type]) typeGroups[p.type]={totalMin:0,tasks:[]};
+    typeGroups[p.type].totalMin+=dur;
+    const pTasks=assign[i]||assign[String(i)]||[];
+    const perTask=pTasks.length?Math.round(dur/pTasks.length):0;
+    pTasks.forEach(name=>{
+      const it=items.find(x=>x.name===name);
+      typeGroups[p.type].tasks.push({
+        name, min:it?.idealMin||perTask, status:it?.status||''
+      });
+    });
+  });
+
+  const groupsHtml=typeOrder.filter(t=>typeGroups[t]).map(t=>{
+    const g=typeGroups[t];
+    const color=tColor[t];
+    const taskRows=g.tasks.map(tk=>`
+      <div class="hist-task-row">
+        <span class="hist-task-name" title="${esc(tk.name)}">${esc(tk.name)}</span>
+        ${tk.min?`<span class="hist-task-min">${tk.min}分</span>`:''}
+        <span class="hist-task-st" style="color:${stCol[tk.status]||'#b0a898'}">${stSym[tk.status]||'·'}</span>
+      </div>`).join('');
+    return`<div class="hist-type-group">
+      <div class="hist-type-hd">
+        <span class="hist-type-emoji">${tEmoji[t]}</span>
+        <span class="hist-type-lbl" style="color:${color}">${tLabel[t]}</span>
+        <span class="hist-type-min">${g.totalMin}分</span>
+      </div>
+      ${taskRows}
+    </div>`;
+  }).join('');
+
+  const durSec=groupsHtml?`
+    <div class="hist-dur-sec">
+      <div class="hist-overall">
+        <div class="hist-overall-label" style="cursor:pointer;user-select:none" onclick="var b=this.nextElementSibling;b.style.display=b.style.display==='block'?'none':'block';this.querySelector('.dur-tog').textContent=b.style.display==='block'?'▾':'▸'">
+          ⏱ 能耗配置 × 代償對照（戰力 ${cp}%）<span class="dur-tog" style="margin-left:4px;font-size:8px;color:#b0a89a">▸</span>
+        </div>
+        <div style="display:none">${groupsHtml}</div>
+      </div>
+    </div>`:''
+
+  return`<div class="mini-pipe-view">
+    <div class="hist-overall">
+      <div class="hist-overall-label">戰術水管</div>
+      ${pipeRows}
+    </div>
+    ${durSec}
+  </div>`;
+}
+
+/* ── Snapshot Lightbox ── */
+function openSnapshotLightbox(src){
+  const lb=document.createElement('div');
+  lb.className='snap-lb';
+  lb.innerHTML=`<img src="${src}" alt="水管快照放大">`;
+  lb.onclick=()=>lb.remove();
+  document.body.appendChild(lb);
+}
+
+/* ── GitHub Gist Sync ── */
+const GIST_TOKEN_KEY_DO='do_gist_token';
+const GIST_ID_KEY_DO='do_gist_id';
+const GIST_FILENAME_DO='daily_optimizer_sync.json';
+function getGistToken(){return localStorage.getItem('gh_pat')||localStorage.getItem(GIST_TOKEN_KEY_DO)||'';}
+function getGistId(){return localStorage.getItem(GIST_ID_KEY_DO)||'';}
+
+function saveGistToken(){
+  const val=document.getElementById('gist-token-input').value.trim();
+  if(!val){alert('請輸入 Token');return;}
+  localStorage.setItem(GIST_TOKEN_KEY_DO,val);
+  refreshGistUI();
+  showGistStatus('✅ Token 已儲存，請點「推送到雲端」完成首次設定','ok');
+}
+function saveGistId(){
+  const val=document.getElementById('gist-id-input').value.trim();
+  if(!val){alert('請輸入 Gist ID');return;}
+  localStorage.setItem(GIST_ID_KEY_DO,val);
+  document.getElementById('gist-id-input').value='';
+  refreshGistUI();
+  showGistStatus('✅ Gist ID 已套用，可按「從雲端讀取」同步','ok');
+}
+async function copyGistId(){
+  const id=getGistId();if(!id)return;
+  try{await navigator.clipboard.writeText(id);showGistStatus('✅ Gist ID 已複製','ok');}
+  catch{prompt('請手動複製：',id);}
+}
+function clearGistSetup(){
+  if(!confirm('確定要清除 Token 和 Gist 設定？'))return;
+  localStorage.removeItem(GIST_TOKEN_KEY_DO);
+  localStorage.removeItem(GIST_ID_KEY_DO);
+  refreshGistUI();
+}
+function toggleGistSetup(){
+  const el=document.getElementById('gist-setup-section');
+  const opening=el.style.display==='none';
+  el.style.display=opening?'block':'none';
+  if(opening){
+    const ti=document.getElementById('gist-token-input');
+    if(ti&&!ti.value)ti.value=getGistToken();
+  }
+}
+function showGistStatus(msg,type){
+  const el=document.getElementById('gist-sync-status');
+  el.textContent=msg;
+  el.style.color=type==='ok'?'#7a9e8a':type==='err'?'#a07070':'#7a7570';
+}
+function refreshGistUI(){
+  const hasToken=!!getGistToken(),gistId=getGistId();
+  const sr=document.getElementById('gist-status-row');
+  const sb=document.getElementById('gist-sync-btns');
+  const ir=document.getElementById('gist-id-row');
+  if(hasToken){
+    sr.textContent='● Token 已設定'+(gistId?'　Gist 已建立 ✓':'　尚未首次同步');
+    sr.style.color='#7a9e8a';sb.style.display='flex';
+    if(gistId){ir.style.display='block';document.getElementById('gist-id-label').textContent=gistId;}
+    else{ir.style.display='none';}
+  }else if(gistId){
+    sr.textContent='● Gist ID 已設定（唯讀模式）';sr.style.color='#7a8e9e';
+    sb.style.display='flex';ir.style.display='none';
+  }else{
+    sr.textContent='尚未設定，點下方「⚙️ 設定 Token / Gist ID」開始';
+    sr.style.color='#9a9088';sb.style.display='none';
+  }
+}
+function getAllReviews(){
+  const r={};
+  for(let i=0;i<localStorage.length;i++){
+    const k=localStorage.key(i);
+    if(k&&k.startsWith('review_')){try{r[k]=JSON.parse(localStorage.getItem(k)||'{}');}catch(e){}}
+  }
+  return r;
+}
+async function syncToGist(){
+  const token=getGistToken();
+  if(!token){showGistStatus('請先設定 GitHub Token','err');return;}
+  const reviews=getAllReviews();
+  const payload=JSON.stringify({version:1,syncedAt:new Date().toISOString(),reviews},null,2);
+  const gistId=getGistId();
+  showGistStatus('⏳ 正在推送到雲端…','');
+  try{
+    let resp;
+    if(gistId){
+      resp=await fetch(`https://api.github.com/gists/${gistId}`,{method:'PATCH',
+        headers:{'Authorization':`Bearer ${token}`,'Content-Type':'application/json'},
+        body:JSON.stringify({files:{[GIST_FILENAME_DO]:{content:payload}}})});
+    }else{
+      resp=await fetch('https://api.github.com/gists',{method:'POST',
+        headers:{'Authorization':`Bearer ${token}`,'Content-Type':'application/json'},
+        body:JSON.stringify({description:'Daily Optimizer review sync',public:false,
+          files:{[GIST_FILENAME_DO]:{content:payload}}})});
+    }
+    if(!resp.ok){const err=await resp.json().catch(()=>({}));throw new Error(err.message||`GitHub API 錯誤 ${resp.status}`);}
+    const data=await resp.json();
+    localStorage.setItem(GIST_ID_KEY_DO,data.id);
+    refreshGistUI();
+    showGistStatus(`✅ 推送完成！共 ${Object.keys(reviews).length} 筆覆盤記錄已同步`,'ok');
+  }catch(err){showGistStatus(`❌ ${err.message}`,'err');}
+}
+async function syncFromGist(){
+  const token=getGistToken(),gistId=getGistId();
+  if(!token){showGistStatus('請先設定 GitHub Token','err');return;}
+  if(!gistId){showGistStatus('請先在 Mac 推送建立 Gist','err');return;}
+  showGistStatus('⏳ 正在從雲端讀取…','');
+  try{
+    const resp=await fetch(`https://api.github.com/gists/${gistId}`,{
+      headers:{'Authorization':`Bearer ${token}`}});
+    if(!resp.ok){const err=await resp.json().catch(()=>({}));throw new Error(err.message||`GitHub API 錯誤 ${resp.status}`);}
+    const data=await resp.json();
+    const content=data.files?.[GIST_FILENAME_DO]?.content;
+    if(!content)throw new Error('Gist 中找不到 Daily Optimizer 資料');
+    const remote=JSON.parse(content);
+    const reviews=remote.reviews||{};
+    const localKeys=[];
+    for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);if(k&&k.startsWith('review_'))localKeys.push(k);}
+    localKeys.forEach(k=>localStorage.removeItem(k));
+    Object.entries(reviews).forEach(([k,v])=>localStorage.setItem(k,JSON.stringify(v)));
+    showGistStatus(`✅ 從雲端讀取完成！已同步 ${Object.keys(reviews).length} 筆覆盤記錄`,'ok');
+  }catch(err){showGistStatus(`❌ ${err.message}`,'err');}
+}
+
+
+function toggleHistRest(key,e){
+  e.stopPropagation();
+  const data=JSON.parse(localStorage.getItem(key)||'{}');
+  data.restMode=!data.restMode;
+  localStorage.setItem(key,JSON.stringify(data));
+  renderHist();
+}
+</script>
+<script src="https://resolutetinging.github.io/control-center/cc_zht.js"></script>
+<script src="https://resolutetinging.github.io/control-center/cc_track.js" data-cc-key="optimizer" data-cc-label="Daily Optimizer"></script>
+</body>
+</html>
