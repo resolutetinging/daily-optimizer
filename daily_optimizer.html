@@ -2653,6 +2653,15 @@ async function genReviewFeedback(){
 
   const overall=saved.overall?NL+'【整體反饋（本人填寫）】'+NL+'  '+saved.overall:'';
 
+  // 09-30：使用者截圖回報戰力51%（Critical等級，cpExpect明寫「能完成任何任務
+  // 都值得肯定」最寬鬆標準）、8項裡7項done只有1項因身體不適skip，status卻被
+  // 判below，跟給LLM的期待基準文字直接矛盾——LLM似乎只機械式看到「有1項沒做」
+  // 就扣分，沒有真的對齊cpExpect的寬鬆度。修法：算出跟weekLines/renderWeeklyPreview
+  // 同一套加權(done=1/part=0.5/skip與no皆0，分母含no)的完成率數字，明確餵給
+  // LLM當判斷status的錨點，不能只憑印象評分。
+  const completionScore=saved.items.reduce((s,i)=>s+(i.status==='done'?1:i.status==='part'?0.5:0),0);
+  const completionPct=saved.items.length?Math.round(completionScore/saved.items.length*100):null;
+
   // ── 休假模式：完全不帶產出期待標準，走獨立 prompt ──
   let prompt;
   if(isVacation){
@@ -2753,11 +2762,12 @@ async function genReviewFeedback(){
       +'嚴禁提及【實際覆盤結果】【AI 預排任務】【今日 Calendar 行程】以外的任何活動或事項名稱，不可自行編造具體事件（例如晚餐、逛街、看書店等未列出的活動）。'+NL+NL
       +'日期：'+dateStr+'　模式：'+(saved.mode||'未知')+'　體感：'+(saved.feel||'未知')+NL
       +'今日戰力：'+cp+'% '+cpLabel+'　期待基準：'+cpExpect+NL
+      +(completionPct!=null?'今日完成率：'+completionPct+'%（'+saved.items.length+'項中done算1分、part算0.5分加總）'+NL:'')
       +(saved.depleted_at?'⚡ 能量低點：'+saved.depleted_at+NL:'')
       +planSection+overloadSection+alignSection+weekContextSection+NL+NL
       +'【實際覆盤結果】'+NL+actualItems+missedText+overall+NL+NL
       +'只能輸出一個JSON物件，不要有其他文字、不要用markdown code fence包住，務必使用繁體中文（台灣正體），嚴禁簡體字與日文（含漢字新字體與假名）。schema如下：'+NL
-      +'{"status":"above或meet或below（以戰力'+cp+'%為基準，今日完成率高於/符合/低於期待，必須與【實際覆盤結果】的完成狀態一致，不可矛盾）",'+NL
+      +'{"status":"above或meet或below（必須真正對齊上面「期待基準」文字描述的寬鬆或嚴格程度來判斷，不能只看有沒有項目沒完成就機械式扣分——例如期待基準寫「能完成任何任務都值得肯定」這種低戰力寬鬆標準時，完成率明顯偏高（例如今日的'+(completionPct??'?')+'%）不可以判below，即使其中1項因故skip；只有完成率明顯低於該期待基準所述門檻時才判below，必須與【實際覆盤結果】的完成狀態一致，不可矛盾）",'+NL
       +'"overload":"'+(overloadedPipes.length?(allOverloadDone?'sustainable（過載任務全部完成，撐過去了但要判斷是否可持續，不可說塞爆或燃意志力不足）':'burnout（水管過載且有任務未完成，直接判定為塞爆或燃意志力不足）'):'none（今日無水管過載記錄，固定填none）')+'",'+NL
       +'"align":"'+(pipeAlignItems.length?'breakthrough或fatigue_lag或accurate（⚠️警告任務若完成，判斷是心流突破(breakthrough)還是疲勞滯後未顯(fatigue_lag)；若未完成，填accurate代表防禦準確）':'none（今日無配速警告任務，固定填none）')+'",'+NL
       +'"reason":"一句話，18字以內，說明status判斷的關鍵原因",'+NL
