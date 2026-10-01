@@ -1233,7 +1233,7 @@ function confirmCustomLoc(){
   if(!val){cancelCustomLoc();return;}
   const arr=loadCustomLocs();if(!arr.includes(val)){arr.push(val);saveCustomLocs(arr);}
   cancelCustomLoc();renderLocRow();
-  const el=document.getElementById('loc-row').querySelector(`[data-loc="${val}"]`);
+  const el=document.getElementById('loc-row').querySelector(`[data-loc="${CSS.escape(val)}"]`);
   if(el)pickCustomLoc(el,val);
 }
 function removeCustomLoc(idx){
@@ -1290,7 +1290,7 @@ function confirmCustomFeel(){
   cancelCustomFeel();
   renderCustomFeelBtns();
   // 自動選取剛新增的標籤
-  const newBtn=document.getElementById('feel-row').querySelector(`[data-feel="${val}"]`);
+  const newBtn=document.getElementById('feel-row').querySelector(`[data-feel="${CSS.escape(val)}"]`);
   if(newBtn){ pickCustomFeel(newBtn,val); }
 }
 function removeCustomFeel(idx){
@@ -3367,8 +3367,8 @@ function buildMiniPipeView(data){
       :'';
     return`<div class="mpipe-row">
       <div class="mpipe-hd">
-        <span class="mpipe-badge" style="background:${color}1a;color:${color};border:1px solid ${color}44">${tLabel[p.type]||p.type}</span>
-        <span class="mpipe-time">${p.start}–${p.end}</span>
+        <span class="mpipe-badge" style="background:${color}1a;color:${color};border:1px solid ${color}44">${esc(tLabel[p.type]||p.type)}</span>
+        <span class="mpipe-time">${esc(p.start)}–${esc(p.end)}</span>
       </div>
       <div class="mpipe-label">${esc(p.label||'')}</div>
       ${chipsHtml}
