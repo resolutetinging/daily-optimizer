@@ -930,6 +930,11 @@ function sanitizePipes(result, calEvents, tasks, pwr){
 }
 
 let selLoc='',selMode='',selFeel='',pwr=0,reviewItems=[];
+// 09-30 XSS修補：原本「加入覆盤」按鈕把任務名稱直接拼進onclick="addToReview('${n}',i)"屬性，
+// 任務名稱是使用者可自訂文字，若含雙引號會跳脫屬性造成注入；改成只傳rowIdx，
+// 透過這個全域陣列（每次renderOut/renderSavedSchedule渲染outList時同步設定）查回名稱，
+// 屬性裡完全不再出現使用者文字。
+let _reviewOutList=[];
 
 /* ── Task Library v3 ── */
 const TASKS_KEY='tina_tasks_v3';
@@ -1209,7 +1214,7 @@ function renderLocRow(){
     const span=document.createElement('span');
     span.className='feel-custom-pill';span.dataset.loc=label;
     span.onclick=function(e){if(e.target.classList.contains('rm'))return;pickCustomLoc(this,label);};
-    span.innerHTML=`${label}<span class="rm" onclick="removeCustomLoc(${i})">✕</span>`;
+    span.innerHTML=`${esc(label)}<span class="rm" onclick="removeCustomLoc(${i})">✕</span>`;
     if(selLoc===label)span.classList.add('sel-blue');
     row.appendChild(span);
   });
@@ -1254,7 +1259,7 @@ function renderCustomFeelBtns(){
     span.className='feel-custom-pill';
     span.dataset.feel=label;
     span.onclick=function(e){ if(e.target.classList.contains('rm'))return; pickCustomFeel(this,label); };
-    span.innerHTML=`${label}<span class="rm" onclick="removeCustomFeel(${i})">✕</span>`;
+    span.innerHTML=`${esc(label)}<span class="rm" onclick="removeCustomFeel(${i})">✕</span>`;
     if(selFeel===label) span.classList.add('sel-blue');
     row.appendChild(span);
   });
@@ -1300,6 +1305,13 @@ function removeCustomFeel(idx){
 /* tasks */
 let dragSrc=null;
 const esc=s=>(s==null?'':String(s)).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+// 09-30 XSS修補：esc()只擋&<>，放進HTML屬性（例如title="..."）時雙引號仍能跳脫屬性；
+// escAttr()額外擋雙引號與單引號，凡是值要插進「屬性值」而非純文字節點時改用這個。
+const escAttr=s=>(s==null?'':String(s)).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,'&#39;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+// escJsAttr()用於 onclick="fn('${x}')" 這種「單引號JS字串包在雙引號HTML屬性裡」的插值：
+// 先做JS字串跳脫（擋反斜線與單引號，維持JS字串本身不被提早結束），
+// 再做HTML屬性跳脫（擋雙引號，避免HTML attribute parser先把值切斷），兩層缺一都不夠安全。
+const escJsAttr=s=>escAttr((s==null?'':String(s)).replace(/\\/g,'\\\\').replace(/'/g,"\\'"));
 
 function renderTaskLib(){
   const el=document.getElementById('tlist');el.innerHTML='';
@@ -1681,14 +1693,14 @@ function renderOut(r){
   if(schedCard) schedCard.style.display='';
   const splitSec=document.getElementById('taskSplitSec');
   if(splitSec) splitSec.style.display='';
-  sc.innerHTML=r.summary?`<div class="sbox">${r.summary}</div>`:'';
+  sc.innerHTML=r.summary?`<div class="sbox">${esc(r.summary)}</div>`:'';
   (r.schedule||[]).forEach(item=>{
     const d=document.createElement('div');d.className='si';
     const _t=(item.tag==='cal'&&(!item.task||item.task==='cal'))?(item.note||''):(item.task||'');
     const _n=(item.tag==='cal'&&(!item.task||item.task==='cal'))?'':(item.note||'');
     const _cl=item.tag!=='cal'&&item.tag!=='break'?getTaskCatLabel(_t):null;
-    const _td=_cl?`<span class="si-cat-lbl">[${_cl}]</span>${esc(_t)}`:esc(_t);
-    d.innerHTML=`<div class="tlbl">${item.time||''}</div><div class="sb"><div class="stask-row"><div class="stask">${_td}</div>${item.tag?`<span class="tag ${tc[item.tag]||'t-m'}">${tl[item.tag]||item.tag}</span>`:''}</div>${_n?`<div class="snote">${esc(_n)}</div>`:''}</div>`;
+    const _td=_cl?`<span class="si-cat-lbl">[${esc(_cl)}]</span>${esc(_t)}`:esc(_t);
+    d.innerHTML=`<div class="tlbl">${esc(item.time||'')}</div><div class="sb"><div class="stask-row"><div class="stask">${_td}</div>${item.tag?`<span class="tag ${tc[item.tag]||'t-m'}">${esc(tl[item.tag]||item.tag)}</span>`:''}</div>${_n?`<div class="snote">${esc(_n)}</div>`:''}</div>`;
     sc.appendChild(d);
   });
 
@@ -1705,12 +1717,13 @@ function renderOut(r){
 
   const outWrap=document.getElementById('tasksOutWrap');
   const tasksOut=document.getElementById('tasksOut');
+  _reviewOutList=outList;
   if(outList.length){
     tasksOut.innerHTML=outList.map((n,i)=>`
       <div class="t-out-row" id="outrow-${i}">
         <div class="t-dot-out"></div>
         <span>${esc(n)}</span>
-        <button class="t-add-btn" onclick="addToReview('${n.replace(/'/g,"\\'")}',${i})">＋ 加入覆盤</button>
+        <button class="t-add-btn" onclick="addToReview(${i})">＋ 加入覆盤</button>
       </div>`).join('');
     outWrap.classList.remove('hidden');
   } else {
@@ -1968,10 +1981,10 @@ function renderPipeSandbox(result,isMock=false,errMsg=''){
   const endH=8+Math.floor((pwr||60)/100*14);
   const pipesHtml=_pipes.map((p,i)=>{
     const ws=pipeWarmthStyle(p.type,p.start,endH);
-    return`<div class="pipe-item type-${p.type}" id="pipe-${i}" onclick="onPipeClick(${i})" style="${ws.item}">
+    return`<div class="pipe-item type-${escAttr(p.type)}" id="pipe-${i}" onclick="onPipeClick(${i})" style="${ws.item}">
       <div class="pipe-hd">
-        <span class="pipe-time-range">${p.start}–${p.end}</span>
-        <span class="pipe-type-badge" style="${ws.badge}">${badgeLabel[p.type]||p.type}</span>
+        <span class="pipe-time-range">${esc(p.start)}–${esc(p.end)}</span>
+        <span class="pipe-type-badge" style="${ws.badge}">${esc(badgeLabel[p.type]||p.type)}</span>
       </div>
       <div class="pipe-lbl">${esc(p.label)}</div>
       <div class="pipe-hint">${esc(p.hint)}</div>
@@ -2039,7 +2052,7 @@ function renderBrickPool(){
     const cntBadge=cnt?`<span class="brick-cnt">×${cnt}</span>`:'';
     const cat=taskData.categories.find(c=>c.key===t.catKey);
     const catTag=cat?`<span style="font-size:9px;opacity:.55;margin-left:3px;">[${esc(cat.label)}]</span>`:'';
-    return`<div class="${cls}" id="brick-${i}" onclick="onBrickClick('${t.text.replace(/'/g,"\\'")}',${i})">${dot}${esc(t.text)}${catTag}${cntBadge}</div>`;
+    return`<div class="${cls}" id="brick-${i}" onclick="onBrickClick('${escJsAttr(t.text)}',${i})">${dot}${esc(t.text)}${catTag}${cntBadge}</div>`;
   }).join('');
   // 臨時自訂積木
   const offset=tasks.length;
@@ -2048,13 +2061,13 @@ function renderBrickPool(){
     const isSel=_selBrickText===txt;
     let cls='brick temp-brick'+(isSel?' selected':'');
     const cntBadge=cnt?`<span class="brick-cnt">×${cnt}</span>`:'';
-    return`<div class="${cls}" id="brick-tmp-${i}" onclick="onBrickClick('${txt.replace(/'/g,"\\'")}',${offset+i})">✦ ${esc(txt)}${cntBadge}</div>`;
+    return`<div class="${cls}" id="brick-tmp-${i}" onclick="onBrickClick('${escJsAttr(txt)}',${offset+i})">✦ ${esc(txt)}${cntBadge}</div>`;
   }).join('');
   // 休息積木（固定顯示，可重複置入不鎖灰）
   const rOff=tasks.length+_tempBricks.length;
   const restHtml=REST_BRICKS.map((txt,i)=>{
     const isSel=_selBrickText===txt;
-    return`<div class="brick rest-brick${isSel?' selected':''}" id="brick-rb-${i}" onclick="onBrickClick('${txt.replace(/'/g,"\\'")}',${rOff+i})">${esc(txt)}</div>`;
+    return`<div class="brick rest-brick${isSel?' selected':''}" id="brick-rb-${i}" onclick="onBrickClick('${escJsAttr(txt)}',${rOff+i})">${esc(txt)}</div>`;
   }).join('');
   pool.innerHTML=regularHtml+tempHtml+restHtml;
 }
@@ -2241,7 +2254,7 @@ function assignBrickToPipe(taskText,pipeIdx){
 
 function renderPipeChips(pipeIdx){
   const el=document.getElementById(`pchips-${pipeIdx}`);if(!el)return;
-  el.innerHTML=(_pipeAssign[pipeIdx]||[]).map(txt=>`<div class="pipe-chip" onclick="removeFromPipe('${txt.replace(/'/g,"\\'")}',${pipeIdx})">${esc(txt)}<span class="prm">✕</span></div>`).join('');
+  el.innerHTML=(_pipeAssign[pipeIdx]||[]).map(txt=>`<div class="pipe-chip" onclick="removeFromPipe('${escJsAttr(txt)}',${pipeIdx})">${esc(txt)}<span class="prm">✕</span></div>`).join('');
 }
 
 function removeFromPipe(taskText,pipeIdx){
@@ -2319,10 +2332,10 @@ function renderSavedPipeSandbox(saved){
   const endH=8+Math.floor((saved.combatPower||pwr||60)/100*14);
   const pipesHtml=_pipes.map((p,i)=>{
     const ws=pipeWarmthStyle(p.type,p.start,endH);
-    return`<div class="pipe-item type-${p.type}" id="pipe-${i}" onclick="onPipeClick(${i})" style="${ws.item}">
+    return`<div class="pipe-item type-${escAttr(p.type)}" id="pipe-${i}" onclick="onPipeClick(${i})" style="${ws.item}">
       <div class="pipe-hd">
-        <span class="pipe-time-range">${p.start}–${p.end}</span>
-        <span class="pipe-type-badge" style="${ws.badge}">${badgeLabel[p.type]||p.type}</span>
+        <span class="pipe-time-range">${esc(p.start)}–${esc(p.end)}</span>
+        <span class="pipe-type-badge" style="${ws.badge}">${esc(badgeLabel[p.type]||p.type)}</span>
       </div>
       <div class="pipe-lbl">${esc(p.label)}</div>
       <div class="pipe-hint">${esc(p.hint)}</div>
@@ -2353,7 +2366,10 @@ function renderSavedPipeSandbox(saved){
 }
 /* ─── end pipe sandbox ─── */
 
-function addToReview(name, rowIdx){
+function addToReview(rowIdx){
+  // 09-30 XSS修補：改成只傳rowIdx，從_reviewOutList查回名稱，onclick屬性不再出現使用者文字
+  const name=_reviewOutList[rowIdx];
+  if(name==null)return;
   // add this skipped task into reviewItems and re-render review
   if(!reviewItems.find(r=>r.name===name)){
     reviewItems.push({name,status:'',feedback:''});
@@ -2918,14 +2934,14 @@ function renderSavedSchedule(saved){
   const tc={high:'t-h',med:'t-m',low:'t-l',break:'t-b',cal:'t-cal'};
   const tl={high:'重點',med:'常規',low:'輕鬆',break:'休息',cal:'行程'};
   const sc=document.getElementById('sout');
-  sc.innerHTML=saved.summary?`<div class="sbox">${saved.summary}</div>`:'';
+  sc.innerHTML=saved.summary?`<div class="sbox">${esc(saved.summary)}</div>`:'';
   (saved.fullSchedule||[]).forEach(item=>{
     const d=document.createElement('div');d.className='si';
     const _t=(item.tag==='cal'&&(!item.task||item.task==='cal'))?(item.note||''):(item.task||'');
     const _n=(item.tag==='cal'&&(!item.task||item.task==='cal'))?'':(item.note||'');
     const _cl=item.tag!=='cal'&&item.tag!=='break'?getTaskCatLabel(_t):null;
-    const _td=_cl?`<span class="si-cat-lbl">[${_cl}]</span>${esc(_t)}`:esc(_t);
-    d.innerHTML=`<div class="tlbl">${item.time||''}</div><div class="sb"><div class="stask-row"><div class="stask">${_td}</div>${item.tag?`<span class="tag ${tc[item.tag]||'t-m'}">${tl[item.tag]||item.tag}</span>`:''}</div>${_n?`<div class="snote">${esc(_n)}</div>`:''}</div>`;
+    const _td=_cl?`<span class="si-cat-lbl">[${esc(_cl)}]</span>${esc(_t)}`:esc(_t);
+    d.innerHTML=`<div class="tlbl">${esc(item.time||'')}</div><div class="sb"><div class="stask-row"><div class="stask">${_td}</div>${item.tag?`<span class="tag ${tc[item.tag]||'t-m'}">${esc(tl[item.tag]||item.tag)}</span>`:''}</div>${_n?`<div class="snote">${esc(_n)}</div>`:''}</div>`;
     sc.appendChild(d);
   });
   const selectedNames=(saved.aiScheduled||[]).map(s=>s.task);
@@ -2935,12 +2951,13 @@ function renderSavedSchedule(saved){
   document.getElementById('tasksIn').innerHTML=inList.length
     ?inList.map(n=>`<div class="t-in-row"><div class="t-dot-in"></div>${esc(n)}</div>`).join('')
     :'<div style="font-size:12px;color:#9a9088;padding:4px 0">（無任務分配記錄）</div>';
+  _reviewOutList=outList;
   if(outList.length){
     document.getElementById('tasksOut').innerHTML=outList.map((n,i)=>`
       <div class="t-out-row" id="outrow-${i}">
         <div class="t-dot-out"></div>
         <span>${esc(n)}</span>
-        <button class="t-add-btn" onclick="addToReview('${n.replace(/'/g,"\\'")}',${i})">＋ 加入覆盤</button>
+        <button class="t-add-btn" onclick="addToReview(${i})">＋ 加入覆盤</button>
       </div>`).join('');
     document.getElementById('tasksOutWrap').classList.remove('hidden');
   }
@@ -3313,9 +3330,9 @@ function renderHist(){
         <div class="hist-right">${snapshotHtml}</div>
       </div>
       <div class="hist-actions">
-        <button class="hist-act-btn" style="background:#e8f0e8;color:#4a7a4a" onclick="loadHistEntry('${key}')">✏️ 編輯</button>
-        <button class="hist-act-btn${data.restMode?' on':''}" style="background:#f4f1ec;border:1px solid #cec8bf;color:#7a7570" onclick="toggleHistRest('${key}',event)">${data.restMode?'✓ 休假':'🌿 標記休假'}</button>
-        <button class="hist-act-btn" style="background:#f0e8e8;color:#8a4a4a;margin-left:auto" onclick="deleteHistEntry('${key}',event)">🗑 刪除</button>
+        <button class="hist-act-btn" style="background:#e8f0e8;color:#4a7a4a" onclick="loadHistEntry('${escJsAttr(key)}')">✏️ 編輯</button>
+        <button class="hist-act-btn${data.restMode?' on':''}" style="background:#f4f1ec;border:1px solid #cec8bf;color:#7a7570" onclick="toggleHistRest('${escJsAttr(key)}',event)">${data.restMode?'✓ 休假':'🌿 標記休假'}</button>
+        <button class="hist-act-btn" style="background:#f0e8e8;color:#8a4a4a;margin-left:auto" onclick="deleteHistEntry('${escJsAttr(key)}',event)">🗑 刪除</button>
       </div>`;
 
     // attach toggle fn dynamically to avoid closure issues
@@ -3386,7 +3403,7 @@ function buildMiniPipeView(data){
     const color=tColor[t];
     const taskRows=g.tasks.map(tk=>`
       <div class="hist-task-row">
-        <span class="hist-task-name" title="${esc(tk.name)}">${esc(tk.name)}</span>
+        <span class="hist-task-name" title="${escAttr(tk.name)}">${esc(tk.name)}</span>
         ${tk.min?`<span class="hist-task-min">${tk.min}分</span>`:''}
         <span class="hist-task-st" style="color:${stCol[tk.status]||'#b0a898'}">${stSym[tk.status]||'·'}</span>
       </div>`).join('');
@@ -3421,9 +3438,13 @@ function buildMiniPipeView(data){
 
 /* ── Snapshot Lightbox ── */
 function openSnapshotLightbox(src){
+  // 09-30 XSS修補：目前無任何呼叫點（snapshot機制已於07-07移除），但src若未來接上
+  // 外部/使用者可控來源，直接插進src屬性會有javascript:等scheme注入風險；
+  // 加白名單只准http(s)://與data:image/開頭（原本snapshot是canvas dataURL），其餘導去安全空值。
+  const safeSrc=/^(https?:\/\/|data:image\/)/i.test(src||'')?escAttr(src):'';
   const lb=document.createElement('div');
   lb.className='snap-lb';
-  lb.innerHTML=`<img src="${src}" alt="水管快照放大">`;
+  lb.innerHTML=`<img src="${safeSrc}" alt="水管快照放大">`;
   lb.onclick=()=>lb.remove();
   document.body.appendChild(lb);
 }
@@ -3544,8 +3565,17 @@ async function syncFromGist(){
     const localKeys=[];
     for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);if(k&&k.startsWith('review_'))localKeys.push(k);}
     localKeys.forEach(k=>localStorage.removeItem(k));
-    Object.entries(reviews).forEach(([k,v])=>localStorage.setItem(k,JSON.stringify(v)));
-    showGistStatus(`✅ 從雲端讀取完成！已同步 ${Object.keys(reviews).length} 筆覆盤記錄`,'ok');
+    // 09-30 XSS修補：Gist內容來自外部（token洩漏或Gist遭竄改時可被操控），key名理應永遠是
+    // review_YYYY-MM-DD；加白名單格式檢查，拒絕寫入帶特殊字元的key，避免之後renderHist()
+    // 把這個key原樣插進onclick屬性造成儲存型注入（即使現在已改用escJsAttr雙重跳脫，這裡仍
+    // 多一層格式防呆，不信任外部資料的key名）。
+    const validKeyRe=/^review_\d{4}-\d{2}-\d{2}$/;
+    let skipped=0;
+    Object.entries(reviews).forEach(([k,v])=>{
+      if(!validKeyRe.test(k)){skipped++;return;}
+      localStorage.setItem(k,JSON.stringify(v));
+    });
+    showGistStatus(`✅ 從雲端讀取完成！已同步 ${Object.keys(reviews).length-skipped} 筆覆盤記錄`+(skipped?`（${skipped} 筆格式異常已略過）`:''),'ok');
   }catch(err){showGistStatus(`❌ ${err.message}`,'err');}
 }
 
