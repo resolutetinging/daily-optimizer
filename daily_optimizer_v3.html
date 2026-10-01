@@ -1155,7 +1155,7 @@ function showSleep(s){
   document.getElementById('ab').style.width=Math.min(awake/60*100,100)+'%';
   setFS('ok','數據已載入');
   const meta=document.getElementById('sleep-meta');
-  if(meta) meta.textContent=`數據日期：${e.date}　睡眠 ${fmt(totalDisplay)}　睡眠債 ${debtHours.toFixed(1)}h`;
+  if(meta) meta.textContent=`數據日期：${e.date}　總睡眠 ${fmt(totalDisplay)}`; // 10-01：移除睡眠債（debtHours 07-03隨自算公式刪除後殘留未定義，致此行拋錯被fetchSleep吞掉、誤觸代理重抓）
 }
 function setPwr(v){
   pwr=v;
