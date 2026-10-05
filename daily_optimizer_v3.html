@@ -1316,12 +1316,12 @@ const escJsAttr=s=>escAttr((s==null?'':String(s)).replace(/\\/g,'\\\\').replace(
 function renderTaskLib(){
   const el=document.getElementById('tlist');el.innerHTML='';
   const catSel=document.getElementById('ainput-cat');
-  if(catSel)catSel.innerHTML=taskData.categories.map(c=>`<option value="${c.key}">${esc(c.label)}</option>`).join('');
+  if(catSel)catSel.innerHTML=taskData.categories.map(c=>`<option value="${escAttr(c.key)}">${esc(c.label)}</option>`).join('');
   taskData.categories.forEach(cat=>{
     const catTasks=taskData.tasks.filter(t=>t.catKey===cat.key);
     const sec=document.createElement('div');sec.className='cat-sec';
     const jsHtml=cat.freq==='mode_jobsearch'?`<div class="cat-js-wrap"><span class="cat-js-lbl">求職模式</span><label class="js-toggle"><input type="checkbox" ${jobsearchMode?'checked':''} onchange="toggleJobSearch(this.checked)"><span class="js-slider"></span></label></div>`:'';
-    sec.innerHTML=`<div class="cat-hd"><span class="cat-lbl">${esc(cat.label)}</span><span class="cat-freq ${FREQ_CLASSES[cat.freq]||''}">${FREQ_LABELS[cat.freq]||cat.freq}</span>${jsHtml}</div><div id="cat-items-${cat.key}" class="cat-items"></div>`;
+    sec.innerHTML=`<div class="cat-hd"><span class="cat-lbl">${esc(cat.label)}</span><span class="cat-freq ${escAttr(FREQ_CLASSES[cat.freq]||'')}">${esc(FREQ_LABELS[cat.freq]||cat.freq)}</span>${jsHtml}</div><div id="cat-items-${escAttr(cat.key)}" class="cat-items"></div>`;
     el.appendChild(sec);
     const itemsEl=document.getElementById('cat-items-'+cat.key);
     catTasks.forEach(t=>{
@@ -1332,10 +1332,10 @@ function renderTaskLib(){
       const isJobCat=cat.freq==='mode_jobsearch';
       const isOn=tfreq!=='ondemand'&&!(tfreq==='mode_jobsearch'&&!jobsearchMode);
       const jobToggleTitle=isOn?'點擊：改為按需（不自動排入）':'點擊：改為每日（模式開啟時自動排入）';
-      const toggleHtml=`<label class="ti-onoff" title="${isJobCat?jobToggleTitle:(isOn?'點擊：從行程移除':'點擊：加入行程')}"><input type="checkbox" ${isOn?'checked':''} onchange="toggleTaskActive(${t.id},this.checked)"><span class="ti-onoff-sl"></span></label>`;
+      const toggleHtml=`<label class="ti-onoff" title="${isJobCat?jobToggleTitle:(isOn?'點擊：從行程移除':'點擊：加入行程')}"><input type="checkbox" ${isOn?'checked':''} onchange="toggleTaskActive(${Number(t.id)},this.checked)"><span class="ti-onoff-sl"></span></label>`;
       d.innerHTML=`<div class="ti-dot"></div>
-        <div contenteditable="true" class="tt" onblur="upt(${t.id},this.textContent.trim())" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur()}">${esc(t.text)}</div>
-        ${toggleHtml}<span class="dh">⠿</span><span class="db" onclick="del(${t.id})">×</span>`;
+        <div contenteditable="true" class="tt" onblur="upt(${Number(t.id)},this.textContent.trim())" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur()}">${esc(t.text)}</div>
+        ${toggleHtml}<span class="dh">⠿</span><span class="db" onclick="del(${Number(t.id)})">×</span>`;
       d.addEventListener('dragstart',function(e){
         if(e.target.isContentEditable||e.target.tagName==='INPUT'||e.target.tagName==='BUTTON'){e.preventDefault();return;}
         dragSrc=this;this.classList.add('drag');
@@ -1443,12 +1443,12 @@ function renderCatMgr(){
   document.getElementById('catmgr-list').innerHTML=taskData.categories.map(cat=>`
     <div class="catmgr-row">
       <span class="catmgr-lbl">${esc(cat.label)}</span>
-      <select class="catmgr-freq" onchange="setCatFreq('${cat.key}',this.value)">
+      <select class="catmgr-freq" onchange="setCatFreq('${escJsAttr(cat.key)}',this.value)">
         <option value="daily" ${cat.freq==='daily'?'selected':''}>每日</option>
         <option value="mode_jobsearch" ${cat.freq==='mode_jobsearch'?'selected':''}>求職模式</option>
         <option value="ondemand" ${cat.freq==='ondemand'?'selected':''}>按需</option>
       </select>
-      <span class="catmgr-del" onclick="delCat('${cat.key}')">×</span>
+      <span class="catmgr-del" onclick="delCat('${escJsAttr(cat.key)}')">×</span>
     </div>`).join('');
 }
 function addCat(e){
@@ -3404,14 +3404,14 @@ function buildMiniPipeView(data){
     const taskRows=g.tasks.map(tk=>`
       <div class="hist-task-row">
         <span class="hist-task-name" title="${escAttr(tk.name)}">${esc(tk.name)}</span>
-        ${tk.min?`<span class="hist-task-min">${tk.min}分</span>`:''}
+        ${tk.min?`<span class="hist-task-min">${esc(tk.min)}分</span>`:''}
         <span class="hist-task-st" style="color:${stCol[tk.status]||'#b0a898'}">${stSym[tk.status]||'·'}</span>
       </div>`).join('');
     return`<div class="hist-type-group">
       <div class="hist-type-hd">
         <span class="hist-type-emoji">${tEmoji[t]}</span>
         <span class="hist-type-lbl" style="color:${color}">${tLabel[t]}</span>
-        <span class="hist-type-min">${g.totalMin}分</span>
+        <span class="hist-type-min">${esc(g.totalMin)}分</span>
       </div>
       ${taskRows}
     </div>`;
@@ -3421,7 +3421,7 @@ function buildMiniPipeView(data){
     <div class="hist-dur-sec">
       <div class="hist-overall">
         <div class="hist-overall-label" style="cursor:pointer;user-select:none" onclick="var b=this.nextElementSibling;b.style.display=b.style.display==='block'?'none':'block';this.querySelector('.dur-tog').textContent=b.style.display==='block'?'▾':'▸'">
-          ⏱ 能耗配置 × 代償對照（戰力 ${cp}%）<span class="dur-tog" style="margin-left:4px;font-size:8px;color:#b0a89a">▸</span>
+          ⏱ 能耗配置 × 代償對照（戰力 ${esc(cp)}%）<span class="dur-tog" style="margin-left:4px;font-size:8px;color:#b0a89a">▸</span>
         </div>
         <div style="display:none">${groupsHtml}</div>
       </div>
