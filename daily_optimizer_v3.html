@@ -1311,7 +1311,9 @@ const escAttr=s=>(s==null?'':String(s)).replace(/&/g,'&amp;').replace(/"/g,'&quo
 // escJsAttr()用於 onclick="fn('${x}')" 這種「單引號JS字串包在雙引號HTML屬性裡」的插值：
 // 先做JS字串跳脫（擋反斜線與單引號，維持JS字串本身不被提早結束），
 // 再做HTML屬性跳脫（擋雙引號，避免HTML attribute parser先把值切斷），兩層缺一都不夠安全。
-const escJsAttr=s=>escAttr((s==null?'':String(s)).replace(/\\/g,'\\\\').replace(/'/g,"\\'"));
+const escJsAttr=s=>escAttr((s==null?'':String(s)).replace(/\\/g,'\\\\').replace(/'/g,"\\'")
+  .replace(/\n/g,'\\n').replace(/\r/g,'\\r')
+  .replace(/\u2028/g,'\\u2028').replace(/\u2029/g,'\\u2029'));
 
 function renderTaskLib(){
   const el=document.getElementById('tlist');el.innerHTML='';
@@ -1938,7 +1940,7 @@ Return ONLY JSON: [{"t":"task name","type":"high","ideal":30},...]`;
       const group=items.filter(it=>it.type===tp);
       if(!group.length){el.innerHTML='<span style="font-size:10.5px;color:#c0b8b0;">無任務</span>';return;}
       el.innerHTML=group.map(it=>{
-        const ideal=it.ideal;
+        const ideal=Number.isFinite(Number(it.ideal))?Number(it.ideal):0; // 非有限數字視同缺值
         const actual=Math.round(ideal*100/v); // 現實破碎預期 = 生理安全預算 ÷ 戰力%
         _durEstimates[it.t]={ideal,actual};
         return`<div class="dur-task-block">
