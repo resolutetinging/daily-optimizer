@@ -1997,7 +1997,7 @@ function renderPipeSandbox(result,isMock=false,errMsg=''){
   // 載入既有臨時積木
   const exData=JSON.parse(localStorage.getItem(displayKey)||'{}');
   _tempBricks=exData.tempBricks||[];
-  const capAdvice=calcCapacityAdvice(_pipes,[...getEffectiveTasks().map(t=>t.text),..._tempBricks],_skipTasks,pwr);
+  const capAdvice=calcCapacityAdvice([...getEffectiveTasks().map(t=>t.text),..._tempBricks],pwr);
   sumHtml=buildPipeSummaryHtml(result.summary,capAdvice);
 
   sc.innerHTML=mockNotice+sumHtml
@@ -2141,38 +2141,43 @@ function highlightCurrentPipe(scrollTo){
   if(scrollTo)setTimeout(()=>el.scrollIntoView({behavior:'smooth',block:'center'}),150);
 }
 // 戰力 vs 今日任務負荷的臨時任務建議（純前端計算，不交給LLM）
-function calcCapacityAdvice(pipes,taskNames,skipTasks,combatPower){
+// 依使用者過去覆盤校準：戰力約 50 仍可完成加權負荷約 7（7/50=0.14，取 0.15）
+const CAPACITY_PER_CP=0.15;
+function calcCapacityAdvice(taskNames,combatPower){
+  const cp=Number(combatPower);
+  if(combatPower===null||combatPower===undefined||combatPower===''||!Number.isFinite(cp)) return null;
   const energyMap=getTaskEnergyMap();
-  skipTasks=skipTasks||[];
   let hiMult=1.0;
   try{
     const ew=JSON.parse(localStorage.getItem('cc_energy_weights')||'{}');
     if(ew.highIntensity) hiMult=ew.highIntensity;
   }catch(e){}
   let load=0;
-  (taskNames||[]).filter(t=>!REST_BRICKS.includes(t)&&!skipTasks.includes(t)).forEach(t=>{
+  (taskNames||[]).filter(t=>!REST_BRICKS.includes(t)).forEach(t=>{
     const lvl=energyMap[t]||'mid';
     let w=TASK_WEIGHT[lvl]||1.0;
     if(lvl==='high') w*=hiMult;
     load+=w;
   });
-  let hrs=0;
-  (pipes||[]).forEach(p=>{ if(p&&['high','mid','low'].includes(p.type)) hrs+=pipeHours(p); });
-  const cap=hrs*1.5;
-  const critical=Number(combatPower)<60;
-  if(cap<=0) return {level:'full',loadPct:0,spare:0,critical};
-  const loadPct=Math.round(load/cap*100);
-  if(critical) return {level:'full',loadPct,spare:0,critical};
-  if(load<=0.7*cap) return {level:'ok',loadPct,spare:Math.max(1,Math.floor((0.7*cap-load)/1.0)),critical};
-  return {level:'full',loadPct,spare:0,critical};
+  const cap=cp*CAPACITY_PER_CP;
+  const r1=v=>Math.round(v*10)/10;
+  if(load+1.0<=cap) return {level:'ok',load:r1(load),cap:r1(cap),spare:Math.max(1,Math.floor(cap-load)),cp};
+  return {level:'full',load:r1(load),cap:r1(cap),spare:0,cp};
 }
 function capacityAdviceHtml(a){
   if(!a||typeof a!=='object')return '';
-  const pct=Number(a.loadPct)||0,sp=Number(a.spare)||0;
+  const sp=Number(a.spare)||0;
   let txt;
-  if(a.level==='ok') txt=`🟢 戰力應可再增加臨時任務（負荷約 ${pct}%，約還能放 ${sp} 個中耗能任務）`;
-  else if(a.critical) txt='🔴 不建議再增加臨時任務（戰力 Critical，今日以完成既有任務為主）';
-  else txt=`🟠 不建議再增加臨時任務（負荷約 ${pct}%）`;
+  if(a.cap!==undefined&&a.cap!==null){
+    const cp=Number(a.cp)||0,ld=Number(a.load)||0,cap=Number(a.cap)||0;
+    if(a.level==='ok') txt=`🟢 戰力應可再增加臨時任務（戰力 ${cp}%，勾選任務負荷 ${ld}／可承受約 ${cap}，約還能放 ${sp} 個中耗能任務）`;
+    else txt=`🟠 不建議再增加臨時任務（戰力 ${cp}%，勾選任務負荷 ${ld}／可承受約 ${cap}）`;
+  }else{
+    const pct=Number(a.loadPct)||0;
+    if(a.level==='ok') txt=`🟢 戰力應可再增加臨時任務（負荷約 ${pct}%，約還能放 ${sp} 個中耗能任務）`;
+    else if(a.critical) txt='🔴 不建議再增加臨時任務（戰力 Critical，今日以完成既有任務為主）';
+    else txt=`🟠 不建議再增加臨時任務（負荷約 ${pct}%）`;
+  }
   return `<div class="cap-advice" style="margin-top:6px;font-size:12px;color:#6a6660;">${esc(txt)}</div>`;
 }
 function buildPipeSummaryHtml(summary,advice){
