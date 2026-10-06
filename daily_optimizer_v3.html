@@ -1977,7 +1977,7 @@ function renderPipeSandbox(result,isMock=false,errMsg=''){
   // 只能看到「API未回應」這句話，連判斷是model問題、key問題還是rate limit都做不到。
   // 改成把e.message一併顯示出來，之後每次失敗都能直接看到具體錯誤
   const mockNotice=isMock?`<div class="mock-notice">⚠ API 未回應，已載入示範資料。所有互動功能完整可用。${errMsg?`<div style="margin-top:4px;font-size:12px;opacity:.85;">錯誤訊息：${esc(errMsg)}</div>`:''}</div>`:'';
-  const sumHtml=result.summary?`<div class="pipe-summary">${esc(result.summary)}</div>`:'';
+  let sumHtml='';
 
   const badgeLabel={high:'高能',mid:'中能',low:'輕量',rest:'休息'};
   const endH=8+Math.floor((pwr||60)/100*14);
@@ -1997,6 +1997,8 @@ function renderPipeSandbox(result,isMock=false,errMsg=''){
   // 載入既有臨時積木
   const exData=JSON.parse(localStorage.getItem(displayKey)||'{}');
   _tempBricks=exData.tempBricks||[];
+  const capAdvice=calcCapacityAdvice(_pipes,[...getEffectiveTasks().map(t=>t.text),..._tempBricks],_skipTasks,pwr);
+  sumHtml=buildPipeSummaryHtml(result.summary,capAdvice);
 
   sc.innerHTML=mockNotice+sumHtml
     +`<div class="pipe-track">${pipesHtml}</div>`
@@ -2020,7 +2022,7 @@ function renderPipeSandbox(result,isMock=false,errMsg=''){
   const allReviewNames=[...getEffectiveTasks().map(t=>t.text),..._tempBricks];
   localStorage.setItem(displayKey,JSON.stringify({...ex,
     pipes:_pipes,skipTasks:_skipTasks,pipeAssignments:{},tempBricks:_tempBricks,
-    summary:result.summary||'',
+    summary:result.summary||'',capacityAdvice:capAdvice,
     calEvents:document.getElementById('calInput').value.trim(),
     taskLibrary:getEffectiveTasks().map(t=>t.text),
     combatPower:pwr,mode:selMode,feel:selFeel,
@@ -2137,6 +2139,46 @@ function highlightCurrentPipe(scrollTo){
     hd.appendChild(badge);
   }
   if(scrollTo)setTimeout(()=>el.scrollIntoView({behavior:'smooth',block:'center'}),150);
+}
+// 戰力 vs 今日任務負荷的臨時任務建議（純前端計算，不交給LLM）
+function calcCapacityAdvice(pipes,taskNames,skipTasks,combatPower){
+  const energyMap=getTaskEnergyMap();
+  skipTasks=skipTasks||[];
+  let hiMult=1.0;
+  try{
+    const ew=JSON.parse(localStorage.getItem('cc_energy_weights')||'{}');
+    if(ew.highIntensity) hiMult=ew.highIntensity;
+  }catch(e){}
+  let load=0;
+  (taskNames||[]).filter(t=>!REST_BRICKS.includes(t)&&!skipTasks.includes(t)).forEach(t=>{
+    const lvl=energyMap[t]||'mid';
+    let w=TASK_WEIGHT[lvl]||1.0;
+    if(lvl==='high') w*=hiMult;
+    load+=w;
+  });
+  let hrs=0;
+  (pipes||[]).forEach(p=>{ if(p&&['high','mid','low'].includes(p.type)) hrs+=pipeHours(p); });
+  const cap=hrs*1.5;
+  const critical=Number(combatPower)<60;
+  if(cap<=0) return {level:'full',loadPct:0,spare:0,critical};
+  const loadPct=Math.round(load/cap*100);
+  if(critical) return {level:'full',loadPct,spare:0,critical};
+  if(load<=0.7*cap) return {level:'ok',loadPct,spare:Math.max(1,Math.floor((0.7*cap-load)/1.0)),critical};
+  return {level:'full',loadPct,spare:0,critical};
+}
+function capacityAdviceHtml(a){
+  if(!a||typeof a!=='object')return '';
+  const pct=Number(a.loadPct)||0,sp=Number(a.spare)||0;
+  let txt;
+  if(a.level==='ok') txt=`🟢 戰力應可再增加臨時任務（負荷約 ${pct}%，約還能放 ${sp} 個中耗能任務）`;
+  else if(a.critical) txt='🔴 不建議再增加臨時任務（戰力 Critical，今日以完成既有任務為主）';
+  else txt=`🟠 不建議再增加臨時任務（負荷約 ${pct}%）`;
+  return `<div class="cap-advice" style="margin-top:6px;font-size:12px;color:#6a6660;">${esc(txt)}</div>`;
+}
+function buildPipeSummaryHtml(summary,advice){
+  const adv=capacityAdviceHtml(advice);
+  if(!summary&&!adv)return '';
+  return `<div class="pipe-summary">${summary?esc(summary):''}${adv}</div>`;
 }
 function calcPipePressure(pipe,tasks,skipTasks){
   const workTasks=(tasks||[]).filter(t=>!REST_BRICKS.includes(t));
@@ -2329,7 +2371,7 @@ function renderSavedPipeSandbox(saved){
   if(schedCard)schedCard.style.display='';
   document.getElementById('taskSplitSec').style.display='none';
 
-  const sumHtml=saved.summary?`<div class="pipe-summary">${esc(saved.summary)}</div>`:'';
+  const sumHtml=buildPipeSummaryHtml(saved.summary,saved.capacityAdvice);
   const badgeLabel={high:'高能',mid:'中能',low:'輕量',rest:'休息'};
   const endH=8+Math.floor((saved.combatPower||pwr||60)/100*14);
   const pipesHtml=_pipes.map((p,i)=>{
