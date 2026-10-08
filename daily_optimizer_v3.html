@@ -2161,7 +2161,10 @@ function calcCapacityAdvice(taskNames,combatPower){
   });
   const cap=cp*CAPACITY_PER_CP;
   const r1=v=>Math.round(v*10)/10;
-  if(load+1.0<=cap) return {level:'ok',load:r1(load),cap:r1(cap),spare:Math.max(1,Math.floor(cap-load)),cp};
+  // 10-08：可參考選項＝耗能設定為中耗能、今天沒勾選的任務（依任務庫順序），生成當下存起來
+  const picked=new Set(taskNames||[]);
+  const opts=(taskData.tasks||[]).filter(t=>(t.energy||'mid')==='mid'&&!picked.has(t.text)).map(t=>t.text);
+  if(load+1.0<=cap) return {level:'ok',load:r1(load),cap:r1(cap),spare:Math.max(1,Math.floor(cap-load)),cp,opts};
   return {level:'full',load:r1(load),cap:r1(cap),spare:0,cp};
 }
 function capacityAdviceHtml(a){
@@ -2178,7 +2181,9 @@ function capacityAdviceHtml(a){
     else if(a.critical) txt='🔴 不建議再增加臨時任務（戰力 Critical，今日以完成既有任務為主）';
     else txt=`🟠 不建議再增加臨時任務（負荷約 ${pct}%）`;
   }
-  return `<div class="cap-advice" style="margin-top:6px;font-size:12px;color:#6a6660;">${esc(txt)}</div>`;
+  const opts=(a.level==='ok'&&Array.isArray(a.opts))?a.opts.filter(o=>typeof o==='string'&&o):[];
+  const optHtml=opts.length?`<div class="cap-advice-opts" style="margin-top:3px;font-size:12px;color:#7a7570;">可參考的中耗能任務：${opts.slice(0,5).map(esc).join('、')}${opts.length>5?`　等 ${opts.length} 項`:''}</div>`:'';
+  return `<div class="cap-advice" style="margin-top:6px;font-size:12px;color:#6a6660;">${esc(txt)}</div>${optHtml}`;
 }
 function buildPipeSummaryHtml(summary,advice){
   const adv=capacityAdviceHtml(advice);
