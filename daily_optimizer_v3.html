@@ -2158,10 +2158,20 @@ function readCareerGrowth(){
       c.items.forEach(it=>{
         if(!it||typeof it!=='object'||typeof it.name!=='string'||!it.name.trim())return;
         if(typeof it.status!=='string'||!Object.prototype.hasOwnProperty.call(ORDER,it.status))return;
-        out.push({name:it.name,card:cardName,status:it.status});
+        // 學習紀錄 journal：取最新有效日期；無／壞資料視為無紀錄（last=''）
+        let last='';
+        if(Array.isArray(it.journal)){
+          it.journal.forEach(j=>{
+            if(!j||typeof j!=='object'||typeof j.date!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(j.date))return;
+            if(isNaN(new Date(j.date+'T00:00:00').getTime()))return;
+            if(j.date>last)last=j.date;
+          });
+        }
+        out.push({name:it.name,card:cardName,status:it.status,last:last,idx:out.length});
       });
     });
-    out.sort((x,y)=>ORDER[x.status]-ORDER[y.status]);
+    // 同狀態內最久沒紀錄的在前（無紀錄＝最久）；日期相同依原順序
+    out.sort((x,y)=>ORDER[x.status]-ORDER[y.status]||(x.last<y.last?-1:x.last>y.last?1:0)||x.idx-y.idx);
     return out.slice(0,3);
   }catch(e){return [];}
 }
@@ -2206,7 +2216,7 @@ function capacityAdviceHtml(a){
   const opts=(a.level==='ok'&&Array.isArray(a.opts))?a.opts.filter(o=>typeof o==='string'&&o):[];
   const optHtml=opts.length?`<div class="cap-advice-opts" style="margin-top:3px;font-size:12px;color:#7a7570;">可參考的中耗能任務：${opts.slice(0,5).map(esc).join('、')}${opts.length>5?`　等 ${opts.length} 項`:''}</div>`:'';
   const gr=(a.level==='ok'&&Array.isArray(a.growth))?a.growth.filter(g=>g&&typeof g.name==='string'&&g.name).slice(0,3):[];
-  const grHtml=gr.length?`<div class="cap-advice-growth" style="margin-top:3px;font-size:12px;color:#7a7570;">長期目標可推進：${gr.map(g=>`${esc(g.name)}${g.card?`（${esc(g.card)}）`:''}（${esc(g.status)}）`).join('、')}</div>`:'';
+  const grHtml=gr.length?`<div class="cap-advice-growth" style="margin-top:3px;font-size:12px;color:#7a7570;">長期目標可推進：${gr.map(g=>`${esc(g.name)}${g.card?`（${esc(g.card)}）`:''}（${esc(g.status)}${typeof g.last==='string'?(/^\d{4}-(\d{2})-(\d{2})$/.test(g.last)?`・上次 ${g.last.slice(5,7)}/${g.last.slice(8,10)}`:'・尚無紀錄'):''}）`).join('、')}</div>`:'';
   return `<div class="cap-advice" style="margin-top:6px;font-size:12px;color:#6a6660;">${esc(txt)}</div>${optHtml}${grHtml}`;
 }
 function buildPipeSummaryHtml(summary,advice){
