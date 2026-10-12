@@ -2143,7 +2143,7 @@ function highlightCurrentPipe(scrollTo){
 // 戰力 vs 今日任務負荷的臨時任務建議（純前端計算，不交給LLM）
 // 依使用者過去覆盤校準：戰力約 50 仍可完成加權負荷約 7（7/50=0.14，取 0.15）
 const CAPACITY_PER_CP=0.15;
-// 10-12：讀 CC「未來發展四象限」cc_career_v1 第二象限細項（唯讀，不寫回；資料視為不可信）
+// 10-12：讀 CC「未來發展四象限」cc_career_v1 第二象限細項（唯讀，不寫回；資料視為不可信）；只依狀態排序，不用進度%
 function readCareerGrowth(){
   try{
     const raw=localStorage.getItem('cc_career_v1');
@@ -2158,13 +2158,10 @@ function readCareerGrowth(){
       c.items.forEach(it=>{
         if(!it||typeof it!=='object'||typeof it.name!=='string'||!it.name.trim())return;
         if(typeof it.status!=='string'||!Object.prototype.hasOwnProperty.call(ORDER,it.status))return;
-        let pr=Number(it.progress);
-        pr=Number.isFinite(pr)?Math.max(0,Math.min(100,Math.round(pr))):0;
-        if(pr>=100)return;
-        out.push({name:it.name,card:cardName,status:it.status,progress:pr});
+        out.push({name:it.name,card:cardName,status:it.status});
       });
     });
-    out.sort((x,y)=>ORDER[x.status]-ORDER[y.status]||x.progress-y.progress);
+    out.sort((x,y)=>ORDER[x.status]-ORDER[y.status]);
     return out.slice(0,3);
   }catch(e){return [];}
 }
@@ -2209,7 +2206,7 @@ function capacityAdviceHtml(a){
   const opts=(a.level==='ok'&&Array.isArray(a.opts))?a.opts.filter(o=>typeof o==='string'&&o):[];
   const optHtml=opts.length?`<div class="cap-advice-opts" style="margin-top:3px;font-size:12px;color:#7a7570;">可參考的中耗能任務：${opts.slice(0,5).map(esc).join('、')}${opts.length>5?`　等 ${opts.length} 項`:''}</div>`:'';
   const gr=(a.level==='ok'&&Array.isArray(a.growth))?a.growth.filter(g=>g&&typeof g.name==='string'&&g.name).slice(0,3):[];
-  const grHtml=gr.length?`<div class="cap-advice-growth" style="margin-top:3px;font-size:12px;color:#7a7570;">長期目標可推進：${gr.map(g=>`${esc(g.name)}${g.card?`（${esc(g.card)}）`:''}（${esc(g.status)}・${Math.max(0,Math.min(100,Math.round(Number(g.progress)||0)))}%）`).join('、')}</div>`:'';
+  const grHtml=gr.length?`<div class="cap-advice-growth" style="margin-top:3px;font-size:12px;color:#7a7570;">長期目標可推進：${gr.map(g=>`${esc(g.name)}${g.card?`（${esc(g.card)}）`:''}（${esc(g.status)}）`).join('、')}</div>`:'';
   return `<div class="cap-advice" style="margin-top:6px;font-size:12px;color:#6a6660;">${esc(txt)}</div>${optHtml}${grHtml}`;
 }
 function buildPipeSummaryHtml(summary,advice){
