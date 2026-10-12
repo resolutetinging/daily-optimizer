@@ -2167,7 +2167,16 @@ function readCareerGrowth(){
             if(j.date>last)last=j.date;
           });
         }
-        out.push({name:it.name,card:cardName,status:it.status,last:last,idx:out.length});
+        // 10-12 v1.6：topics 的 learnedAt 也參與「最久未學」（取與 journal 最新者）；學習中主題最多取 2 個（依清單順序）
+        const learning=[];
+        if(Array.isArray(it.topics)){
+          it.topics.forEach(t=>{
+            if(!t||typeof t!=='object')return;
+            if(typeof t.learnedAt==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(t.learnedAt)&&!isNaN(new Date(t.learnedAt+'T00:00:00').getTime())&&t.learnedAt>last)last=t.learnedAt;
+            if(t.state==='學習中'&&typeof t.name==='string'&&t.name.trim()&&learning.length<2)learning.push(t.name.trim().slice(0,80));
+          });
+        }
+        out.push({name:it.name,card:cardName,status:it.status,last:last,learning:learning,idx:out.length});
       });
     });
     // 同狀態內最久沒紀錄的在前（無紀錄＝最久）；日期相同依原順序
@@ -2216,7 +2225,7 @@ function capacityAdviceHtml(a){
   const opts=(a.level==='ok'&&Array.isArray(a.opts))?a.opts.filter(o=>typeof o==='string'&&o):[];
   const optHtml=opts.length?`<div class="cap-advice-opts" style="margin-top:3px;font-size:12px;color:#7a7570;">可參考的中耗能任務：${opts.slice(0,5).map(esc).join('、')}${opts.length>5?`　等 ${opts.length} 項`:''}</div>`:'';
   const gr=(a.level==='ok'&&Array.isArray(a.growth))?a.growth.filter(g=>g&&typeof g.name==='string'&&g.name).slice(0,3):[];
-  const grHtml=gr.length?`<div class="cap-advice-growth" style="margin-top:3px;font-size:12px;color:#7a7570;">長期目標可推進：${gr.map(g=>`${esc(g.name)}${g.card?`（${esc(g.card)}）`:''}（${esc(g.status)}${typeof g.last==='string'?(/^\d{4}-(\d{2})-(\d{2})$/.test(g.last)?`・上次 ${g.last.slice(5,7)}/${g.last.slice(8,10)}`:'・尚無紀錄'):''}）`).join('、')}</div>`:'';
+  const grHtml=gr.length?`<div class="cap-advice-growth" style="margin-top:3px;font-size:12px;color:#7a7570;">長期目標可推進：${gr.map(g=>{const nm=`${esc(g.name)}${g.card?`（${esc(g.card)}）`:''}`;const lg=Array.isArray(g.learning)?g.learning.filter(x=>typeof x==='string'&&x).slice(0,2):[];if(lg.length)return `${nm}：學習中 ${lg.map(esc).join('、')}`;return `${nm}（${esc(g.status)}${typeof g.last==='string'?(/^\d{4}-(\d{2})-(\d{2})$/.test(g.last)?`・上次 ${g.last.slice(5,7)}/${g.last.slice(8,10)}`:'・尚無紀錄'):''}）`;}).join('、')}</div>`:'';
   return `<div class="cap-advice" style="margin-top:6px;font-size:12px;color:#6a6660;">${esc(txt)}</div>${optHtml}${grHtml}`;
 }
 function buildPipeSummaryHtml(summary,advice){
