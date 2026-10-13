@@ -283,6 +283,7 @@ input:checked+.js-slider:before{transform:translateX(13px);}
 .hist-card-body{display:grid;grid-template-columns:2fr 1fr;gap:0;border-top:1px solid #ddd8d0;min-height:0;}
 /* left: review text */
 .hist-left{padding:10px 13px;min-width:0;}
+.hist-cp-memo{font-size:11px;line-height:1.5;color:#8a6a3a;background:#f6efe2;border-radius:6px;padding:5px 9px;margin-bottom:8px;}
 /* right: snapshot */
 .hist-right{border-left:1px solid #ddd8d0;display:flex;align-items:flex-start;padding:8px;min-width:0;overflow:hidden;}
 .hist-snapshot{width:100%;min-width:0;}
@@ -3411,6 +3412,11 @@ function renderHist(){
         +`</div>`
       :'';
 
+    // 10-13：睡眠頁 10-01～10-13 的「睡眠時數」把清醒時間也算進去，當時存下的戰力比實際偏高；
+    // 使用者決定歷史紀錄不回溯重算，只在這段期間的覆盤卡上加註
+    const cpMemoHtml=(dateStr>='2026-10-01'&&dateStr<='2026-10-13')
+      ?`<div class="hist-cp-memo">※ 此日戰力以舊算法計算（睡眠時數含清醒時間），比實際偏高；10-13 起已改為不含清醒。</div>`:'';
+
     const dayDiv=document.createElement('div');
     dayDiv.className='hist-day';
     const uid=key.replace(/[^a-z0-9]/gi,'_');
@@ -3423,7 +3429,7 @@ function renderHist(){
         <div class="hist-day-stats">${statsHtml}</div>
       </div>
       <div class="hist-card-body">
-        <div class="hist-left">${itemsHtml}${overallHtml}${aiFbHtml}</div>
+        <div class="hist-left">${cpMemoHtml}${itemsHtml}${overallHtml}${aiFbHtml}</div>
         <div class="hist-right">${snapshotHtml}</div>
       </div>
       <div class="hist-actions">
