@@ -155,6 +155,19 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue","PingFang TC"
 .js-slider:before{content:'';position:absolute;width:12px;height:12px;left:2.5px;top:2.5px;background:#fff;border-radius:50%;transition:.2s;}
 input:checked+.js-slider{background:#7a8e9e;}
 input:checked+.js-slider:before{transform:translateX(13px);}
+.cr-sel{font-size:10.5px;color:#7a7570;background:#ece8e0;border:1px solid #cec8bf;border-radius:6px;padding:2px 3px;outline:none;cursor:pointer;max-width:118px;flex-shrink:0;}
+.cr-tag{font-size:9.5px;font-weight:600;color:#4a6e8e;background:rgba(122,142,158,.14);border-radius:6px;padding:1px 5px;flex-shrink:0;white-space:nowrap;}
+.cr-tag.cr-del{color:#a07070;background:rgba(160,112,112,.13);}
+.cap-panel{background:#faf8f4;border:1px solid #ddd8d0;border-radius:10px;padding:10px 12px;margin-bottom:10px;}
+.cap-hd{font-size:11px;color:#7a7570;margin-bottom:8px;line-height:1.5;}
+.cap-row{display:flex;align-items:flex-start;gap:7px;padding:5px 0;border-bottom:1px solid #ece8e0;font-size:11.5px;color:#38342e;}
+.cap-row input{margin-top:2px;flex-shrink:0;}
+.cap-st{margin-left:auto;font-size:10px;color:#9a9088;flex-shrink:0;text-align:right;}
+.cap-st.ok{color:#2e6848;}
+.cap-st.warn{color:#a07070;}
+.cap-act{display:flex;gap:8px;align-items:center;margin-top:9px;}
+.cap-btn{padding:6px 12px;border-radius:8px;border:none;background:#7a8e9e;color:#fff;font-size:12px;cursor:pointer;}
+.cap-btn.sec{background:#ece8e0;color:#7a7570;}
 .acat-sel{font-size:11.5px;color:#7a7570;background:#ece8e0;border:1px solid #cec8bf;border-radius:6px;padding:3px 5px;outline:none;cursor:pointer;max-width:80px;flex-shrink:0;}
 .catmgr{background:#ece8e0;border-radius:8px;padding:10px 12px;margin-bottom:8px;display:none;}
 .catmgr.show{display:block;}
@@ -552,9 +565,11 @@ input:checked+.js-slider:before{transform:translateX(13px);}
   </div>
 
   <div class="stitle" style="display:flex;align-items:center;padding-right:16px;">今日任務庫
-    <button onclick="toggleCatMgr()" style="margin-left:auto;font-size:10.5px;color:#9a9088;background:none;border:none;cursor:pointer;letter-spacing:.02em;">⚙ 管理分類</button>
+    <button onclick="toggleCareerApply()" style="margin-left:auto;font-size:10.5px;color:#9a9088;background:none;border:none;cursor:pointer;letter-spacing:.02em;">套用建議對應（Career）</button>
+    <button onclick="toggleCatMgr()" style="margin-left:10px;font-size:10.5px;color:#9a9088;background:none;border:none;cursor:pointer;letter-spacing:.02em;">⚙ 管理分類</button>
   </div>
   <div class="card">
+    <div id="careerApplyPanel" class="cap-panel" style="display:none;"></div>
     <div id="catmgr" class="catmgr">
       <div id="catmgr-list"></div>
       <div class="arow" style="padding:6px 0 0;">
@@ -1316,6 +1331,162 @@ const escJsAttr=s=>escAttr((s==null?'':String(s)).replace(/\\/g,'\\\\').replace(
   .replace(/\n/g,'\\n').replace(/\r/g,'\\r')
   .replace(/\u2028/g,'\\u2028').replace(/\u2029/g,'\\u2029'));
 
+/* ── Career 對應（階段 1）：任務只存 careerRef:{cardId,itemId?}；象限即時從 cc_career_v1 讀（唯讀，資料視為不可信）── */
+const CAREER_ID_RE=/^[A-Za-z0-9_-]{1,60}$/;
+function readCareerCards(){
+  try{
+    const raw=localStorage.getItem('cc_career_v1');
+    if(!raw)return null;
+    const d=JSON.parse(raw);
+    if(!d||typeof d!=='object'||!Array.isArray(d.cards))return null;
+    const out=[];
+    d.cards.forEach(c=>{
+      if(!c||typeof c!=='object'||typeof c.id!=='string'||!CAREER_ID_RE.test(c.id)||typeof c.title!=='string'||!c.title.trim())return;
+      const q=Number(c.quadrant);
+      const items=[];
+      if(Array.isArray(c.items))c.items.forEach(it=>{
+        if(it&&typeof it==='object'&&typeof it.id==='string'&&CAREER_ID_RE.test(it.id)&&typeof it.name==='string'&&it.name.trim())items.push({id:it.id,name:it.name});
+      });
+      out.push({id:c.id,title:c.title,q:(q>=1&&q<=4)?q:0,items});
+    });
+    return out;
+  }catch(e){return null;}
+}
+function taskCareerRef(t){
+  const r=t&&t.careerRef;
+  if(!r||typeof r!=='object'||typeof r.cardId!=='string'||!r.cardId)return null;
+  return{cardId:r.cardId,itemId:(typeof r.itemId==='string'&&r.itemId)?r.itemId:null};
+}
+// 回傳 {label,del} 或 null（未對應／Career 資料不存在或壞掉＝不顯示）
+function careerTagInfo(t,cards){
+  const r=taskCareerRef(t);if(!r||!cards)return null;
+  const card=cards.find(c=>c.id===r.cardId);
+  if(!card||(r.itemId&&!card.items.some(i=>i.id===r.itemId)))return{label:'已刪除',del:true};
+  return{label:card.q===0?'未放置':'Q'+card.q,del:false};
+}
+function careerTagHtml(t){
+  const info=careerTagInfo(t,readCareerCards());
+  return info?`<span class="cr-tag${info.del?' cr-del':''}">${esc(info.label)}</span>`:'';
+}
+function careerSelectHtml(t){
+  const cards=readCareerCards();
+  const r=taskCareerRef(t);
+  const cur=r?(r.cardId+(r.itemId?'|'+r.itemId:'')):'';
+  let opts=`<option value=""${cur?'':' selected'}>未對應</option>`;
+  let found=false;
+  if(cards){
+    [1,2,3,4,0].forEach(q=>{
+      const grp=cards.filter(c=>c.q===q);if(!grp.length)return;
+      let h='';
+      grp.forEach(c=>{
+        const ql=q===0?'未放置':'Q'+q;
+        const v=c.id;
+        if(v===cur)found=true;
+        h+=`<option value="${escAttr(v)}"${v===cur?' selected':''}>${esc(ql+'・'+c.title)}</option>`;
+        c.items.forEach(i=>{
+          const iv=c.id+'|'+i.id;
+          if(iv===cur)found=true;
+          h+=`<option value="${escAttr(iv)}"${iv===cur?' selected':''}>${esc('　› '+i.name)}</option>`;
+        });
+      });
+      opts+=`<optgroup label="${escAttr(q===0?'未放置':'Q'+q)}">${h}</optgroup>`;
+    });
+  }
+  if(cur&&!found)opts+=`<option value="${escAttr(cur)}" selected>（已刪除，請重新對應）</option>`;
+  return`<select class="cr-sel" title="對應 Career 方向／細項" aria-label="對應 Career" onchange="setTaskCareer(${Number(t.id)},this.value)">${opts}</select>`;
+}
+function setTaskCareer(id,val){
+  const t=taskData.tasks.find(t=>t.id===id);if(!t)return;
+  if(!val){delete t.careerRef;}
+  else{
+    const parts=String(val).split('|');
+    const cardId=parts[0],itemId=parts[1]||'';
+    const cards=readCareerCards()||[];
+    const card=cards.find(c=>c.id===cardId);
+    if(!card||(itemId&&!card.items.some(i=>i.id===itemId)))return;
+    t.careerRef=itemId?{cardId,itemId}:{cardId};
+  }
+  saveTaskData();renderTaskLib();
+  if(document.getElementById('careerApplyPanel')?.style.display!=='none')renderCareerApply();
+}
+/* 建議對應常數表（來源：Spec/career-optimizer-integration-plan.md 第 6.1 節；names[0] 為主名稱，其餘為別名）*/
+const CAREER_SUGGEST=[
+  {names:['產業研究','半導體／AI 產業研究'],dir:'正職求職',item:'產業趨勢'},
+  {names:['英文練習'],dir:'正職求職',item:'英文能力的持續性'},
+  {names:['LinkedIn 職缺','LinkedIn 職缺快掃'],dir:'正職求職'},
+  {names:['BQ Check','BQ 面試練習'],dir:'正職求職'},
+  {names:['履歷更新'],dir:'正職求職'},
+  {names:['面試前置'],dir:'正職求職'},
+  {names:['Remote Work Opp. Check'],dir:'兼職求職'},
+  {names:['Claude Project 開發'],dir:'Claude Projects'},
+  {names:['斗數筆記學習'],dir:'紫微斗數'},
+  {names:['斗數解盤'],dir:'紫微斗數'},
+  {names:['日月閣 五行局講義 學習'],dir:'紫微斗數'},
+  {names:['小紅老師 課程學習'],dir:'紫微斗數'},
+  {names:['整理 簡少年 講義資訊'],dir:'紫微斗數'},
+  {names:['閱讀'],dir:'閱讀整理'},
+  {names:['姓名學 命理學習'],dir:'姓名學 應用'},
+  {names:['每月回顧'],dir:'Look Back on Urself'},
+  {names:['帳務處理 (帳單/ 稅)'],dir:'日常維運'},
+  {names:['地檢署文件處理'],dir:'日常維運'},
+  {names:['音樂劇行程 評估'],dir:'Stroll'},
+  {names:['2027 calendar 構思'],dir:'2027 年曆'}
+];
+const _careerNorm=s=>String(s==null?'':s).normalize('NFKC').replace(/\s+/g,'').toLowerCase();
+let _careerApplyRows=[];
+function computeCareerApply(){
+  const cards=readCareerCards();
+  return CAREER_SUGGEST.map(sg=>{
+    const row={label:sg.names[0],dir:sg.dir,item:sg.item||'',taskId:null,ref:null,state:'',text:'',checked:false};
+    const nn=sg.names.map(_careerNorm);
+    const task=taskData.tasks.find(t=>nn.includes(_careerNorm(t.text)));
+    if(!task){row.state='x';row.text='找不到任務';return row;}
+    row.taskId=task.id;row.label=task.text;
+    if(!cards){row.state='x';row.text='找不到方向（未讀到 Career 資料）';return row;}
+    const card=cards.find(c=>_careerNorm(c.title)===_careerNorm(sg.dir));
+    if(!card){row.state='x';row.text='找不到方向';return row;}
+    let ref={cardId:card.id};
+    if(sg.item){
+      const it=card.items.find(i=>_careerNorm(i.name)===_careerNorm(sg.item));
+      if(!it){row.state='x';row.text='找不到細項';return row;}
+      ref.itemId=it.id;
+    }
+    row.ref=ref;
+    const cur=taskCareerRef(task);
+    if(cur&&cur.cardId===ref.cardId&&(cur.itemId||'')===(ref.itemId||'')){row.state='same';row.text='已是此對應';return row;}
+    if(cur&&careerTagInfo(task,cards).del){row.state='ok';row.text='原對應已刪除，可重新對應';row.checked=true;return row;}
+    if(cur){row.state='over';row.text='任務已有對應（勾選將覆蓋）';return row;}
+    row.state='ok';row.text='可套用';row.checked=true;return row;
+  });
+}
+function toggleCareerApply(){
+  const p=document.getElementById('careerApplyPanel');if(!p)return;
+  if(p.style.display==='none'){renderCareerApply();p.style.display='';}
+  else p.style.display='none';
+}
+function renderCareerApply(msg){
+  const p=document.getElementById('careerApplyPanel');if(!p)return;
+  _careerApplyRows=computeCareerApply();
+  const rows=_careerApplyRows.map((r,i)=>{
+    const can=r.state==='ok'||r.state==='over';
+    const cls=r.state==='ok'?'ok':(r.state==='x'?'warn':'');
+    return`<label class="cap-row"><input type="checkbox" id="cap-chk-${i}" ${r.checked?'checked':''} ${can?'':'disabled'}><span>${esc(r.label)} → ${esc(r.dir+(r.item?' › '+r.item:''))}</span><span class="cap-st ${cls}">${esc(r.text)}</span></label>`;
+  }).join('');
+  p.innerHTML=`<div class="cap-hd">依 Career 目前的方向／細項名稱比對；勾選後按「套用」才會寫入，不會自動執行。${msg?'<br><b>'+esc(msg)+'</b>':''}</div>${rows}<div class="cap-act"><button class="cap-btn" onclick="applyCareerSuggest()">套用</button><button class="cap-btn sec" onclick="toggleCareerApply()">關閉</button></div>`;
+}
+function applyCareerSuggest(){
+  let n=0;
+  _careerApplyRows.forEach((r,i)=>{
+    const chk=document.getElementById('cap-chk-'+i);
+    if(!chk||!chk.checked||chk.disabled||!r.ref||r.taskId==null)return;
+    const t=taskData.tasks.find(t=>t.id===r.taskId);if(!t)return;
+    t.careerRef=r.ref.itemId?{cardId:r.ref.cardId,itemId:r.ref.itemId}:{cardId:r.ref.cardId};n++;
+  });
+  if(n)saveTaskData();
+  renderTaskLib();
+  renderCareerApply('已套用 '+n+' 項');
+}
+
 function renderTaskLib(){
   const el=document.getElementById('tlist');el.innerHTML='';
   const catSel=document.getElementById('ainput-cat');
@@ -1338,9 +1509,9 @@ function renderTaskLib(){
       const toggleHtml=`<label class="ti-onoff" title="${isJobCat?jobToggleTitle:(isOn?'點擊：從行程移除':'點擊：加入行程')}"><input type="checkbox" ${isOn?'checked':''} onchange="toggleTaskActive(${Number(t.id)},this.checked)"><span class="ti-onoff-sl"></span></label>`;
       d.innerHTML=`<div class="ti-dot"></div>
         <div contenteditable="true" class="tt" onblur="upt(${Number(t.id)},this.textContent.trim())" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur()}">${esc(t.text)}</div>
-        ${toggleHtml}<span class="dh">⠿</span><span class="db" onclick="del(${Number(t.id)})">×</span>`;
+        ${careerTagHtml(t)}${careerSelectHtml(t)}${toggleHtml}<span class="dh">⠿</span><span class="db" onclick="del(${Number(t.id)})">×</span>`;
       d.addEventListener('dragstart',function(e){
-        if(e.target.isContentEditable||e.target.tagName==='INPUT'||e.target.tagName==='BUTTON'){e.preventDefault();return;}
+        if(e.target.isContentEditable||e.target.tagName==='INPUT'||e.target.tagName==='BUTTON'||e.target.tagName==='SELECT'){e.preventDefault();return;}
         dragSrc=this;this.classList.add('drag');
       });
       d.addEventListener('dragover',e=>e.preventDefault());
@@ -2057,7 +2228,7 @@ function renderBrickPool(){
     const cntBadge=cnt?`<span class="brick-cnt">×${cnt}</span>`:'';
     const cat=taskData.categories.find(c=>c.key===t.catKey);
     const catTag=cat?`<span style="font-size:9px;opacity:.55;margin-left:3px;">[${esc(cat.label)}]</span>`:'';
-    return`<div class="${cls}" id="brick-${i}" onclick="onBrickClick('${escJsAttr(t.text)}',${i})">${dot}${esc(t.text)}${catTag}${cntBadge}</div>`;
+    return`<div class="${cls}" id="brick-${i}" onclick="onBrickClick('${escJsAttr(t.text)}',${i})">${dot}${esc(t.text)}${catTag}${careerTagHtml(t)}${cntBadge}</div>`;
   }).join('');
   // 臨時自訂積木
   const offset=tasks.length;
