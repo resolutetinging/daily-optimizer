@@ -155,7 +155,18 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue","PingFang TC"
 .js-slider:before{content:'';position:absolute;width:12px;height:12px;left:2.5px;top:2.5px;background:#fff;border-radius:50%;transition:.2s;}
 input:checked+.js-slider{background:#7a8e9e;}
 input:checked+.js-slider:before{transform:translateX(13px);}
-.cr-sel{font-size:10.5px;color:#7a7570;background:#ece8e0;border:1px solid #cec8bf;border-radius:6px;padding:2px 3px;outline:none;cursor:pointer;max-width:118px;flex-shrink:0;}
+.cr-tagbtn{font-family:inherit;font-size:9.5px;font-weight:600;color:#4a6e8e;background:rgba(122,142,158,.14);border:none;border-radius:6px;padding:1px 5px;flex-shrink:0;white-space:nowrap;cursor:pointer;line-height:1.4;}
+.cr-tagbtn.cr-del{color:#a07070;background:rgba(160,112,112,.13);}
+.cr-tagbtn.cr-add{width:18px;height:18px;padding:0;border-radius:50%;font-size:12px;font-weight:500;color:#9a9088;background:rgba(122,142,158,.10);display:inline-flex;align-items:center;justify-content:center;}
+.cr-tagbtn:hover,.cr-tagbtn.cr-open{background:rgba(122,142,158,.28);}
+.cr-pop{position:fixed;z-index:9999;width:260px;max-width:calc(100vw - 16px);overflow-y:auto;background:#f7f4ee;border:1px solid #cec8bf;border-radius:10px;box-shadow:0 6px 20px rgba(60,50,40,.18);padding:4px 0;}
+.cr-pop-cur{padding:8px 12px;font-size:11px;color:#7a7570;border-bottom:1px solid #ece8e0;word-break:break-all;}
+.cr-pop-grp{padding:6px 12px 2px;font-size:9.5px;font-weight:600;color:#9a9088;}
+.cr-pop-opt{display:flex;align-items:center;min-height:34px;padding:4px 12px;font-size:12px;color:#4a4540;cursor:pointer;word-break:break-all;}
+.cr-pop-opt:hover{background:#ece8e0;}
+.cr-pop-opt.sel{background:rgba(122,142,158,.22);font-weight:600;}
+.cr-pop-opt.sel:after{content:'✓';margin-left:auto;padding-left:8px;color:#4a6e8e;}
+.cr-pop-opt.gone{color:#a07070;cursor:default;}
 .cr-tag{font-size:9.5px;font-weight:600;color:#4a6e8e;background:rgba(122,142,158,.14);border-radius:6px;padding:1px 5px;flex-shrink:0;white-space:nowrap;}
 .cr-tag.cr-del{color:#a07070;background:rgba(160,112,112,.13);}
 .cap-panel{background:#faf8f4;border:1px solid #ddd8d0;border-radius:10px;padding:10px 12px;margin-bottom:10px;}
@@ -1369,33 +1380,81 @@ function careerTagHtml(t){
   const info=careerTagInfo(t,readCareerCards());
   return info?`<span class="cr-tag${info.del?' cr-del':''}">${esc(info.label)}</span>`:'';
 }
-function careerSelectHtml(t){
+// 任務庫列上的象限標籤／「＋」按鈕：點開 popover 設定對應（選項與資料格式同原下拉）
+function careerLibBtnHtml(t){
+  const info=careerTagInfo(t,readCareerCards());
+  const id=Number(t.id);
+  if(!info)return`<button type="button" class="cr-tagbtn cr-add" id="crbtn-${id}" title="對應 Career" aria-label="對應 Career" onclick="openCareerPop(event,${id})">＋</button>`;
+  return`<button type="button" class="cr-tagbtn${info.del?' cr-del':''}" id="crbtn-${id}" title="對應 Career 方向／細項" aria-label="對應 Career" onclick="openCareerPop(event,${id})">${esc(info.label)}</button>`;
+}
+let _crPopTid=null;
+function closeCareerPop(){
+  const p=document.getElementById('careerPop');if(p)p.remove();
+  if(_crPopTid!=null){const b=document.getElementById('crbtn-'+_crPopTid);if(b)b.classList.remove('cr-open');}
+  _crPopTid=null;
+}
+function openCareerPop(ev,id){
+  if(ev)ev.stopPropagation();
+  const same=(_crPopTid===id);
+  closeCareerPop();
+  if(same)return;
+  const t=taskData.tasks.find(t=>t.id===id);const btn=document.getElementById('crbtn-'+id);
+  if(!t||!btn)return;
   const cards=readCareerCards();
   const r=taskCareerRef(t);
   const cur=r?(r.cardId+(r.itemId?'|'+r.itemId:'')):'';
-  let opts=`<option value=""${cur?'':' selected'}>未對應</option>`;
-  let found=false;
+  let found=false,curText='未對應';
+  const opt=(v,label,isSel)=>`<div class="cr-pop-opt${isSel?' sel':''}" role="option" data-v="${escAttr(v)}" onclick="pickCareer(${id},this.dataset.v)">${esc(label)}</div>`;
+  let h=opt('','未對應',!cur);
   if(cards){
     [1,2,3,4,0].forEach(q=>{
       const grp=cards.filter(c=>c.q===q);if(!grp.length)return;
-      let h='';
+      const ql=q===0?'未放置':'Q'+q;
+      h+=`<div class="cr-pop-grp">${esc(ql)}</div>`;
       grp.forEach(c=>{
-        const ql=q===0?'未放置':'Q'+q;
-        const v=c.id;
-        if(v===cur)found=true;
-        h+=`<option value="${escAttr(v)}"${v===cur?' selected':''}>${esc(ql+'・'+c.title)}</option>`;
+        if(c.id===cur){found=true;curText=ql+'・'+c.title;}
+        h+=opt(c.id,ql+'・'+c.title,c.id===cur);
         c.items.forEach(i=>{
           const iv=c.id+'|'+i.id;
-          if(iv===cur)found=true;
-          h+=`<option value="${escAttr(iv)}"${iv===cur?' selected':''}>${esc('　› '+i.name)}</option>`;
+          if(iv===cur){found=true;curText=ql+'・'+c.title+' › '+i.name;}
+          h+=opt(iv,'　› '+i.name,iv===cur);
         });
       });
-      opts+=`<optgroup label="${escAttr(q===0?'未放置':'Q'+q)}">${h}</optgroup>`;
     });
   }
-  if(cur&&!found)opts+=`<option value="${escAttr(cur)}" selected>（已刪除，請重新對應）</option>`;
-  return`<select class="cr-sel" title="對應 Career 方向／細項" aria-label="對應 Career" onchange="setTaskCareer(${Number(t.id)},this.value)">${opts}</select>`;
+  if(cur&&!found){curText='已刪除，請重新對應';h+=`<div class="cr-pop-opt sel gone">（已刪除，請重新對應）</div>`;}
+  const pop=document.createElement('div');
+  pop.id='careerPop';pop.className='cr-pop';pop.setAttribute('role','listbox');
+  pop.innerHTML=`<div class="cr-pop-cur">${esc('目前：'+curText)}</div>${h}`;
+  pop.style.visibility='hidden';pop.style.left='0px';pop.style.top='0px';
+  document.body.appendChild(pop);
+  const vw=document.documentElement.clientWidth,vh=window.innerHeight;
+  const rc=btn.getBoundingClientRect();
+  pop.style.maxHeight=Math.min(320,vh-16)+'px';
+  const w=pop.offsetWidth,ph=pop.offsetHeight;
+  let left=Math.min(Math.max(8,rc.left),vw-w-8);
+  let top=rc.bottom+4;
+  if(top+ph>vh-8){
+    const up=rc.top-4-ph;
+    top=up>=8?up:Math.max(8,vh-ph-8);
+  }
+  pop.style.left=left+'px';pop.style.top=top+'px';pop.style.visibility='';
+  btn.classList.add('cr-open');
+  _crPopTid=id;
+  const sel=pop.querySelector('.cr-pop-opt.sel');if(sel&&sel.scrollIntoView)sel.scrollIntoView({block:'nearest'});
 }
+function pickCareer(id,val){
+  closeCareerPop();
+  setTaskCareer(id,val);
+}
+document.addEventListener('mousedown',e=>{
+  if(_crPopTid==null)return;
+  if(e.target.closest&&(e.target.closest('#careerPop')||e.target.closest('.cr-tagbtn')))return;
+  closeCareerPop();
+});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&_crPopTid!=null)closeCareerPop();});
+window.addEventListener('resize',closeCareerPop);
+window.addEventListener('scroll',e=>{if(_crPopTid!=null&&!(e.target&&e.target.id==='careerPop'))closeCareerPop();},true);
 function setTaskCareer(id,val){
   const t=taskData.tasks.find(t=>t.id===id);if(!t)return;
   if(!val){delete t.careerRef;}
@@ -1489,6 +1548,7 @@ function applyCareerSuggest(){
 }
 
 function renderTaskLib(){
+  closeCareerPop();
   const el=document.getElementById('tlist');el.innerHTML='';
   const catSel=document.getElementById('ainput-cat');
   if(catSel)catSel.innerHTML=taskData.categories.map(c=>`<option value="${escAttr(c.key)}">${esc(c.label)}</option>`).join('');
@@ -1510,7 +1570,7 @@ function renderTaskLib(){
       const toggleHtml=`<label class="ti-onoff" title="${isJobCat?jobToggleTitle:(isOn?'點擊：從行程移除':'點擊：加入行程')}"><input type="checkbox" ${isOn?'checked':''} onchange="toggleTaskActive(${Number(t.id)},this.checked)"><span class="ti-onoff-sl"></span></label>`;
       d.innerHTML=`<div class="ti-dot"></div>
         <div contenteditable="true" class="tt" onblur="upt(${Number(t.id)},this.textContent.trim())" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur()}">${esc(t.text)}</div>
-        ${careerTagHtml(t)}${careerSelectHtml(t)}${toggleHtml}<span class="dh">⠿</span><span class="db" onclick="del(${Number(t.id)})">×</span>`;
+        ${careerLibBtnHtml(t)}${toggleHtml}<span class="dh">⠿</span><span class="db" onclick="del(${Number(t.id)})">×</span>`;
       d.addEventListener('dragstart',function(e){
         if(e.target.isContentEditable||e.target.tagName==='INPUT'||e.target.tagName==='BUTTON'||e.target.tagName==='SELECT'){e.preventDefault();return;}
         dragSrc=this;this.classList.add('drag');
