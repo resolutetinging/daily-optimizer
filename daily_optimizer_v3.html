@@ -622,6 +622,7 @@ input:checked+.js-slider:before{transform:translateX(13px);}
       </div>
       <div id="restNoteDisplay" class="rest-note-display"></div>
       <div id="reviewList"></div>
+      <div id="crefDist" style="display:none;font-size:11.5px;color:#4a6e8e;margin:8px 2px 0;line-height:1.5;"></div>
       <div class="add-ri-row">
         <input class="add-ri-input" id="addRiInput" placeholder="＋ 自訂項目（Enter 新增）" onkeydown="addReviewItem(event)">
         <button class="add-ri-btn" onclick="addReviewItemBtn()">新增</button>
@@ -2794,6 +2795,7 @@ function renderReviewFromItems(){
     if(item.status) applyStatus(i,item.status);
     if(item.status||item.feedback) document.getElementById(`fb-${i}`).classList.add('show');
   });
+  renderCrefDist();
 }
 
 function deleteReviewItem(idx){
@@ -2815,15 +2817,69 @@ function applyStatus(idx,val){
   });
 }
 
+// ── 階段2a：覆盤 cref 快照（q＝存檔當下 Career 方向象限；之後方向搬象限不回溯）──
+function sanitizeCref(c){
+  if(!c||typeof c!=='object'||typeof c.cardId!=='string'||!c.cardId)return null;
+  const q=Number(c.q);
+  if(!(q>=0&&q<=4))return null;
+  return{cardId:c.cardId,itemId:(typeof c.itemId==='string'&&c.itemId)?c.itemId:null,q:Math.floor(q)};
+}
+function buildCref(name,cards){
+  if(!cards||!name)return null;
+  const t=taskData.tasks.find(x=>x&&x.text===name&&taskCareerRef(x));
+  if(!t)return null;
+  const r=taskCareerRef(t);
+  const card=cards.find(c=>c.id===r.cardId);
+  if(!card)return null;
+  const o={cardId:card.id,q:card.q,cardTitle:card.title};
+  if(r.itemId){
+    const it=card.items.find(i=>i.id===r.itemId);
+    if(!it)return null;
+    o.itemId=it.id;o.itemName=it.name;
+  }
+  return o;
+}
+function crefDistText(items){
+  const g={};
+  (items||[]).forEach(it=>{
+    const c=it&&sanitizeCref(it.cref);if(!c)return;
+    const g1=g[c.q]||(g[c.q]={n:0,d:0});
+    g1.n++;if(it.status==='done')g1.d++;
+  });
+  const parts=[];
+  [1,2,3,4,0].forEach(q=>{
+    if(!g[q])return;
+    parts.push((q===0?'未放置':'Q'+q)+' '+g[q].n+' 項（完成 '+g[q].d+'）');
+  });
+  return parts.join('・');
+}
+function renderCrefDist(){
+  const el=document.getElementById('crefDist');
+  if(!el)return;
+  let txt='';
+  try{const d=JSON.parse(localStorage.getItem(displayKey)||'{}');txt=crefDistText(d.items);}catch(e){}
+  el.textContent=txt?'Career 象限分布：'+txt:'';
+  el.style.display=txt?'block':'none';
+}
+
 async function saveReview(){
   const overall=document.getElementById('overallFeedback').value.trim();
   const existing=JSON.parse(localStorage.getItem(displayKey)||'{}');
+  // 階段2a：只在儲存「今天」覆盤時寫 cref 快照；過去日期只保留既有 cref、不補
+  const _isToday=displayKey===todayKey();
+  const _oldCref={};
+  if(Array.isArray(existing.items))existing.items.forEach(o=>{if(o&&o.name&&sanitizeCref(o.cref)&&!_oldCref[o.name])_oldCref[o.name]=o.cref;});
+  const _careerCards=_isToday?readCareerCards():null;
   const data={...existing,items:reviewItems.map(i=>{
     const est=_durEstimates[i.name]||{};
-    return{name:i.name,status:i.status,feedback:i.feedback,
+    const row={name:i.name,status:i.status,feedback:i.feedback,
            idealMin:est.ideal||null,actualMin:est.actual||null};
+    const cref=(_isToday&&buildCref(i.name,_careerCards))||_oldCref[i.name]||null;
+    if(cref)row.cref=cref;
+    return row;
   }),overall,savedAt:new Date().toISOString()};
   localStorage.setItem(displayKey,JSON.stringify(data));
+  renderCrefDist();
   logOverloadDay(data,displayKey.replace('review_',''));
   const toast=document.getElementById('savedToast');
   toast.style.display='block';
@@ -3573,6 +3629,8 @@ function renderHist(){
         ${item.feedback?`<div class="hist-item-fb">${esc(item.feedback)}</div>`:''}
       </div>`).join('');
 
+    const _crefTxt=crefDistText(items);
+    const crefHtml=_crefTxt?`<div class="hist-item-fb" style="color:#4a6e8e;margin-top:6px">Career 象限分布：${esc(_crefTxt)}</div>`:'';
     const overallHtml=data.overall
       ?`<div class="hist-overall"><div class="hist-overall-label">整體反饋</div><div style="white-space:pre-wrap">${esc(data.overall.trim().replace(/\n{2,}/g,'\n'))}</div></div>`:'';
     // 09-08前存的是純文字舊格式，之後是結構化物件；兩種都要能正常顯示
@@ -3601,7 +3659,7 @@ function renderHist(){
         <div class="hist-day-stats">${statsHtml}</div>
       </div>
       <div class="hist-card-body">
-        <div class="hist-left">${cpMemoHtml}${itemsHtml}${overallHtml}${aiFbHtml}</div>
+        <div class="hist-left">${cpMemoHtml}${itemsHtml}${crefHtml}${overallHtml}${aiFbHtml}</div>
         <div class="hist-right">${snapshotHtml}</div>
       </div>
       <div class="hist-actions">
