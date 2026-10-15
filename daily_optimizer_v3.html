@@ -1935,7 +1935,7 @@ function renderOut(r){
     const _n=(item.tag==='cal'&&(!item.task||item.task==='cal'))?'':(item.note||'');
     const _cl=item.tag!=='cal'&&item.tag!=='break'?getTaskCatLabel(_t):null;
     const _td=_cl?`<span class="si-cat-lbl">[${esc(_cl)}]</span>${esc(_t)}`:esc(_t);
-    d.innerHTML=`<div class="tlbl">${esc(item.time||'')}</div><div class="sb"><div class="stask-row"><div class="stask">${_td}</div>${item.tag?`<span class="tag ${Object.prototype.hasOwnProperty.call(tc,item.tag)?tc[item.tag]:'t-m'}">${esc(tl[item.tag]||item.tag)}</span>`:''}</div>${_n?`<div class="snote">${esc(_n)}</div>`:''}</div>`;
+    d.innerHTML=`<div class="tlbl">${esc(item.time||'')}</div><div class="sb"><div class="stask-row"><div class="stask">${_td}</div>${item.tag?`<span class="tag ${Object.prototype.hasOwnProperty.call(tc,item.tag)?tc[item.tag]:'t-m'}">${esc((Object.prototype.hasOwnProperty.call(tl,item.tag)?tl[item.tag]:'')||item.tag)}</span>`:''}</div>${_n?`<div class="snote">${esc(_n)}</div>`:''}</div>`;
     sc.appendChild(d);
   });
 
@@ -3327,7 +3327,7 @@ function renderSavedSchedule(saved){
     const _n=(item.tag==='cal'&&(!item.task||item.task==='cal'))?'':(item.note||'');
     const _cl=item.tag!=='cal'&&item.tag!=='break'?getTaskCatLabel(_t):null;
     const _td=_cl?`<span class="si-cat-lbl">[${esc(_cl)}]</span>${esc(_t)}`:esc(_t);
-    d.innerHTML=`<div class="tlbl">${esc(item.time||'')}</div><div class="sb"><div class="stask-row"><div class="stask">${_td}</div>${item.tag?`<span class="tag ${Object.prototype.hasOwnProperty.call(tc,item.tag)?tc[item.tag]:'t-m'}">${esc(tl[item.tag]||item.tag)}</span>`:''}</div>${_n?`<div class="snote">${esc(_n)}</div>`:''}</div>`;
+    d.innerHTML=`<div class="tlbl">${esc(item.time||'')}</div><div class="sb"><div class="stask-row"><div class="stask">${_td}</div>${item.tag?`<span class="tag ${Object.prototype.hasOwnProperty.call(tc,item.tag)?tc[item.tag]:'t-m'}">${esc((Object.prototype.hasOwnProperty.call(tl,item.tag)?tl[item.tag]:'')||item.tag)}</span>`:''}</div>${_n?`<div class="snote">${esc(_n)}</div>`:''}</div>`;
     sc.appendChild(d);
   });
   const selectedNames=(saved.aiScheduled||[]).map(s=>s.task);
