@@ -1935,7 +1935,7 @@ function renderOut(r){
     const _n=(item.tag==='cal'&&(!item.task||item.task==='cal'))?'':(item.note||'');
     const _cl=item.tag!=='cal'&&item.tag!=='break'?getTaskCatLabel(_t):null;
     const _td=_cl?`<span class="si-cat-lbl">[${esc(_cl)}]</span>${esc(_t)}`:esc(_t);
-    d.innerHTML=`<div class="tlbl">${esc(item.time||'')}</div><div class="sb"><div class="stask-row"><div class="stask">${_td}</div>${item.tag?`<span class="tag ${tc[item.tag]||'t-m'}">${esc(tl[item.tag]||item.tag)}</span>`:''}</div>${_n?`<div class="snote">${esc(_n)}</div>`:''}</div>`;
+    d.innerHTML=`<div class="tlbl">${esc(item.time||'')}</div><div class="sb"><div class="stask-row"><div class="stask">${_td}</div>${item.tag?`<span class="tag ${Object.prototype.hasOwnProperty.call(tc,item.tag)?tc[item.tag]:'t-m'}">${esc(tl[item.tag]||item.tag)}</span>`:''}</div>${_n?`<div class="snote">${esc(_n)}</div>`:''}</div>`;
     sc.appendChild(d);
   });
 
@@ -3327,7 +3327,7 @@ function renderSavedSchedule(saved){
     const _n=(item.tag==='cal'&&(!item.task||item.task==='cal'))?'':(item.note||'');
     const _cl=item.tag!=='cal'&&item.tag!=='break'?getTaskCatLabel(_t):null;
     const _td=_cl?`<span class="si-cat-lbl">[${esc(_cl)}]</span>${esc(_t)}`:esc(_t);
-    d.innerHTML=`<div class="tlbl">${esc(item.time||'')}</div><div class="sb"><div class="stask-row"><div class="stask">${_td}</div>${item.tag?`<span class="tag ${tc[item.tag]||'t-m'}">${esc(tl[item.tag]||item.tag)}</span>`:''}</div>${_n?`<div class="snote">${esc(_n)}</div>`:''}</div>`;
+    d.innerHTML=`<div class="tlbl">${esc(item.time||'')}</div><div class="sb"><div class="stask-row"><div class="stask">${_td}</div>${item.tag?`<span class="tag ${Object.prototype.hasOwnProperty.call(tc,item.tag)?tc[item.tag]:'t-m'}">${esc(tl[item.tag]||item.tag)}</span>`:''}</div>${_n?`<div class="snote">${esc(_n)}</div>`:''}</div>`;
     sc.appendChild(d);
   });
   const selectedNames=(saved.aiScheduled||[]).map(s=>s.task);
@@ -3798,7 +3798,7 @@ function buildMiniPipeView(data){
       <div class="hist-task-row">
         <span class="hist-task-name" title="${escAttr(tk.name)}">${esc(tk.name)}</span>
         ${tk.min?`<span class="hist-task-min">${esc(tk.min)}分</span>`:''}
-        <span class="hist-task-st" style="color:${stCol[tk.status]||'#b0a898'}">${stSym[tk.status]||'·'}</span>
+        <span class="hist-task-st" style="color:${Object.prototype.hasOwnProperty.call(stCol,tk.status)?stCol[tk.status]:'#b0a898'}">${Object.prototype.hasOwnProperty.call(stSym,tk.status)?stSym[tk.status]:'·'}</span>
       </div>`).join('');
     return`<div class="hist-type-group">
       <div class="hist-type-hd">
@@ -3922,6 +3922,7 @@ async function syncToGist(){
   const payload=JSON.stringify({version:1,syncedAt:new Date().toISOString(),reviews},null,2);
   const gistId=getGistId();
   showGistStatus('⏳ 正在推送到雲端…','');
+  if(gistId&&!/^[0-9a-f]{20,40}$/i.test(gistId)){showGistStatus('❌ Gist ID 格式不正確，已中止','err');return;}
   try{
     let resp;
     if(gistId){
@@ -3945,6 +3946,7 @@ async function syncFromGist(){
   const token=getGistToken(),gistId=getGistId();
   if(!token){showGistStatus('請先設定 GitHub Token','err');return;}
   if(!gistId){showGistStatus('請先在 Mac 推送建立 Gist','err');return;}
+  if(!/^[0-9a-f]{20,40}$/i.test(gistId)){showGistStatus('❌ Gist ID 格式不正確，已中止','err');return;}
   showGistStatus('⏳ 正在從雲端讀取…','');
   try{
     const resp=await fetch(`https://api.github.com/gists/${gistId}`,{
