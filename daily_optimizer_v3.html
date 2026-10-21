@@ -596,6 +596,7 @@ input:checked+.js-slider:before{transform:translateX(13px);}
         <input class="catmgr-addinput" id="catmgr-input" placeholder="新增分類名稱…" onkeydown="addCat(event)">
       </div>
     </div>
+    <div id="capLive"></div><!-- 10-21：臨時任務建議即時預估 -->
     <div id="tlist"></div>
     <div class="arow" style="gap:8px;">
       <div style="width:6px;height:6px;border-radius:50%;background:#ddd8d0;flex-shrink:0;margin-left:2px;opacity:.5"></div>
@@ -887,6 +888,7 @@ function calSync(){
     lines.push(t+(r._hi?' 🔥':''));
   });
   document.getElementById('calInput').value=lines.join('\n');
+  updateCapLive(); // 10-21：行程（含🔥）變動時即時更新
 }
 function calSetBtn(r){
   const b=r.querySelector('.cal-eb');
@@ -1355,6 +1357,7 @@ function setPwr(v){
   ps.textContent=lvLabel;
   ps.style.color=rc;
   document.getElementById('pdesc').textContent=lvDesc;
+  updateCapLive(); // 10-21：戰力載入後即時更新
 }
 function setFS(st,txt){
   const fdot=document.getElementById('fdot'),ftxt=document.getElementById('ftxt');
@@ -1698,6 +1701,7 @@ function applyCareerSuggest(){
 
 function renderTaskLib(){
   closeCareerPop();
+  updateCapLive(); // 10-21：任務庫開關變動時即時更新臨時任務建議
   const el=document.getElementById('tlist');el.innerHTML='';
   const catSel=document.getElementById('ainput-cat');
   if(catSel)catSel.innerHTML=taskData.categories.map(c=>`<option value="${escAttr(c.key)}">${esc(c.label)}</option>`).join('');
@@ -2619,6 +2623,16 @@ function capacityAdviceHtml(a){
   const gr=(a.level==='ok'&&Array.isArray(a.growth))?a.growth.filter(g=>g&&typeof g.name==='string'&&g.name).slice(0,3):[];
   const grHtml=gr.length?`<div class="cap-advice-growth" style="margin-top:3px;font-size:12px;color:#7a7570;">長期目標可推進：${gr.map(g=>{const nm=`${esc(g.name)}${g.card?`（${esc(g.card)}）`:''}`;const lg=Array.isArray(g.learning)?g.learning.filter(x=>typeof x==='string'&&x).slice(0,2):[];if(lg.length)return `${nm}：掌握一些 ${lg.map(esc).join('、')}`;return `${nm}（${esc(g.status)}）`;}).join('、')}</div>`:'';
   return `<div class="cap-advice" style="margin-top:6px;font-size:12px;color:#6a6660;">${esc(txt)}</div>${optHtml}${grHtml}`;
+}
+/* ── 10-21：臨時任務建議即時預估（任務庫上方），與生成後 pipe-summary 同一公式；
+   生成後那行是存檔快照不動。初始化時 taskData／_tempBricks 可能尚未就緒，一律 try 包住 ── */
+function updateCapLive(){
+  const el=document.getElementById('capLive');if(!el)return;
+  try{
+    let tb=[];try{tb=Array.isArray(_tempBricks)?_tempBricks:[];}catch(e){}
+    const a=pwr?calcCapacityAdvice([...getEffectiveTasks().map(t=>t.text),...tb],pwr,document.getElementById('calInput').value.trim()):null;
+    el.innerHTML=a?`<div style="margin:0 0 8px;padding:8px 10px;border-radius:8px;background:rgba(176,152,112,.08);"><div style="font-size:10.5px;color:#9a9088;letter-spacing:.02em;">即時預估（隨任務庫開關、今日行程更新）</div>${capacityAdviceHtml(a)}</div>`:'';
+  }catch(e){el.innerHTML='';}
 }
 function buildPipeSummaryHtml(summary,advice){
   const adv=capacityAdviceHtml(advice);
