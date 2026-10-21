@@ -112,6 +112,14 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue","PingFang TC"
 .wrap{margin:0 16px 9px;}
 .area{width:100%;padding:12px 14px;border-radius:10px;border:1px solid #cec8bf;background:#f4f1ec;font-size:14px;color:#38342e;resize:none;font-family:inherit;outline:none;line-height:1.6;}
 #calInput{resize:vertical;min-height:80px;}
+/* 10-21：行程改為一列一個輸入框＋耗能按鈕（#calInput 隱藏作為序列化目標） */
+.cal-row{margin-bottom:7px;}
+.cal-row-main{display:flex;align-items:center;gap:6px;}
+.cal-row-main .cal-txt{flex:1;min-width:0;width:auto;}
+.cal-eb{flex-shrink:0;padding:9px 11px;border-radius:10px;border:1.5px solid #cec8bf;background:#f4f1ec;font-size:15px;line-height:1.2;cursor:pointer;font-family:inherit;}
+.cal-eb.on{border-color:#a08878;background:rgba(160,136,120,.09);}
+.cal-warn{font-size:11.5px;color:#a8845a;margin:3px 4px 0;}
+.cal-warn:empty{display:none;}
 .area::placeholder{color:#aaa49c;}
 .area:focus{border-color:#7a8e9e;}
 .minput{width:100%;padding:12px 14px;border-radius:10px;border:1px solid #cec8bf;background:#f4f1ec;font-size:14px;color:#38342e;font-family:inherit;outline:none;}
@@ -564,10 +572,10 @@ input:checked+.js-slider:before{transform:translateX(13px);}
 
   <div class="stitle">📅 今日行程（從 Google Calendar 複製）</div>
   <div class="wrap">
-    <textarea class="area" id="calInput" rows="4" placeholder="例：
-10:00 皮膚科回診
-14:30 視訊面試 TSMC
-18:00 朋友晚餐"></textarea>
+    <!-- 10-21：一列一個行程；🔥=高耗能、☕=一般。#calInput 隱藏，存檔／生成沿用其文字（高耗能列行尾加 🔥） -->
+    <div id="calRows"></div>
+    <button type="button" class="feel-add-btn" id="calAddBtn" style="width:100%;" onclick="calAddRow('')">＋ 新增一列</button>
+    <textarea class="area" id="calInput" rows="4" style="display:none"></textarea>
   </div>
 
   <div class="stitle">補充說明（選填）</div>
@@ -822,7 +830,7 @@ function buildHintFromTasks(pipeType, tasks){
 function parseCalNames(raw){
   if(!raw)return new Set();
   return new Set(raw.split('\n')
-    .map(l=>l.replace(/^\s*\d{1,2}[:：]\d{2}\s*(?:[-–—~～]\s*\d{1,2}[:：]\d{2})?\s*/,'').trim())
+    .map(l=>l.replace(/^\s*\d{1,2}[:：]\d{2}\s*(?:[-–—~～]\s*\d{1,2}[:：]\d{2})?\s*/,'').replace(/\s*🔥\s*$/,'').trim()) // 10-21：去掉行尾 🔥
     .filter(s=>s.length>1));
 }
 
@@ -830,22 +838,125 @@ function parseCalNames(raw){
 function parseCalEvents(raw){
   if(!raw)return [];
   return raw.split('\n').map(l=>l.trim()).filter(Boolean).map(l=>{
+    // 10-21：行尾 🔥 = 高耗能，name 去掉 🔥，回傳多 energy:'high'|'mid'
+    const hot=/🔥\s*$/.test(l);
+    l=l.replace(/\s*🔥\s*$/,'').trim();
+    const energy=hot?'high':'mid';
     // HH:MM-HH:MM name
     let m=l.match(/^(\d{1,2}[:：]\d{2})\s*[-–—~～]\s*(\d{1,2}[:：]\d{2})\s+(.+)/);
-    if(m)return{start:m[1].replace('：',':'),end:m[2].replace('：',':'),name:m[3].trim()};
+    if(m)return{start:m[1].replace('：',':'),end:m[2].replace('：',':'),name:m[3].trim(),energy};
     // HH:MM name（end = start + 1h）
     m=l.match(/^(\d{1,2}[:：]\d{2})\s+(.+)/);
     if(m){
       const s=m[1].replace('：',':');
       const[h,mi]=s.split(':').map(Number);
       const eh=String((h+1)%24).padStart(2,'0');
-      return{start:s,end:`${eh}:${String(mi).padStart(2,'0')}`,name:m[2].trim()};
+      return{start:s,end:`${eh}:${String(mi).padStart(2,'0')}`,name:m[2].trim(),energy};
     }
     return null;
   }).filter(Boolean).filter(ev=>ev.start!==ev.end); // 08-17實測抓到的bug：Google Calendar
   // 貼上來的「移動時間」有時會是起訖同一時刻（例如「09:00-09:00 移動」），HH:MM-HH:MM
   // 那個分支不會驗證起訖是否有效區間，0分鐘的「行程」被強制注入進pipes後會在畫面上
   // 生出一張時間長度是0的卡片，不是真的行程佔用，直接濾掉這種零長度列
+}
+
+/* ── 10-21：Calendar 行程列 UI（一列一個行程＋🔥/☕ 耗能切換），序列化回隱藏的 #calInput ── */
+const HIGH_ENERGY_CAL_KEYWORDS=['面試','斗數課']; // 名稱含這些字 → 預設 🔥
+function calIsHighByName(t){return HIGH_ENERGY_CAL_KEYWORDS.some(k=>String(t||'').includes(k));}
+/* 檢查單列文字，回傳提示字串（空字串＝沒問題）；不阻擋輸入 */
+function calRowWarn(text){
+  const t=String(text||'').replace(/\s*🔥\s*$/,'').trim();
+  if(!t)return '';
+  if(parseCalEvents(t).length)return (()=>{
+    const m=t.match(/^(\d{1,2})[:：](\d{2})\s*[-–—~～]\s*(\d{1,2})[:：](\d{2})\s+/);
+    if(m&&(+m[3])*60+(+m[4])<(+m[1])*60+(+m[2]))return '結束時間早於開始時間，請確認是否寫錯';
+    return '';
+  })();
+  const same=t.match(/^(\d{1,2}[:：]\d{2})\s*[-–—~～]\s*(\d{1,2}[:：]\d{2})\s+\S/);
+  if(same&&same[1].replace('：',':')===same[2].replace('：',':'))return '起訖時間相同，已略過';
+  return '時間格式無法辨識，這行不會排進行程';
+}
+function calSync(){
+  const rows=[...document.querySelectorAll('#calRows .cal-row')];
+  const lines=[];
+  rows.forEach(r=>{
+    const inp=r.querySelector('.cal-txt');
+    const t=inp.value.replace(/\s*🔥\s*$/,'').trim();
+    r.querySelector('.cal-warn').textContent=calRowWarn(t);
+    if(!t)return; // 空白列忽略
+    lines.push(t+(r._hi?' 🔥':''));
+  });
+  document.getElementById('calInput').value=lines.join('\n');
+}
+function calSetBtn(r){
+  const b=r.querySelector('.cal-eb');
+  b.textContent=r._hi?'🔥':'☕';
+  b.classList.toggle('on',!!r._hi);
+  b.title=r._hi?'高耗能行程（點擊改為一般）':'一般行程（點擊改為高耗能）';
+}
+function calAddRow(text,afterRow){
+  const wrap=document.getElementById('calRows');
+  const r=document.createElement('div');
+  r.className='cal-row';
+  const main=document.createElement('div');
+  main.className='cal-row-main';
+  const inp=document.createElement('input');
+  inp.type='text';inp.className='minput cal-txt';inp.placeholder='例：14:00-16:00 面試';
+  const btn=document.createElement('button');
+  btn.type='button';btn.className='cal-eb';
+  const warn=document.createElement('div');
+  warn.className='cal-warn';
+  main.appendChild(inp);main.appendChild(btn);r.appendChild(main);r.appendChild(warn);
+  const raw=String(text||'').trim();
+  const hadFire=/🔥\s*$/.test(raw);
+  inp.value=raw.replace(/\s*🔥\s*$/,'').trim();
+  r._manual=false;
+  r._hi=hadFire||calIsHighByName(inp.value);
+  calSetBtn(r);
+  btn.addEventListener('click',()=>{r._manual=true;r._hi=!r._hi;calSetBtn(r);calSync();});
+  inp.addEventListener('input',()=>{
+    if(!r._manual){r._hi=calIsHighByName(inp.value);calSetBtn(r);} // 手動點過的列不再被關鍵字覆蓋
+    calSync();
+  });
+  inp.addEventListener('paste',ev=>{
+    const t=((ev.clipboardData||window.clipboardData).getData('text')||'');
+    if(!/[\r\n]/.test(t.trim()))return;
+    ev.preventDefault();
+    const lines=t.split(/\r?\n/).map(x=>x.trim()).filter(Boolean);
+    let last=r;
+    lines.forEach((ln,i)=>{
+      if(i===0&&!inp.value.trim()){
+        inp.value=ln.replace(/\s*🔥\s*$/,'').trim();
+        r._hi=/🔥\s*$/.test(ln)||calIsHighByName(inp.value);calSetBtn(r);
+      }else last=calAddRow(ln,last);
+    });
+    calSync();
+  });
+  if(afterRow&&afterRow.parentNode===wrap)wrap.insertBefore(r,afterRow.nextSibling);else wrap.appendChild(r);
+  calSync();
+  return r;
+}
+/* 由文字還原成列（目前頁面沒有回填 calInput 的路徑，保留給日後使用） */
+function calRowsFromText(raw){
+  document.getElementById('calRows').innerHTML='';
+  String(raw||'').split(/\r?\n/).map(x=>x.trim()).filter(Boolean).forEach(l=>calAddRow(l));
+  if(!document.querySelector('#calRows .cal-row'))calAddRow('');
+  calSync();
+}
+calAddRow('');
+
+/* 10-21：把 [from,to) 內符合 matchTypes 的水管降為 newType（部分重疊在邊界切開，只改重疊段） */
+function _demotePipesInRange(pipes,from,to,matchTypes,newType,tasks,toMin,fmtMin){
+  const out=[];
+  pipes.forEach(p=>{
+    const ps=toMin(p.start),pe=toMin(p.end);
+    const os=Math.max(ps,from),oe=Math.min(pe,to);
+    if(!matchTypes.includes(p.type)||oe<=os){out.push(p);return;}
+    if(os>ps)out.push({...p,end:fmtMin(os)});
+    out.push({...p,start:fmtMin(os),end:fmtMin(oe),type:newType,label:LABEL_DEFAULT[newType],hint:buildHintFromTasks(newType,tasks)||'💡 請從任務積木中挑選'});
+    if(oe<pe)out.push({...p,start:fmtMin(oe)});
+  });
+  return out;
 }
 
 /* ── LLM 輸出後處理：label 白名單 + hint 完全由任務庫生成 ── */
@@ -855,13 +966,17 @@ function sanitizePipes(result, calEvents, tasks, pwr){
   // 不要讓「時間長度是0」的卡片出現在畫面上
   result.pipes=result.pipes.filter(p=>p.start!==p.end);
   const calNames=parseCalNames(calEvents);
+  // 10-21：高耗能行程名稱集合（AI 回傳的同名 pipe 也要補 energy 與 hint）
+  const hiCalNames=new Set(parseCalEvents(calEvents).filter(e=>e.energy==='high').map(e=>normalizeCJK(e.name)));
   result.pipes=result.pipes.map(p=>{
     let label=normalizeCJK(p.label||'');
     const isCalEvent=p.type==='rest'&&(calNames.has(label)||calNames.has((p.label||'').trim()));
     let hint;
+    let hiCal=false;
     if(p.type==='rest'){
       if(isCalEvent){
-        hint='📅 行程佔用，不排任務';
+        hiCal=hiCalNames.has(normalizeCJK(label))||hiCalNames.has(normalizeCJK((p.label||'').trim()));
+        hint=hiCal?'📅 高耗能行程，不排任務':'📅 行程佔用，不排任務'; // 10-21
       } else {
         hint='🔒 強制休息，不排任務';
         const valid=new Set(LABEL_OPTIONS.rest);
@@ -872,13 +987,16 @@ function sanitizePipes(result, calEvents, tasks, pwr){
       if(!valid.has(label))label=LABEL_DEFAULT[p.type]||label;
       hint=buildHintFromTasks(p.type,tasks)||'💡 請從任務積木中挑選';
     }
-    return {...p,label,hint};
+    return hiCal?{...p,label,hint,energy:'high'}:{...p,label,hint};
   });
   /* ── 強制注入 AI 漏掉的 Calendar 行程 ── */
   const parsedCal=parseCalEvents(calEvents);
   parsedCal.forEach(ev=>{
     const already=result.pipes.some(p=>p.type==='rest'&&normalizeCJK(p.label)===normalizeCJK(ev.name));
-    if(!already)result.pipes.push({start:ev.start,end:ev.end,type:'rest',label:ev.name,hint:'📅 行程佔用，不排任務'});
+    // 10-21：高耗能行程多帶 energy:'high' 與專屬 hint（仍為 rest，不排任務）
+    if(!already)result.pipes.push(ev.energy==='high'
+      ?{start:ev.start,end:ev.end,type:'rest',label:ev.name,hint:'📅 高耗能行程，不排任務',energy:'high'}
+      :{start:ev.start,end:ev.end,type:'rest',label:ev.name,hint:'📅 行程佔用，不排任務'});
   });
   /* ── 依時序排序 ── */
   const toMin=t=>{const[h,m]=(t||'0:0').split(':').map(Number);return h*60+(m||0);};
@@ -952,6 +1070,18 @@ function sanitizePipes(result, calEvents, tasks, pwr){
     withBuffer.push({start:cur.end,end:origEnd,type:'rest',label:'段間緩衝',hint:'⏸ 短暫緩衝，不排任務'});
   }
   result.pipes=withBuffer;
+
+  /* ── 10-21 高耗能行程前後保護（程式強制）：開始前30分的 high → mid；結束後60分的 high/mid → low ── */
+  const hiEvs=parsedCal.filter(ev=>ev.energy==='high'&&toMin(ev.end)>toMin(ev.start));
+  if(hiEvs.length){
+    hiEvs.forEach(ev=>{
+      const es=toMin(ev.start),ee=toMin(ev.end);
+      result.pipes=_demotePipesInRange(result.pipes,es-30,es,['high'],'mid',tasks,toMin,fmtMin);
+      result.pipes=_demotePipesInRange(result.pipes,ee,ee+60,['high','mid'],'low',tasks,toMin,fmtMin);
+    });
+    result.pipes=result.pipes.filter(p=>toMin(p.end)>toMin(p.start));
+    result.pipes.sort((a,b)=>toMin(a.start)-toMin(b.start));
+  }
 
   if(result.summary)result.summary=normalizeCJK(result.summary);
   return result;
@@ -1769,6 +1899,7 @@ async function generate(){
 6. 輸出純 JSON，無 markdown；pipes 陣列依 start 時間升序排列
 7. 單一水管（非Calendar行程）建議不超過2小時；同屬性任務需求時間更長時，拆成兩段水管，中間插入短暫rest緩衝
 8. AI排定的相鄰水管之間（不含Calendar鎖定行程前後）應留數分鐘緩衝，不必分秒緊貼相接
+9. 行尾有 🔥 的 Calendar 行程為高耗能（面試、上課等）：其前 30 分鐘不排高能水管，其後 60 分鐘只排 low 或 rest；該行程 label 仍原封不動用行程名稱（不含 🔥）。
 
 格式：{"summary":"一句話策略叮嚀（45字內）","pipes":[{"start":"09:30","end":"12:00","type":"high","label":"深度高能","hint":""}],"skipTasks":["原始任務名"]}`;
 
@@ -2230,7 +2361,7 @@ function renderPipeSandbox(result,isMock=false,errMsg=''){
   // 載入既有臨時積木
   const exData=JSON.parse(localStorage.getItem(displayKey)||'{}');
   _tempBricks=exData.tempBricks||[];
-  const capAdvice=calcCapacityAdvice([...getEffectiveTasks().map(t=>t.text),..._tempBricks],pwr);
+  const capAdvice=calcCapacityAdvice([...getEffectiveTasks().map(t=>t.text),..._tempBricks],pwr,document.getElementById('calInput').value.trim()); // 10-21：傳入行程文字計高耗能負荷
   sumHtml=buildPipeSummaryHtml(result.summary,capAdvice);
 
   sc.innerHTML=mockNotice+sumHtml
@@ -2418,7 +2549,7 @@ function readCareerGrowth(){
     return out.slice(0,3);
   }catch(e){return [];}
 }
-function calcCapacityAdvice(taskNames,combatPower){
+function calcCapacityAdvice(taskNames,combatPower,calEventsStr){ // 10-21：第三參數＝calInput 文字，未傳時行為不變
   const cp=Number(combatPower);
   if(combatPower===null||combatPower===undefined||combatPower===''||!Number.isFinite(cp)) return null;
   const energyMap=getTaskEnergyMap();
@@ -2434,6 +2565,14 @@ function calcCapacityAdvice(taskNames,combatPower){
     if(lvl==='high') w*=hiMult;
     load+=w;
   });
+  // 10-21：🔥 高耗能行程按時數 × TASK_WEIGHT.high × hiMult 加進負荷（☕ 不計）
+  if(calEventsStr){
+    parseCalEvents(calEventsStr).filter(ev=>ev.energy==='high').forEach(ev=>{
+      const tm=t=>{const[h,m]=t.split(':').map(Number);return h*60+(m||0);};
+      const hrs=(tm(ev.end)-tm(ev.start))/60;
+      if(hrs>0) load+=hrs*TASK_WEIGHT.high*hiMult;
+    });
+  }
   const cap=cp*CAPACITY_PER_CP;
   const r1=v=>Math.round(v*10)/10;
   // 10-08：可參考選項＝耗能設定為中耗能、今天沒勾選的任務（依任務庫順序），生成當下存起來
