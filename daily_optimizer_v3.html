@@ -969,8 +969,10 @@ function sanitizePipes(result, calEvents, tasks, pwr){
   // 10-21：高耗能行程名稱集合（AI 回傳的同名 pipe 也要補 energy 與 hint）
   const hiCalNames=new Set(parseCalEvents(calEvents).filter(e=>e.energy==='high').map(e=>normalizeCJK(e.name)));
   result.pipes=result.pipes.map(p=>{
-    let label=normalizeCJK(p.label||'');
-    const isCalEvent=p.type==='rest'&&(calNames.has(label)||calNames.has((p.label||'').trim()));
+    // 10-21：AI 會照抄 prompt 裡行尾的 🔥，比對前先去掉，否則認不出是行程、被改名成「強制充能」
+    const rawLabel=(p.label||'').replace(/\s*🔥\s*$/,'').trim();
+    let label=normalizeCJK(rawLabel);
+    const isCalEvent=p.type==='rest'&&(calNames.has(label)||calNames.has(rawLabel));
     let hint;
     let hiCal=false;
     if(p.type==='rest'){
@@ -991,6 +993,23 @@ function sanitizePipes(result, calEvents, tasks, pwr){
   });
   /* ── 強制注入 AI 漏掉的 Calendar 行程 ── */
   const parsedCal=parseCalEvents(calEvents);
+  // 10-21：注入前先把與行程時段重疊的非行程水管切掉重疊段（只留前後不重疊部分），
+  // 不管 AI 把行程寫成什麼名字，畫面上同一時段都只會剩下人工行程這一張卡
+  const _cm=t=>{const[h,m]=(t||'0:0').split(':').map(Number);return h*60+(m||0);};
+  const _cf=m=>String(Math.floor(m/60)).padStart(2,'0')+':'+String(m%60).padStart(2,'0');
+  const _isCalPipe=p=>p.type==='rest'&&calNames.has(normalizeCJK(p.label||''));
+  parsedCal.forEach(ev=>{
+    const es=_cm(ev.start),ee=_cm(ev.end);
+    if(ee<=es)return;
+    const kept=[];
+    result.pipes.forEach(p=>{
+      const ps=_cm(p.start),pe=_cm(p.end);
+      if(_isCalPipe(p)||pe<=es||ps>=ee){kept.push(p);return;}
+      if(ps<es)kept.push({...p,end:_cf(es)});
+      if(pe>ee)kept.push({...p,start:_cf(ee)});
+    });
+    result.pipes=kept;
+  });
   parsedCal.forEach(ev=>{
     const already=result.pipes.some(p=>p.type==='rest'&&normalizeCJK(p.label)===normalizeCJK(ev.name));
     // 10-21：高耗能行程多帶 energy:'high' 與專屬 hint（仍為 rest，不排任務）
