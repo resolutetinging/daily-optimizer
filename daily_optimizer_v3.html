@@ -865,7 +865,7 @@ function parseCalEvents(raw){
 }
 
 /* ── 10-21：Calendar 行程列 UI（一列一個行程＋🔥/☕ 耗能切換），序列化回隱藏的 #calInput ── */
-const HIGH_ENERGY_CAL_KEYWORDS=['面試','斗數課']; // 名稱含這些字 → 預設 🔥
+const HIGH_ENERGY_CAL_KEYWORDS=['面試','斗數課','斗數學習']; // 名稱含這些字 → 預設 🔥
 function calIsHighByName(t){return HIGH_ENERGY_CAL_KEYWORDS.some(k=>String(t||'').includes(k));}
 /* 檢查單列文字，回傳提示字串（空字串＝沒問題）；不阻擋輸入 */
 function calRowWarn(text){
