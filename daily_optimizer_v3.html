@@ -163,6 +163,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue","PingFang TC"
 .js-slider:before{content:'';position:absolute;width:12px;height:12px;left:2.5px;top:2.5px;background:#fff;border-radius:50%;transition:.2s;}
 input:checked+.js-slider{background:#7a8e9e;}
 input:checked+.js-slider:before{transform:translateX(13px);}
+.ti-pre{font-family:inherit;font-size:11px;line-height:1.4;border:none;border-radius:6px;padding:1px 5px;flex-shrink:0;cursor:pointer;background:transparent;color:#b0a89c;opacity:.7;}
+.ti-pre.on{background:rgba(212,168,106,.28);color:#8a6a3a;opacity:1;}
+.ti-pre-lbl{font-size:10px;color:#8a6a3a;margin-left:4px;white-space:nowrap;flex-shrink:0;}
 .cr-tagbtn{font-family:inherit;font-size:9.5px;font-weight:600;color:#4a6e8e;background:rgba(122,142,158,.14);border:none;border-radius:6px;padding:1px 5px;flex-shrink:0;white-space:nowrap;cursor:pointer;line-height:1.4;}
 .cr-tagbtn.cr-del{color:#a07070;background:rgba(160,112,112,.13);}
 .cr-tagbtn.cr-add{width:18px;height:18px;padding:0;border-radius:50%;font-size:12px;font-weight:500;color:#9a9088;background:rgba(122,142,158,.10);display:inline-flex;align-items:center;justify-content:center;}
@@ -1179,6 +1182,28 @@ function getEffectiveTasks(){
     return false; // ondemand → excluded
   });
 }
+// 10-21：早上已完成（preDone）——存在 review_<日期>.preDone（任務文字陣列）；資料可能來自 Gist，讀取時驗證
+function getPreDone(){
+  try{
+    const o=JSON.parse(localStorage.getItem(displayKey)||'{}');
+    const a=o&&o.preDone;
+    if(!Array.isArray(a))return[];
+    return a.filter(x=>typeof x==='string'&&x.length>0&&x.length<=200).slice(0,50);
+  }catch(e){return[];}
+}
+// 10-21：排除 preDone 的任務（交給 AI／hint／積木用；負荷計算仍用完整 getEffectiveTasks）
+function getAiTasks(){const pd=getPreDone();return getEffectiveTasks().filter(t=>!pd.includes(t.text));}
+// 10-21：切換早上已完成；只改 preDone、其餘欄位原樣寫回
+function togglePreDone(text){
+  let ex={};
+  try{ex=JSON.parse(localStorage.getItem(displayKey)||'{}')||{};}catch(e){ex={};}
+  let arr=getPreDone();
+  arr=arr.includes(text)?arr.filter(x=>x!==text):[...arr,text].slice(0,50);
+  if(arr.length)ex.preDone=arr;else delete ex.preDone;
+  if(Object.keys(ex).length)localStorage.setItem(displayKey,JSON.stringify(ex));
+  else localStorage.removeItem(displayKey);
+  renderTaskLib();
+}
 const todayKey=()=>{const d=new Date();return 'review_'+d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');};
 let displayKey=todayKey(); // 追蹤當前編輯的 key，存檔跟著顯示的日期走
 
@@ -1703,6 +1728,7 @@ function renderTaskLib(){
   closeCareerPop();
   updateCapLive(); // 10-21：任務庫開關變動時即時更新臨時任務建議
   const el=document.getElementById('tlist');el.innerHTML='';
+  const _preDoneSet=getPreDone(); // 10-21
   const catSel=document.getElementById('ainput-cat');
   if(catSel)catSel.innerHTML=taskData.categories.map(c=>`<option value="${escAttr(c.key)}">${esc(c.label)}</option>`).join('');
   taskData.categories.forEach(cat=>{
@@ -1721,9 +1747,13 @@ function renderTaskLib(){
       const isOn=tfreq!=='ondemand'&&!(tfreq==='mode_jobsearch'&&!jobsearchMode);
       const jobToggleTitle=isOn?'點擊：改為按需（不自動排入）':'點擊：改為每日（模式開啟時自動排入）';
       const toggleHtml=`<label class="ti-onoff" title="${isJobCat?jobToggleTitle:(isOn?'點擊：從行程移除':'點擊：加入行程')}"><input type="checkbox" ${isOn?'checked':''} onchange="toggleTaskActive(${Number(t.id)},this.checked)"><span class="ti-onoff-sl"></span></label>`;
+      // 10-21：早上已完成按鈕（僅當天生效的任務顯示）
+      const _isPre=isOn&&_preDoneSet.includes(t.text);
+      const preHtml=isOn?`<button type="button" class="ti-pre${_isPre?' on':''}" title="今天開館前已做" aria-label="今天開館前已做" onclick="togglePreDone('${escJsAttr(t.text)}')">☀</button>`:'';
+      const preLbl=_isPre?'<span class="ti-pre-lbl">早上已做</span>':'';
       d.innerHTML=`<div class="ti-dot"></div>
         <div contenteditable="true" class="tt" onblur="upt(${Number(t.id)},this.textContent.trim())" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur()}">${esc(t.text)}</div>
-        ${careerLibBtnHtml(t)}${toggleHtml}<span class="dh">⠿</span><span class="db" onclick="del(${Number(t.id)})">×</span>`;
+        ${preLbl}${preHtml}${careerLibBtnHtml(t)}${toggleHtml}<span class="dh">⠿</span><span class="db" onclick="del(${Number(t.id)})">×</span>`;
       d.addEventListener('dragstart',function(e){
         if(e.target.isContentEditable||e.target.tagName==='INPUT'||e.target.tagName==='BUTTON'||e.target.tagName==='SELECT'){e.preventDefault();return;}
         dragSrc=this;this.classList.add('drag');
@@ -1885,7 +1915,8 @@ async function generate(){
   const close=isOut?'依行程':`${closeH}:00`;
   const lv=p>=80?'Peak(80+)':p>=70?'Stable(70-79)':p>=60?'Caution(60-69)':'Critical(<60)';
   const energyLabel={'high':'高耗能','mid':'中耗能','low':'輕量'};
-  const taskList=getEffectiveTasks().map((t,i)=>{
+  const _pdNames=getPreDone().filter(n=>getEffectiveTasks().some(t=>t.text===n)); // 10-21：開館前已完成的不排入
+  const taskList=getAiTasks().map((t,i)=>{
     const cat=taskData.categories.find(c=>c.key===t.catKey);
     const catTag=cat?` [${cat.label}]`:'';
     const eTag=` [${energyLabel[t.energy||'mid']}]`;
@@ -1935,7 +1966,7 @@ async function generate(){
 ${calEvents||'（無）'}
 任務庫：
 ${taskList}
-補充：${notes||'無'}`;
+${_pdNames.length?'開館前已完成（不需排入）：'+_pdNames.join('、')+'\n':''}補充：${notes||'無'}`;
 
   document.getElementById('overallFeedback').value='';
   document.getElementById('aiFbOut').style.display='none';
@@ -2017,7 +2048,7 @@ ${taskList}
     }
     // 繁中保底：cc_zht.js 為外部非同步載入的共用檔，未就緒時原樣顯示不報錯
     const zhSafe=(typeof s2tDeep==='function')?s2tDeep(raw):raw;
-    const result=sanitizePipes(zhSafe,calEvents,getEffectiveTasks(),p);
+    const result=sanitizePipes(zhSafe,calEvents,getAiTasks(),p) /* 10-21 排除 preDone */;
     document.getElementById('ovl').classList.add('hidden');
     // 若 Groq 回傳舊格式（無 pipes 欄位），自動改用示範資料
     if(!result.pipes||!result.pipes.length) renderPipeSandbox(getMockPipes(p),true,'Groq回傳內容缺少pipes欄位（格式異常，非連線失敗）');
@@ -2164,7 +2195,7 @@ function getMockPipes(p){
   const summary=p>=75?'⚡ 示範資料：戰力充足，今日早段衝刺核心難題，午後維持節奏。'
     :p>=55?'⚖️ 示範資料：穩健配速日，任務上限 3 件，避免午後耗盡。'
     :'🚨 示範資料：戰力偏低，任務減半，18:00 後禁止燒腦。';
-  const tasks=getEffectiveTasks();
+  const tasks=getAiTasks(); // 10-21：示範資料 hint 也排除 preDone
   if(p>=75){
     return{summary,pipes:[
       {start:'09:30',end:'12:00',type:'high',label:'深度高能',hint:'💡 適合：英文練習、BQ 練習、核心難題'},
@@ -2427,7 +2458,7 @@ function renderPipeSandbox(result,isMock=false,errMsg=''){
 
 function renderBrickPool(){
   const pool=document.getElementById('brickPool');if(!pool)return;
-  const tasks=getEffectiveTasks();
+  const tasks=getAiTasks(); // 10-21：preDone 任務不出現在積木
   // 計算每個任務被放入幾個 pipe（允許多 pipe 共用同一積木）
   const cntMap={};
   Object.values(_pipeAssign).forEach(arr=>arr.forEach(t=>{cntMap[t]=(cntMap[t]||0)+1;}));
@@ -2887,12 +2918,14 @@ function addToReview(rowIdx){
 
 /* ── Per-item review ── */
 function renderReview(names, isRestMode=false, fresh=false){
-  reviewItems=names.map(name=>({name,status:'',feedback:''}));
+  // 10-21：當天 preDone 的任務預設完成（休假模式不套用）；已有存檔值者於下方還原時覆蓋
+  const _pd=isRestMode?[]:getPreDone();
+  reviewItems=names.map(name=>_pd.includes(name)?{name,status:'done',feedback:'開館前完成'}:{name,status:'',feedback:''});
   const saved=JSON.parse(localStorage.getItem(displayKey)||'{}');
   // restore saved statuses — in rest mode only restore custom items (not old task library)
   if(saved.items) saved.items.forEach((s,i)=>{
     const existing=reviewItems.find(r=>r.name===s.name);
-    if(existing){existing.status=s.status||'';existing.feedback=s.feedback||'';}
+    if(existing){existing.status=s.status||existing.status;existing.feedback=s.feedback||existing.feedback;} // 10-21：存檔為空時保留 preDone 預設
     else if(s.name&&(!isRestMode||s.custom)){
       // restore custom items always; restore task-library items only in normal mode
       reviewItems.push({name:s.name,status:s.status||'',feedback:s.feedback||'',custom:true});
