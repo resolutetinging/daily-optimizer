@@ -1570,19 +1570,20 @@ function closeCareerPop(){
   if(_crPopTid!=null){const b=document.getElementById('crbtn-'+_crPopTid);if(b)b.classList.remove('cr-open');}
   _crPopTid=null;
 }
-function openCareerPop(ev,id){
+function openCareerPop(ev,id,rv){
   if(ev)ev.stopPropagation();
-  const same=(_crPopTid===id);
+  const key=rv?('rv'+id):id; // rv=true：覆盤列（id 為 reviewItems 索引），只影響當天覆盤、不寫回任務庫
+  const same=(_crPopTid===key);
   closeCareerPop();
   if(same)return;
-  const t=taskData.tasks.find(t=>t.id===id);const btn=document.getElementById('crbtn-'+id);
+  const t=rv?reviewItems[id]:taskData.tasks.find(t=>t.id===id);const btn=document.getElementById('crbtn-'+key);
   if(!t||!btn)return;
   const cards=readCareerCards();
-  const r=taskCareerRef(t);
+  const r=rv?reviewCrefRef(t,cards):taskCareerRef(t);
   const cur=r?(r.cardId+(r.itemId?'|'+r.itemId:'')):'';
   let found=false,curText='未對應';
-  const opt=(v,label,isSel)=>`<div class="cr-pop-opt${isSel?' sel':''}" role="option" data-v="${escAttr(v)}" onclick="pickCareer(${id},this.dataset.v)">${esc(label)}</div>`;
-  let h=opt('','未對應',!cur);
+  const opt=(v,label,isSel)=>`<div class="cr-pop-opt${isSel?' sel':''}" role="option" data-v="${escAttr(v)}" onclick="${rv?'pickReviewCref':'pickCareer'}(${id},this.dataset.v)">${esc(label)}</div>`;
+  let h=opt('',rv?'取消對應':'未對應',!cur);
   if(cards){
     [1,2,3,4,0].forEach(q=>{
       const grp=cards.filter(c=>c.q===q);if(!grp.length)return;
@@ -1617,12 +1618,29 @@ function openCareerPop(ev,id){
   }
   pop.style.left=left+'px';pop.style.top=top+'px';pop.style.visibility='';
   btn.classList.add('cr-open');
-  _crPopTid=id;
+  _crPopTid=key;
   const sel=pop.querySelector('.cr-pop-opt.sel');if(sel&&sel.scrollIntoView)sel.scrollIntoView({block:'nearest'});
 }
 function pickCareer(id,val){
   closeCareerPop();
   setTaskCareer(id,val);
+}
+// 覆盤列手動對應：只寫該 reviewItem（cref＋crefManual／crefCleared），不碰任務庫 careerRef
+function pickReviewCref(idx,val){
+  closeCareerPop();
+  const it=reviewItems[idx];if(!it)return;
+  if(!val){
+    delete it.cref;delete it.crefManual;it.crefCleared=true;
+  }else{
+    const parts=String(val).split('|');
+    const cardId=parts[0],itemId=parts[1]||'';
+    const card=(readCareerCards()||[]).find(c=>c.id===cardId);
+    if(!card||(itemId&&!card.items.some(i=>i.id===itemId)))return;
+    const o={cardId:card.id,q:card.q,cardTitle:card.title.slice(0,200)};
+    if(itemId){const x=card.items.find(i=>i.id===itemId);o.itemId=x.id;o.itemName=x.name.slice(0,200);}
+    it.cref=o;it.crefManual=true;delete it.crefCleared;
+  }
+  renderReviewFromItems();
 }
 document.addEventListener('mousedown',e=>{
   if(_crPopTid==null)return;
@@ -2925,10 +2943,12 @@ function renderReview(names, isRestMode=false, fresh=false){
   // restore saved statuses — in rest mode only restore custom items (not old task library)
   if(saved.items) saved.items.forEach((s,i)=>{
     const existing=reviewItems.find(r=>r.name===s.name);
-    if(existing){existing.status=s.status||existing.status;existing.feedback=s.feedback||existing.feedback;} // 10-21：存檔為空時保留 preDone 預設
+    if(existing){existing.status=s.status||existing.status;existing.feedback=s.feedback||existing.feedback;_restoreRvCref(existing,s);} // 10-21：存檔為空時保留 preDone 預設
     else if(s.name&&(!isRestMode||s.custom)){
       // restore custom items always; restore task-library items only in normal mode
-      reviewItems.push({name:s.name,status:s.status||'',feedback:s.feedback||'',custom:true});
+      const _n={name:s.name,status:s.status||'',feedback:s.feedback||'',custom:true};
+      _restoreRvCref(_n,s);
+      reviewItems.push(_n);
     }
   });
   // fresh=true (openRestReview 主動呼叫) 不回填 overall，避免殘留 normal mode 資料
@@ -3037,11 +3057,13 @@ function doAddReviewItem(){
 function renderReviewFromItems(){
   const list=document.getElementById('reviewList');
   list.innerHTML='';
+  const _rvCards=readCareerCards(),_rvToday=(displayKey===todayKey());
   reviewItems.forEach((item,i)=>{
     const div=document.createElement('div');div.className='ri';div.dataset.idx=i;
     div.innerHTML=`
       <div class="ri-top">
         <div class="ri-name">${esc(item.name)}</div>
+        ${reviewCrefBtnHtml(item,i,_rvCards,_rvToday)}
         <div class="ri-btns" id="btns-${i}">
           <button class="rb" data-val="done" onclick="setStatus(${i},'done')">✓ 完成</button>
           <button class="rb" data-val="part" onclick="setStatus(${i},'part')">◑ 部分</button>
@@ -3104,10 +3126,46 @@ function buildCref(name,cards){
   }
   return o;
 }
-function crefDistText(items){
-  const g={};
+// 覆盤 cref 的字串欄位（cardTitle／itemName）驗證：只留字串並限長 200
+function sanitizeCrefFull(c){
+  const b=sanitizeCref(c);if(!b)return null;
+  const o={cardId:b.cardId,q:b.q};
+  o.cardTitle=(typeof c.cardTitle==='string')?c.cardTitle.slice(0,200):'';
+  if(b.itemId){o.itemId=b.itemId;o.itemName=(typeof c.itemName==='string')?c.itemName.slice(0,200):'';}
+  return o;
+}
+function _restoreRvCref(it,s){
+  if(!s)return;
+  const c=sanitizeCrefFull(s.cref);if(c)it.cref=c;
+  if(s.crefManual&&c)it.crefManual=true;
+  if(s.crefCleared===true)it.crefCleared=true;
+}
+// 覆盤列生效的 cref：已取消→null；手動→手動值；今天且任務庫有對應→buildCref；否則存檔還原值
+function reviewEffCref(it,cards,isToday){
+  if(!it||!it.name||it.crefCleared)return null;
+  if(it.crefManual){const m=sanitizeCrefFull(it.cref);if(m)return m;}
+  return (isToday&&buildCref(it.name,cards))||sanitizeCrefFull(it.cref)||null;
+}
+function reviewCrefRef(it,cards){
+  const c=reviewEffCref(it,cards,displayKey===todayKey());
+  return c?{cardId:c.cardId,itemId:c.itemId||null}:null;
+}
+function reviewCrefBtnHtml(item,i,cards,isToday){
+  if(!item||!item.name||REST_BRICKS.includes(item.name)||restMode)return'';
+  const c=reviewEffCref(item,cards,isToday);
+  if(!c)return`<button type="button" class="cr-tagbtn cr-add" id="crbtn-rv${i}" title="替這項補 Career 對應（只影響這天覆盤）" aria-label="對應 Career" onclick="openCareerPop(event,${i},true)">＋</button>`;
+  return`<button type="button" class="cr-tagbtn" id="crbtn-rv${i}" title="Career 對應（只影響這天覆盤）" aria-label="對應 Career" onclick="openCareerPop(event,${i},true)">${esc(c.q===0?'未放置':'Q'+c.q)}</button>`;
+}
+function crefDistText(items,isRest){
+  const g={};let un=0,unDone=0,mapped=0;
   (items||[]).forEach(it=>{
-    const c=it&&sanitizeCref(it.cref);if(!c)return;
+    const c=it&&sanitizeCref(it.cref);
+    if(!c){
+      // 未對應：只算有 name 的項目；休假模式與休息積木不算
+      if(it&&typeof it.name==='string'&&it.name&&!isRest&&!REST_BRICKS.includes(it.name)){un++;if(it.status==='done')unDone++;}
+      return;
+    }
+    mapped++;
     const g1=g[c.q]||(g[c.q]={n:0,d:0});
     g1.n++;if(it.status==='done')g1.d++;
   });
@@ -3116,13 +3174,20 @@ function crefDistText(items){
     if(!g[q])return;
     parts.push((q===0?'未放置':'Q'+q)+' '+g[q].n+' 項（完成 '+g[q].d+'）');
   });
+  // 舊紀錄完全沒有 cref（mapped=0）維持不顯示；有任一對應才附未對應
+  if(mapped>0&&un>0)parts.push('未對應 '+un+' 項（完成 '+unDone+'）');
   return parts.join('・');
 }
 function renderCrefDist(){
   const el=document.getElementById('crefDist');
   if(!el)return;
   let txt='';
-  try{const d=JSON.parse(localStorage.getItem(displayKey)||'{}');txt=crefDistText(d.items);}catch(e){}
+  try{
+    // 以畫面上的 reviewItems 即時計算（含未存檔的手動對應）
+    const cards=readCareerCards(),isT=(displayKey===todayKey());
+    const its=reviewItems.map(i=>({name:i.name,status:i.status,cref:reviewEffCref(i,cards,isT)}));
+    txt=crefDistText(its,restMode);
+  }catch(e){}
   el.textContent=txt?'Career 象限分布：'+txt:'';
   el.style.display=txt?'block':'none';
 }
@@ -3139,8 +3204,11 @@ async function saveReview(){
     const est=_durEstimates[i.name]||{};
     const row={name:i.name,status:i.status,feedback:i.feedback,
            idealMin:est.ideal||null,actualMin:est.actual||null};
-    const cref=(_isToday&&buildCref(i.name,_careerCards))||_oldCref[i.name]||null;
+    // 優先序：已取消→無；手動；今天且任務庫有對應；存檔還原值；舊紀錄 _oldCref（取消時不帶回）
+    const cref=i.crefCleared?null:(reviewEffCref(i,_careerCards,_isToday)||_oldCref[i.name]||null);
     if(cref)row.cref=cref;
+    if(i.crefManual&&cref)row.crefManual=true;
+    if(i.crefCleared)row.crefCleared=true;
     return row;
   }),overall,savedAt:new Date().toISOString()};
   localStorage.setItem(displayKey,JSON.stringify(data));
@@ -3894,7 +3962,7 @@ function renderHist(){
         ${item.feedback?`<div class="hist-item-fb">${esc(item.feedback)}</div>`:''}
       </div>`).join('');
 
-    const _crefTxt=crefDistText(items);
+    const _crefTxt=crefDistText(items,!!data.restMode);
     const crefHtml=_crefTxt?`<div class="hist-item-fb" style="color:#4a6e8e;margin-top:6px">Career 象限分布：${esc(_crefTxt)}</div>`:'';
     const overallHtml=data.overall
       ?`<div class="hist-overall"><div class="hist-overall-label">整體反饋</div><div style="white-space:pre-wrap">${esc(data.overall.trim().replace(/\n{2,}/g,'\n'))}</div></div>`:'';
