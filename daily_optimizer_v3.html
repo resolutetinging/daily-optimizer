@@ -165,6 +165,15 @@ input:checked+.js-slider{background:#7a8e9e;}
 input:checked+.js-slider:before{transform:translateX(13px);}
 .ti-pre{font-family:inherit;font-size:11px;line-height:1.4;border:none;border-radius:6px;padding:1px 5px;flex-shrink:0;cursor:pointer;background:transparent;color:#b0a89c;opacity:.7;}
 .ti-pre.on{background:rgba(212,168,106,.28);color:#8a6a3a;opacity:1;}
+.ti-close{font-family:inherit;font-size:11px;line-height:1.4;border:none;border-radius:6px;padding:1px 6px;flex-shrink:0;cursor:pointer;background:transparent;color:#b0a89c;opacity:.7;}
+.ti-close:hover{background:rgba(122,142,158,.18);color:#4a6e8e;opacity:1;}
+.closed-sec{margin-top:10px;border-top:1px dashed #ddd8d0;padding-top:6px;}
+.closed-sec>summary{cursor:pointer;font-size:12px;color:#8a8278;padding:4px 0;}
+.closed-row{display:flex;align-items:center;gap:8px;padding:4px 2px;font-size:12px;color:#8a8278;}
+.closed-row .cl-name{flex:1;min-width:0;word-break:break-all;}
+.closed-row .cl-date{flex-shrink:0;font-size:11px;}
+.closed-row button{font-family:inherit;font-size:11px;border:none;border-radius:6px;padding:2px 8px;cursor:pointer;background:rgba(122,142,158,.18);color:#4a6e8e;}
+.closed-row button.cl-del{background:transparent;color:#a07070;}
 .ti-pre-lbl{font-size:10px;color:#8a6a3a;margin-left:4px;white-space:nowrap;flex-shrink:0;}
 .cr-tagbtn{font-family:inherit;font-size:9.5px;font-weight:600;color:#4a6e8e;background:rgba(122,142,158,.14);border:none;border-radius:6px;padding:1px 5px;flex-shrink:0;white-space:nowrap;cursor:pointer;line-height:1.4;}
 .cr-tagbtn.cr-del{color:#a07070;background:rgba(160,112,112,.13);}
@@ -1172,8 +1181,36 @@ let taskData=loadTaskData();
 let nid=Math.max(...taskData.tasks.map(t=>t.id),9)+1;
 let jobsearchMode=localStorage.getItem('optimizer_jobsearch_mode')==='1';
 const saveTaskData=()=>localStorage.setItem(TASKS_KEY,JSON.stringify(taskData));
+// 10-27 階段4：其他分頁（Career／Scratchpad 轉入任務、另一個 Optimizer）改了任務庫時，記憶體立即換成最新版，
+// 避免 renderTaskLib 結尾整份寫回時蓋掉別頁的新增。正在編輯任務名稱／新增列時只換記憶體、延後重繪（不打斷輸入）。
+let _tasksRenderPending=false;
+function _tlEditing(){
+  const a=document.activeElement;if(!a)return false;
+  return !!(a.isContentEditable||a.id==='ainput'||a.id==='ainput-cat'||a.id==='catmgr-input');
+}
+window.addEventListener('storage',e=>{
+  if(e.storageArea!==localStorage||e.key!==TASKS_KEY||!e.newValue)return;
+  let d;
+  try{d=JSON.parse(e.newValue);}catch(_){return;}
+  if(!d||!Array.isArray(d.tasks)||!Array.isArray(d.categories))return;
+  taskData=loadTaskData();
+  nid=Math.max(nid,...taskData.tasks.map(t=>Number(t.id)||0),9)+1;
+  if(_tlEditing()){_tasksRenderPending=true;return;}
+  renderTaskLib();
+});
+document.addEventListener('focusout',()=>{
+  if(!_tasksRenderPending)return;
+  setTimeout(()=>{if(_tasksRenderPending&&!_tlEditing()){_tasksRenderPending=false;renderTaskLib();}},0);
+});
+// 10-27 階段4：任務結案（doneAt 為 YYYY-MM-DD 選填欄位；資料可能來自 Gist／Career，嚴格驗證）
+function isClosed(t){
+  if(!t||typeof t.doneAt!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(t.doneAt))return false;
+  return !isNaN(new Date(t.doneAt+'T00:00:00').getTime());
+}
+const todayDateStr=()=>todayKey().slice(7); // todayKey()='review_YYYY-MM-DD'（真實今天，非 displayKey）
 function getEffectiveTasks(){
   return taskData.tasks.filter(t=>{
+    if(isClosed(t))return false; // 已結案雙保險
     const cat=taskData.categories.find(c=>c.key===t.catKey);
     if(!cat)return false;
     const freq=t.freq||cat.freq;
@@ -1536,7 +1573,7 @@ function readCareerCards(){
       if(Array.isArray(c.items))c.items.forEach(it=>{
         if(it&&typeof it==='object'&&typeof it.id==='string'&&CAREER_ID_RE.test(it.id)&&typeof it.name==='string'&&it.name.trim())items.push({id:it.id,name:it.name});
       });
-      out.push({id:c.id,title:c.title,q:(q>=1&&q<=4)?q:0,items});
+      out.push({id:c.id,title:c.title,q:(q>=1&&q<=4)?q:0,items,dropped:!!(c.dropped&&typeof c.dropped==='object'&&!Array.isArray(c.dropped))}); // 10-27：dropped＝決定不進行（quadrant 保留原值）
     });
     return out;
   }catch(e){return null;}
@@ -1551,6 +1588,7 @@ function careerTagInfo(t,cards){
   const r=taskCareerRef(t);if(!r||!cards)return null;
   const card=cards.find(c=>c.id===r.cardId);
   if(!card||(r.itemId&&!card.items.some(i=>i.id===r.itemId)))return{label:'已刪除',del:true};
+  if(card.dropped)return{label:'不進行',del:true,drop:true}; // 10-27：方向決定不進行，比照「已刪除」提示樣式
   return{label:card.q===0?'未放置':'Q'+card.q,del:false};
 }
 function careerTagHtml(t){
@@ -1585,8 +1623,14 @@ function openCareerPop(ev,id,rv){
   const opt=(v,label,isSel)=>`<div class="cr-pop-opt${isSel?' sel':''}" role="option" data-v="${escAttr(v)}" onclick="${rv?'pickReviewCref':'pickCareer'}(${id},this.dataset.v)">${esc(label)}</div>`;
   let h=opt('',rv?'取消對應':'未對應',!cur);
   if(cards){
+    // 10-27：目前值若是「決定不進行」的方向：頂端顯示、不可再選
+    const _dc=cur?cards.find(c=>c.dropped&&c.id===r.cardId):null;
+    if(_dc){
+      const di=r.itemId?_dc.items.find(i=>i.id===r.itemId):null;
+      if(!r.itemId||di){found=true;curText='不進行・'+_dc.title+(di?' › '+di.name:'');h+=`<div class="cr-pop-opt sel gone">${esc('（不進行・'+_dc.title+(di?' › '+di.name:'')+'）')}</div>`;}
+    }
     [1,2,3,4,0].forEach(q=>{
-      const grp=cards.filter(c=>c.q===q);if(!grp.length)return;
+      const grp=cards.filter(c=>c.q===q&&!c.dropped);if(!grp.length)return;
       const ql=q===0?'未放置':'Q'+q;
       h+=`<div class="cr-pop-grp">${esc(ql)}</div>`;
       grp.forEach(c=>{
@@ -1635,7 +1679,7 @@ function pickReviewCref(idx,val){
     const parts=String(val).split('|');
     const cardId=parts[0],itemId=parts[1]||'';
     const card=(readCareerCards()||[]).find(c=>c.id===cardId);
-    if(!card||(itemId&&!card.items.some(i=>i.id===itemId)))return;
+    if(!card||card.dropped||(itemId&&!card.items.some(i=>i.id===itemId)))return;
     const o={cardId:card.id,q:card.q,cardTitle:card.title.slice(0,200)};
     if(itemId){const x=card.items.find(i=>i.id===itemId);o.itemId=x.id;o.itemName=x.name.slice(0,200);}
     it.cref=o;it.crefManual=true;delete it.crefCleared;
@@ -1658,7 +1702,7 @@ function setTaskCareer(id,val){
     const cardId=parts[0],itemId=parts[1]||'';
     const cards=readCareerCards()||[];
     const card=cards.find(c=>c.id===cardId);
-    if(!card||(itemId&&!card.items.some(i=>i.id===itemId)))return;
+    if(!card||card.dropped||(itemId&&!card.items.some(i=>i.id===itemId)))return;
     t.careerRef=itemId?{cardId,itemId}:{cardId};
   }
   saveTaskData();renderTaskLib();
@@ -1700,6 +1744,7 @@ function computeCareerApply(){
     if(!cards){row.state='x';row.text='找不到方向（未讀到 Career 資料）';return row;}
     const card=cards.find(c=>_careerNorm(c.title)===_careerNorm(sg.dir));
     if(!card){row.state='x';row.text='找不到方向';return row;}
+    if(card.dropped){row.state='x';row.text='方向已決定不進行';return row;}
     let ref={cardId:card.id};
     if(sg.item){
       const it=card.items.find(i=>_careerNorm(i.name)===_careerNorm(sg.item));
@@ -1709,7 +1754,7 @@ function computeCareerApply(){
     row.ref=ref;
     const cur=taskCareerRef(task);
     if(cur&&cur.cardId===ref.cardId&&(cur.itemId||'')===(ref.itemId||'')){row.state='same';row.text='已是此對應';return row;}
-    if(cur&&careerTagInfo(task,cards).del){row.state='ok';row.text='原對應已刪除，可重新對應';row.checked=true;return row;}
+    if(cur&&careerTagInfo(task,cards).del&&!careerTagInfo(task,cards).drop){row.state='ok';row.text='原對應已刪除，可重新對應';row.checked=true;return row;}
     if(cur){row.state='over';row.text='任務已有對應（勾選將覆蓋）';return row;}
     row.state='ok';row.text='可套用';row.checked=true;return row;
   });
@@ -1750,7 +1795,7 @@ function renderTaskLib(){
   const catSel=document.getElementById('ainput-cat');
   if(catSel)catSel.innerHTML=taskData.categories.map(c=>`<option value="${escAttr(c.key)}">${esc(c.label)}</option>`).join('');
   taskData.categories.forEach(cat=>{
-    const catTasks=taskData.tasks.filter(t=>t.catKey===cat.key);
+    const catTasks=taskData.tasks.filter(t=>t.catKey===cat.key&&!isClosed(t));
     const sec=document.createElement('div');sec.className='cat-sec';
     const jsHtml=cat.freq==='mode_jobsearch'?`<div class="cat-js-wrap"><span class="cat-js-lbl">求職模式</span><label class="js-toggle"><input type="checkbox" ${jobsearchMode?'checked':''} onchange="toggleJobSearch(this.checked)"><span class="js-slider"></span></label></div>`:'';
     sec.innerHTML=`<div class="cat-hd"><span class="cat-lbl">${esc(cat.label)}</span><span class="cat-freq ${escAttr(FREQ_CLASSES[cat.freq]||'')}">${esc(FREQ_LABELS[cat.freq]||cat.freq)}</span>${jsHtml}</div><div id="cat-items-${escAttr(cat.key)}" class="cat-items"></div>`;
@@ -1771,7 +1816,7 @@ function renderTaskLib(){
       const preLbl=_isPre?'<span class="ti-pre-lbl">早上已做</span>':'';
       d.innerHTML=`<div class="ti-dot"></div>
         <div contenteditable="true" class="tt" onblur="upt(${Number(t.id)},this.textContent.trim())" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur()}">${esc(t.text)}</div>
-        ${preLbl}${preHtml}${careerLibBtnHtml(t)}${toggleHtml}<span class="dh">⠿</span><span class="db" onclick="del(${Number(t.id)})">×</span>`;
+        ${preLbl}${preHtml}${careerLibBtnHtml(t)}<button type="button" class="ti-close" title="結案：不再排入行程，可在底部「已結案」還原" aria-label="結案" onclick="closeTask(${Number(t.id)})">結案</button>${toggleHtml}<span class="dh">⠿</span><span class="db" onclick="del(${Number(t.id)})">×</span>`;
       d.addEventListener('dragstart',function(e){
         if(e.target.isContentEditable||e.target.tagName==='INPUT'||e.target.tagName==='BUTTON'||e.target.tagName==='SELECT'){e.preventDefault();return;}
         dragSrc=this;this.classList.add('drag');
@@ -1808,6 +1853,7 @@ function renderTaskLib(){
       if(srcTask.catKey!==catKey){srcTask.catKey=catKey;renderTaskLib();}
     });
   });
+  renderClosedTasks(el);
   saveTaskData();
   // 若能耗卡片開著，同步刷新
   if(document.getElementById('energyCfgCard')?.style.display!=='none') renderEnergySettings();
@@ -1828,6 +1874,7 @@ function renderEnergySettings(){
   el.innerHTML='';
   const lvs=[['high','高耗能','e-high'],['mid','中耗能','e-mid'],['low','輕量','e-low']];
   taskData.tasks.forEach(t=>{
+    if(isClosed(t))return; // 10-27：已結案不需設定耗能
     const row=document.createElement('div');row.className='energy-row';
     const nm=document.createElement('div');nm.className='energy-task-name';nm.textContent=t.text;
     const cat=taskData.categories.find(c=>c.key===t.catKey);
@@ -1858,7 +1905,7 @@ function addT(e){
   const cat=taskData.categories.find(c=>c.key===catKey);
   // set explicit freq so new tasks are always visible regardless of category default
   const freq=cat?.freq==='mode_jobsearch'?'mode_jobsearch':'daily';
-  taskData.tasks.push({id:nid++,text:tx,catKey,freq});i.value='';renderTaskLib();
+  taskData.tasks.push({id:nid++,text:tx,catKey,freq,onAt:todayDateStr()});i.value='';renderTaskLib();
 }
 function toggleJobSearch(checked){
   jobsearchMode=checked;localStorage.setItem('optimizer_jobsearch_mode',checked?'1':'0');renderTaskLib();
@@ -1867,7 +1914,30 @@ function toggleTaskActive(id,active){
   const t=taskData.tasks.find(t=>t.id===id);if(!t)return;
   const cat=taskData.categories.find(c=>c.key===t.catKey);
   t.freq=active?(cat?.freq==='mode_jobsearch'?'mode_jobsearch':'daily'):'ondemand';
+  if(active)t.onAt=todayDateStr(); // 10-27：打開時記最近開啟日；關閉不清
   saveTaskData();renderTaskLib();
+}
+// 10-27 階段4：結案＝doneAt 今天（真實今天）＋freq 設 ondemand（v2 備援會因此排除）；careerRef／energy 不動
+function closeTask(id){
+  const t=taskData.tasks.find(t=>t.id===id);if(!t)return;
+  t.doneAt=todayDateStr();t.freq='ondemand';
+  saveTaskData();renderTaskLib();
+}
+// 還原＝只拿掉 doneAt，freq 維持 ondemand（回到待命，不會自動排進今天）
+function reopenTask(id){
+  const t=taskData.tasks.find(t=>t.id===id);if(!t)return;
+  delete t.doneAt;
+  saveTaskData();renderTaskLib();
+}
+let _closedOpen=false;
+function renderClosedTasks(host){
+  if(!host)return;
+  const list=taskData.tasks.filter(isClosed);
+  if(!list.length)return;
+  const d=document.createElement('details');d.className='closed-sec';d.open=_closedOpen;
+  d.addEventListener('toggle',()=>{_closedOpen=d.open;});
+  d.innerHTML=`<summary>已結案（${list.length}）</summary>`+list.map(t=>`<div class="closed-row"><span class="cl-name">${esc(t.text)}</span><span class="cl-date">${esc(t.doneAt)}</span><button type="button" onclick="reopenTask(${Number(t.id)})">還原</button><button type="button" class="cl-del" onclick="del(${Number(t.id)})">刪除</button></div>`).join('');
+  host.appendChild(d);
 }
 
 /* Category Management */
@@ -2591,6 +2661,7 @@ function readCareerGrowth(){
     const out=[];
     d.cards.forEach(c=>{
       if(!c||typeof c!=='object'||Number(c.quadrant)!==2||!Array.isArray(c.items))return;
+      if(c.dropped&&typeof c.dropped==='object'&&!Array.isArray(c.dropped))return; // 10-27：決定不進行的方向不列入可推進
       const cardName=typeof c.title==='string'?c.title:'';
       c.items.forEach(it=>{
         if(!it||typeof it!=='object'||typeof it.name!=='string'||!it.name.trim())return;
@@ -2649,7 +2720,7 @@ function calcCapacityAdvice(taskNames,combatPower,calEventsStr){ // 10-21：第�
   const r1=v=>Math.round(v*10)/10;
   // 10-08：可參考選項＝耗能設定為中耗能、今天沒勾選的任務（依任務庫順序），生成當下存起來
   const picked=new Set(taskNames||[]);
-  const opts=(taskData.tasks||[]).filter(t=>(t.energy||'mid')==='mid'&&!picked.has(t.text)).map(t=>t.text);
+  const opts=(taskData.tasks||[]).filter(t=>!isClosed(t)&&(t.energy||'mid')==='mid'&&!picked.has(t.text)).map(t=>t.text);
   if(load+1.0<=cap) return {level:'ok',load:r1(load),cap:r1(cap),spare:Math.max(1,Math.floor(cap-load)),cp,opts,growth:readCareerGrowth()};
   return {level:'full',load:r1(load),cap:r1(cap),spare:0,cp};
 }
@@ -3200,10 +3271,16 @@ async function saveReview(){
   const _oldCref={};
   if(Array.isArray(existing.items))existing.items.forEach(o=>{if(o&&o.name&&sanitizeCref(o.cref)&&!_oldCref[o.name])_oldCref[o.name]=o.cref;});
   const _careerCards=_isToday?readCareerCards():null;
+  // 10-27 階段4：任何日期都寫 tid（任務身分不隨時間漂移）；對不到任務時沿用既有 tid
+  const _oldTid={};
+  if(Array.isArray(existing.items))existing.items.forEach(o=>{if(o&&o.name&&Number.isInteger(o.tid)&&o.tid>0&&!_oldTid[o.name])_oldTid[o.name]=o.tid;});
   const data={...existing,items:reviewItems.map(i=>{
     const est=_durEstimates[i.name]||{};
     const row={name:i.name,status:i.status,feedback:i.feedback,
            idealMin:est.ideal||null,actualMin:est.actual||null};
+    const _tk=taskData.tasks.find(x=>x&&x.text===i.name);
+    const _tid=(_tk&&Number.isInteger(_tk.id)&&_tk.id>0)?_tk.id:_oldTid[i.name];
+    if(_tid)row.tid=_tid;
     // 優先序：已取消→無；手動；今天且任務庫有對應；存檔還原值；舊紀錄 _oldCref（取消時不帶回）
     const cref=i.crefCleared?null:(reviewEffCref(i,_careerCards,_isToday)||_oldCref[i.name]||null);
     if(cref)row.cref=cref;
