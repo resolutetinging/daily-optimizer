@@ -189,6 +189,19 @@ input:checked+.js-slider:before{transform:translateX(13px);}
 .cr-pop-opt.gone{color:#a07070;cursor:default;}
 .cr-tag{font-size:9.5px;font-weight:600;color:#4a6e8e;background:rgba(122,142,158,.14);border-radius:6px;padding:1px 5px;flex-shrink:0;white-space:nowrap;}
 .cr-tag.cr-del{color:#a07070;background:rgba(160,112,112,.13);}
+.cr-tag.cr-focus{color:#3d5f7d;background:rgba(122,142,158,.30);margin-left:3px;}
+.cr-tag.cr-duenear{color:#a07070;background:rgba(160,112,112,.13);margin-left:3px;}
+.ti-due{font-family:inherit;font-size:11px;line-height:1.4;border:none;border-radius:6px;padding:1px 6px;flex-shrink:0;cursor:pointer;background:transparent;color:#b0a89c;opacity:.7;white-space:nowrap;}
+.ti-due:hover,.ti-due.cr-open{background:rgba(122,142,158,.18);color:#4a6e8e;opacity:1;}
+.ti-due.has{background:rgba(122,142,158,.14);color:#4a6e8e;opacity:1;}
+.ti-due.warn{background:rgba(160,112,112,.13);color:#a07070;opacity:1;}
+.due-sum{font-size:12px;color:#a07070;background:rgba(160,112,112,.10);border-radius:8px;padding:6px 10px;margin-bottom:8px;cursor:pointer;}
+.due-pop{padding:10px 12px;}
+.due-pop input[type=date]{font-family:inherit;font-size:13px;width:100%;box-sizing:border-box;padding:5px 6px;border:1px solid #cec8bf;border-radius:6px;background:#fff;color:#4a4540;}
+.due-pop .due-act{display:flex;gap:8px;margin-top:8px;}
+.due-pop .due-act button{font-family:inherit;font-size:12px;border:none;border-radius:6px;padding:4px 12px;cursor:pointer;background:rgba(122,142,158,.18);color:#4a6e8e;}
+.due-pop .due-act button.due-clr{background:transparent;color:#a07070;}
+.due-pop .due-msg{font-size:11px;color:#a07070;margin-top:6px;min-height:14px;}
 .cap-panel{background:#faf8f4;border:1px solid #ddd8d0;border-radius:10px;padding:10px 12px;margin-bottom:10px;}
 .cap-hd{font-size:11px;color:#7a7570;margin-bottom:8px;line-height:1.5;}
 .cap-row{display:flex;align-items:flex-start;gap:7px;padding:5px 0;border-bottom:1px solid #ece8e0;font-size:11.5px;color:#38342e;}
@@ -835,7 +848,15 @@ function buildHintFromTasks(pipeType, tasks){
   } else {
     pool=tasks;
   }
-  const names=_shufflePick(pool,3).map(t=>t.text);
+  // 10-27 階段5：先放期限 ≤3 天／已過期（近到遠），再放焦點細項的任務（僅 high／mid），剩下名額才隨機
+  const urgent=pool.filter(isDueNear).sort((a,b)=>taskDueDays(a)-taskDueDays(b));
+  let focusP=[];
+  if(pipeType==='high'||pipeType==='mid'){
+    const cards=readCareerCards();
+    focusP=pool.filter(t=>!urgent.includes(t)&&isFocusTask(t,cards));
+  }
+  const picked=[...urgent,...focusP].slice(0,3);
+  const names=[...picked,..._shufflePick(pool.filter(t=>!picked.includes(t)),3-picked.length)].map(t=>t.text);
   return `💡 適合：${names.join('、')}`;
 }
 
@@ -1208,6 +1229,50 @@ function isClosed(t){
   return !isNaN(new Date(t.doneAt+'T00:00:00').getTime());
 }
 const todayDateStr=()=>todayKey().slice(7); // todayKey()='review_YYYY-MM-DD'（真實今天，非 displayKey）
+/* 10-27 階段5：任務期限 due（tina_tasks_v3.tasks[].due，'YYYY-MM-DD'，Optimizer 為唯一寫入端；資料可能來自 Gist／Career，一律過 validDue） */
+function validDue(v){
+  if(typeof v!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(v))return false;
+  const y=+v.slice(0,4),m=+v.slice(5,7),d=+v.slice(8,10);
+  if(y<2000||y>2100)return false;
+  const dt=new Date(Date.UTC(y,m-1,d));
+  return dt.getUTCFullYear()===y&&dt.getUTCMonth()===m-1&&dt.getUTCDate()===d;
+}
+// 距今日曆天數（due 減真實今天；日期字串兩端皆以 UTC 午夜換算，避開夏令時間）；無效 due 回傳 null
+function dueDays(due,todayStr){
+  if(!validDue(due)||!validDue(todayStr))return null;
+  const u=s=>Date.UTC(+s.slice(0,4),+s.slice(5,7)-1,+s.slice(8,10));
+  return Math.round((u(due)-u(todayStr))/86400000);
+}
+const taskDueDays=t=>(!t||isClosed(t))?null:dueDays(t.due,todayDateStr());
+const isDueNear=t=>{const n=taskDueDays(t);return n!==null&&n<=3;}; // 剩 ≤3 天或已過期
+function dueBtnInfo(t){
+  const n=taskDueDays(t);
+  if(n===null)return{text:'期限',cls:''};
+  if(n<0)return{text:'已過期',cls:' warn'};
+  if(n===0)return{text:'今天到期',cls:' warn'};
+  if(n<=3)return{text:'剩 '+n+' 天',cls:' warn'};
+  return{text:'期限 '+(+t.due.slice(5,7))+'/'+(+t.due.slice(8,10)),cls:' has'};
+}
+function taskIsOn(t){
+  const cat=taskData.categories.find(c=>c.key===t.catKey);if(!cat)return false;
+  const f=t.freq||cat.freq;
+  return f!=='ondemand'&&!(f==='mode_jobsearch'&&!jobsearchMode);
+}
+/* 10-27 階段5：本週焦點（ISO 週，週一到週日；與 Career 逐字一致的函式：careerFocusWeek） */
+const FOCUS_RE=/^\d{4}-W(0[1-9]|[1-4]\d|5[0-3])$/;
+function careerFocusWeek(d){
+  const t=new Date(Date.UTC(d.getFullYear(),d.getMonth(),d.getDate()));
+  const dow=t.getUTCDay()||7;
+  t.setUTCDate(t.getUTCDate()+4-dow);
+  const y=t.getUTCFullYear();
+  const wk=Math.ceil(((t-Date.UTC(y,0,1))/86400000+1)/7);
+  return y+'-W'+String(wk).padStart(2,'0');
+}
+// 目前焦點週代號：以真實今天（todayDateStr）為準，不用 displayKey
+function curFocusWeek(){
+  const s=todayDateStr();
+  return careerFocusWeek(new Date(+s.slice(0,4),+s.slice(5,7)-1,+s.slice(8,10)));
+}
 function getEffectiveTasks(){
   return taskData.tasks.filter(t=>{
     if(isClosed(t))return false; // 已結案雙保險
@@ -1282,6 +1347,17 @@ function toggleRest(){
   card.classList.toggle('show', restMode);
   if(!restMode){
     outSec.classList.add('hidden');
+    // 10-27 階段5：使用者明示離開休假 → 清掉已寫入的 restMode／restNote（否則同日生成行程仍帶 restMode，被所有讀取端當休假日）
+    try{
+      const raw=localStorage.getItem(displayKey);
+      if(raw){
+        const ex=JSON.parse(raw);
+        if(ex&&typeof ex==='object'&&ex.restMode){
+          delete ex.restMode;delete ex.restNote;
+          localStorage.setItem(displayKey,JSON.stringify(ex));
+        }
+      }
+    }catch(e){}
   } else {
     // 切入休假模式：清除 normal mode 留下的覆盤資料
     reviewItems=[];
@@ -1571,7 +1647,7 @@ function readCareerCards(){
       const q=Number(c.quadrant);
       const items=[];
       if(Array.isArray(c.items))c.items.forEach(it=>{
-        if(it&&typeof it==='object'&&typeof it.id==='string'&&CAREER_ID_RE.test(it.id)&&typeof it.name==='string'&&it.name.trim())items.push({id:it.id,name:it.name});
+        if(it&&typeof it==='object'&&typeof it.id==='string'&&CAREER_ID_RE.test(it.id)&&typeof it.name==='string'&&it.name.trim())items.push({id:it.id,name:it.name,focus:(typeof it.focus==='string'&&FOCUS_RE.test(it.focus)&&it.focus===curFocusWeek())}); // 10-27 階段5：focus 只算成布林（焦點週代號不外露）
       });
       out.push({id:c.id,title:c.title,q:(q>=1&&q<=4)?q:0,items,dropped:!!(c.dropped&&typeof c.dropped==='object'&&!Array.isArray(c.dropped))}); // 10-27：dropped＝決定不進行（quadrant 保留原值）
     });
@@ -1591,9 +1667,19 @@ function careerTagInfo(t,cards){
   if(card.dropped)return{label:'不進行',del:true,drop:true}; // 10-27：方向決定不進行，比照「已刪除」提示樣式
   return{label:card.q===0?'未放置':'Q'+card.q,del:false};
 }
+// 10-27 階段5：任務對應到「本週焦點」細項（唯讀；方向已決定不進行或細項已刪＝否）
+function isFocusTask(t,cards){
+  const r=taskCareerRef(t);if(!r||!r.itemId||!cards)return false;
+  const card=cards.find(c=>c.id===r.cardId);
+  if(!card||card.dropped)return false;
+  const it=card.items.find(i=>i.id===r.itemId);
+  return !!(it&&it.focus);
+}
+const focusTagHtml=(t,cards)=>isFocusTask(t,cards)?'<span class="cr-tag cr-focus">焦點</span>':'';
 function careerTagHtml(t){
-  const info=careerTagInfo(t,readCareerCards());
-  return info?`<span class="cr-tag${info.del?' cr-del':''}">${esc(info.label)}</span>`:'';
+  const cards=readCareerCards();
+  const info=careerTagInfo(t,cards);
+  return (info?`<span class="cr-tag${info.del?' cr-del':''}">${esc(info.label)}</span>`:'')+focusTagHtml(t,cards);
 }
 // 任務庫列上的象限標籤／「＋」按鈕：點開 popover 設定對應（選項與資料格式同原下拉）
 function careerLibBtnHtml(t){
@@ -1612,7 +1698,7 @@ function openCareerPop(ev,id,rv){
   if(ev)ev.stopPropagation();
   const key=rv?('rv'+id):id; // rv=true：覆盤列（id 為 reviewItems 索引），只影響當天覆盤、不寫回任務庫
   const same=(_crPopTid===key);
-  closeCareerPop();
+  closeDuePop();closeCareerPop();
   if(same)return;
   const t=rv?reviewItems[id]:taskData.tasks.find(t=>t.id===id);const btn=document.getElementById('crbtn-'+key);
   if(!t||!btn)return;
@@ -1665,6 +1751,57 @@ function openCareerPop(ev,id,rv){
   _crPopTid=key;
   const sel=pop.querySelector('.cr-pop-opt.sel');if(sel&&sel.scrollIntoView)sel.scrollIntoView({block:'nearest'});
 }
+/* ── 10-27 階段5：任務期限浮層（比照 openCareerPop；只寫 tina_tasks_v3.tasks[].due）── */
+const dueBtnHtml=t=>{const i=dueBtnInfo(t);const id=Number(t.id);return`<button type="button" class="ti-due${i.cls}" id="duebtn-${id}" title="設定期限" aria-label="設定期限" onclick="openDuePop(event,${id})">${esc(i.text)}</button>`;};
+let _duePopTid=null;
+function closeDuePop(){
+  const p=document.getElementById('duePop');if(p)p.remove();
+  if(_duePopTid!=null){const b=document.getElementById('duebtn-'+_duePopTid);if(b)b.classList.remove('cr-open');}
+  _duePopTid=null;
+}
+function openDuePop(ev,id){
+  if(ev)ev.stopPropagation();
+  const same=(_duePopTid===id);
+  closeCareerPop();closeDuePop();
+  if(same)return;
+  const t=taskData.tasks.find(t=>t.id===id);const btn=document.getElementById('duebtn-'+id);
+  if(!t||!btn)return;
+  const today=todayDateStr();
+  const pop=document.createElement('div');
+  pop.id='duePop';pop.className='cr-pop due-pop';
+  pop.innerHTML=`<input type="date" id="dueInput" min="${escAttr(today)}" value="${escAttr(validDue(t.due)?t.due:'')}"><div class="due-act"><button type="button" onclick="confirmDue(${Number(id)})">確定</button><button type="button" class="due-clr" onclick="clearDue(${Number(id)})">清除</button></div><div class="due-msg" id="dueMsg"></div>`;
+  pop.style.visibility='hidden';pop.style.left='0px';pop.style.top='0px';
+  document.body.appendChild(pop);
+  const vw=document.documentElement.clientWidth,vh=window.innerHeight;
+  const rc=btn.getBoundingClientRect();
+  const w=pop.offsetWidth,ph=pop.offsetHeight;
+  let left=Math.min(Math.max(8,rc.left),vw-w-8);
+  let top=rc.bottom+4;
+  if(top+ph>vh-8){const up=rc.top-4-ph;top=up>=8?up:Math.max(8,vh-ph-8);}
+  pop.style.left=left+'px';pop.style.top=top+'px';pop.style.visibility='';
+  btn.classList.add('cr-open');
+  _duePopTid=id;
+}
+function confirmDue(id){
+  const t=taskData.tasks.find(t=>t.id===id);if(!t)return;
+  const inp=document.getElementById('dueInput');const msg=document.getElementById('dueMsg');
+  const v=inp?inp.value:'';
+  if(!validDue(v)){if(msg)msg.textContent='請選擇有效的日期';return;}
+  if(v<todayDateStr()){if(msg)msg.textContent='期限不能早於今天';return;}
+  t.due=v;saveTaskData();renderTaskLib();
+}
+function clearDue(id){
+  const t=taskData.tasks.find(t=>t.id===id);if(!t)return;
+  delete t.due;saveTaskData();renderTaskLib();
+}
+document.addEventListener('mousedown',e=>{
+  if(_duePopTid==null)return;
+  if(e.target.closest&&(e.target.closest('#duePop')||e.target.closest('.ti-due')))return;
+  closeDuePop();
+});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&_duePopTid!=null)closeDuePop();});
+window.addEventListener('resize',closeDuePop);
+window.addEventListener('scroll',e=>{if(_duePopTid!=null&&!(e.target&&e.target.id==='duePop'))closeDuePop();},true);
 function pickCareer(id,val){
   closeCareerPop();
   setTaskCareer(id,val);
@@ -1788,10 +1925,19 @@ function applyCareerSuggest(){
 }
 
 function renderTaskLib(){
-  closeCareerPop();
+  closeCareerPop();closeDuePop();
   updateCapLive(); // 10-21：任務庫開關變動時即時更新臨時任務建議
   const el=document.getElementById('tlist');el.innerHTML='';
   const _preDoneSet=getPreDone(); // 10-21
+  // 10-27 階段5：待命且期限 ≤3 天（含已過期）的未結案任務摘要
+  const _dueWait=taskData.tasks.filter(t=>isDueNear(t)&&!taskIsOn(t));
+  if(_dueWait.length){
+    const sm=document.createElement('div');sm.className='due-sum';sm.id='dueSummary';
+    sm.textContent=_dueWait.length+' 個任務期限將到但在待命';
+    sm.onclick=()=>{const r=document.getElementById('ti-'+_dueWait[0].id);if(r&&r.scrollIntoView)r.scrollIntoView({block:'center',behavior:'smooth'});};
+    el.appendChild(sm);
+  }
+  const _crCards=readCareerCards();
   const catSel=document.getElementById('ainput-cat');
   if(catSel)catSel.innerHTML=taskData.categories.map(c=>`<option value="${escAttr(c.key)}">${esc(c.label)}</option>`).join('');
   taskData.categories.forEach(cat=>{
@@ -1804,7 +1950,7 @@ function renderTaskLib(){
     catTasks.forEach(t=>{
       const tfreq=t.freq||cat.freq;
       const inactive=(tfreq==='mode_jobsearch'&&!jobsearchMode)||(tfreq==='ondemand');
-      const d=document.createElement('div');d.className='ti';d.draggable=true;d.dataset.id=t.id;
+      const d=document.createElement('div');d.className='ti';d.draggable=true;d.dataset.id=t.id;d.id='ti-'+Number(t.id);
       if(inactive)d.style.opacity='0.4';
       const isJobCat=cat.freq==='mode_jobsearch';
       const isOn=tfreq!=='ondemand'&&!(tfreq==='mode_jobsearch'&&!jobsearchMode);
@@ -1816,7 +1962,7 @@ function renderTaskLib(){
       const preLbl=_isPre?'<span class="ti-pre-lbl">早上已做</span>':'';
       d.innerHTML=`<div class="ti-dot"></div>
         <div contenteditable="true" class="tt" onblur="upt(${Number(t.id)},this.textContent.trim())" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur()}">${esc(t.text)}</div>
-        ${preLbl}${preHtml}${careerLibBtnHtml(t)}<button type="button" class="ti-close" title="結案：不再排入行程，可在底部「已結案」還原" aria-label="結案" onclick="closeTask(${Number(t.id)})">結案</button>${toggleHtml}<span class="dh">⠿</span><span class="db" onclick="del(${Number(t.id)})">×</span>`;
+        ${preLbl}${preHtml}${focusTagHtml(t,_crCards)}${careerLibBtnHtml(t)}${dueBtnHtml(t)}<button type="button" class="ti-close" title="結案：不再排入行程，可在底部「已結案」還原" aria-label="結案" onclick="closeTask(${Number(t.id)})">結案</button>${toggleHtml}<span class="dh">⠿</span><span class="db" onclick="del(${Number(t.id)})">×</span>`;
       d.addEventListener('dragstart',function(e){
         if(e.target.isContentEditable||e.target.tagName==='INPUT'||e.target.tagName==='BUTTON'||e.target.tagName==='SELECT'){e.preventDefault();return;}
         dragSrc=this;this.classList.add('drag');
@@ -2471,7 +2617,10 @@ Return ONLY JSON: [{"t":"task name","type":"high","ideal":30},...]`;
 }
 
 function renderPipeSandbox(result,isMock=false,errMsg=''){
-  _pipes=result.pipes||[];_skipTasks=result.skipTasks||[];
+  _pipes=result.pipes||[];_skipTasks=Array.isArray(result.skipTasks)?result.skipTasks:[];
+  // 10-27 階段5：AI 不得建議跳過期限 ≤3 天的任務（只濾輸出，不改 prompt）
+  const _nearNames=new Set(getEffectiveTasks().filter(isDueNear).map(t=>t.text));
+  if(_nearNames.size)_skipTasks=_skipTasks.filter(n=>!_nearNames.has(n));
   _pipeAssign={};_selPipeIdx=null;_selBrickText=null;
 
   const sc=document.getElementById('sout');
@@ -2562,7 +2711,7 @@ function renderBrickPool(){
     const cntBadge=cnt?`<span class="brick-cnt">×${cnt}</span>`:'';
     const cat=taskData.categories.find(c=>c.key===t.catKey);
     const catTag=cat?`<span style="font-size:9px;opacity:.55;margin-left:3px;">[${esc(cat.label)}]</span>`:'';
-    return`<div class="${cls}" id="brick-${i}" onclick="onBrickClick('${escJsAttr(t.text)}',${i})">${dot}${esc(t.text)}${catTag}${careerTagHtml(t)}${cntBadge}</div>`;
+    return`<div class="${cls}" id="brick-${i}" onclick="onBrickClick('${escJsAttr(t.text)}',${i})">${dot}${esc(t.text)}${catTag}${careerTagHtml(t)}${isDueNear(t)?'<span class="cr-tag cr-duenear">期限近</span>':''}${cntBadge}</div>`;
   }).join('');
   // 臨時自訂積木
   const offset=tasks.length;
