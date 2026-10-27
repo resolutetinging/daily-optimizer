@@ -1668,12 +1668,23 @@ function careerTagInfo(t,cards){
   return{label:card.q===0?'未放置':'Q'+card.q,del:false};
 }
 // 10-27 階段5：任務對應到「本週焦點」細項（唯讀；方向已決定不進行或細項已刪＝否）
-function isFocusTask(t,cards){
-  const r=taskCareerRef(t);if(!r||!r.itemId||!cards)return false;
+// 口徑同 Career career-matrix.html 規則 6（rule6Rows）：焦點細項「細項層」無未結案任務時退回看方向層任務（規劃書 11.4／10.12 Q1）
+// 方向層任務（無 itemId）算焦點＝該方向有焦點細項，且該細項沒有任何未結案的細項層任務；
+// 若焦點細項已有自己的細項層任務，方向層任務不重複標焦點（照實作，避免同方向焦點標籤氾濫）
+function isFocusTask(t,cards,allTasks){
+  const r=taskCareerRef(t);if(!r||!cards)return false;
   const card=cards.find(c=>c.id===r.cardId);
   if(!card||card.dropped)return false;
-  const it=card.items.find(i=>i.id===r.itemId);
-  return !!(it&&it.focus);
+  if(r.itemId){const it=card.items.find(i=>i.id===r.itemId);return !!(it&&it.focus);}
+  const all=allTasks||(taskData&&taskData.tasks)||[];
+  return card.items.some(it=>{
+    if(!it.focus)return false;
+    return !all.some(x=>{
+      if(!x||isClosed(x))return false;
+      const xr=taskCareerRef(x);
+      return !!(xr&&xr.cardId===card.id&&xr.itemId===it.id);
+    });
+  });
 }
 const focusTagHtml=(t,cards)=>isFocusTask(t,cards)?'<span class="cr-tag cr-focus">焦點</span>':'';
 function careerTagHtml(t){
