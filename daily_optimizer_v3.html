@@ -956,6 +956,15 @@ function calAddRow(text,afterRow){
     if(!r._manual){r._hi=calIsHighByName(inp.value);calSetBtn(r);} // 手動點過的列不再被關鍵字覆蓋
     calSync();
   });
+  // 10-29：Enter 在下方新增一列並跳過去；下一列已是空白列就直接跳過去；中文輸入法選字的 Enter 不觸發
+  inp.addEventListener('keydown',ev=>{
+    if(ev.key!=='Enter'||ev.isComposing||ev.keyCode===229)return;
+    ev.preventDefault();
+    if(!inp.value.trim())return;
+    const nx=r.nextElementSibling;
+    const nxInp=nx&&nx.querySelector('.cal-txt');
+    (nxInp&&!nxInp.value.trim()?nxInp:calAddRow('',r).querySelector('.cal-txt')).focus();
+  });
   inp.addEventListener('paste',ev=>{
     const t=((ev.clipboardData||window.clipboardData).getData('text')||'');
     if(!/[\r\n]/.test(t.trim()))return;
