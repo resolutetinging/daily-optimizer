@@ -206,6 +206,7 @@ input:checked+.js-slider:before{transform:translateX(13px);}
 .cap-hd{font-size:11px;color:#7a7570;margin-bottom:8px;line-height:1.5;}
 .cap-row{display:flex;align-items:flex-start;gap:7px;padding:5px 0;border-bottom:1px solid #ece8e0;font-size:11.5px;color:#38342e;}
 .cap-row input{margin-top:2px;flex-shrink:0;}
+.cap-sel{max-width:44%;min-width:0;font-size:11px;padding:2px 4px;border:1px solid #cec8bf;border-radius:6px;background:#f4f1ec;color:#38342e;}
 .cap-st{margin-left:auto;font-size:10px;color:#9a9088;flex-shrink:0;text-align:right;}
 .cap-st.ok{color:#2e6848;}
 .cap-st.warn{color:#a07070;}
@@ -309,6 +310,8 @@ input:checked+.js-slider:before{transform:translateX(13px);}
 .fb-reason{font-size:13px;color:#4a4640;line-height:1.6;margin-bottom:6px;white-space:normal;}
 .fb-directions{margin-top:4px;}
 .fb-dir-item{font-size:13px;color:#4a4640;line-height:1.7;padding:2px 0;white-space:normal;}
+.fb-list{margin:2px 0 6px;padding-left:18px;list-style:disc;}
+.fb-li{font-size:13px;color:#4a4640;line-height:1.7;padding:1px 0;white-space:normal;}
 .fb-week{margin-top:8px;padding-top:8px;border-top:1px dashed #cec8bf;font-size:12.5px;color:#4a4640;line-height:1.6;white-space:normal;}
 .fb-week-lbl{display:block;font-size:10.5px;font-weight:700;color:#9a8058;margin-bottom:2px;}
 
@@ -1881,23 +1884,42 @@ const CAREER_SUGGEST=[
 ];
 const _careerNorm=s=>String(s==null?'':s).normalize('NFKC').replace(/\s+/g,'').toLowerCase();
 let _careerApplyRows=[];
+let _capOv={};   // 10-29：使用者手動指定（記憶體內，key＝建議序號；不寫 localStorage）
+let _capUser={}; // 重繪時保留使用者已改過的勾選狀態
 function computeCareerApply(){
   const cards=readCareerCards();
-  return CAREER_SUGGEST.map(sg=>{
-    const row={label:sg.names[0],dir:sg.dir,item:sg.item||'',taskId:null,ref:null,state:'',text:'',checked:false};
+  return CAREER_SUGGEST.map((sg,si)=>{
+    const ov=_capOv[si]||{};
+    const row={si,label:sg.names[0],dir:sg.dir,item:sg.item||'',taskId:null,ref:null,state:'',text:'',checked:false,need:'',selTask:null,selDir:''};
     const nn=sg.names.map(_careerNorm);
-    const task=taskData.tasks.find(t=>nn.includes(_careerNorm(t.text)));
-    if(!task){row.state='x';row.text='找不到任務';return row;}
+    let task=taskData.tasks.find(t=>nn.includes(_careerNorm(t.text)));
+    if(!task&&ov.taskId!=null){
+      task=taskData.tasks.find(t=>String(t.id)===String(ov.taskId)&&!isClosed(t));
+      if(task)row.selTask=task.id;
+    }
+    if(!task){row.state='x';row.text='找不到任務';row.need='task';return row;}
     row.taskId=task.id;row.label=task.text;
     if(!cards){row.state='x';row.text='找不到方向（未讀到 Career 資料）';return row;}
-    const card=cards.find(c=>_careerNorm(c.title)===_careerNorm(sg.dir));
-    if(!card){row.state='x';row.text='找不到方向';return row;}
-    if(card.dropped){row.state='x';row.text='方向已決定不進行';return row;}
-    let ref={cardId:card.id};
-    if(sg.item){
-      const it=card.items.find(i=>_careerNorm(i.name)===_careerNorm(sg.item));
-      if(!it){row.state='x';row.text='找不到細項';return row;}
-      ref.itemId=it.id;
+    let ref=null;
+    if(ov.val){
+      const pr=String(ov.val).split('|');
+      const oc=cards.find(c=>c.id===pr[0]&&!c.dropped);
+      if(oc&&(!pr[1]||oc.items.some(i=>i.id===pr[1]))){
+        ref=pr[1]?{cardId:oc.id,itemId:pr[1]}:{cardId:oc.id};
+        row.selDir=ov.val;
+        row.dir=oc.title;row.item=pr[1]?oc.items.find(i=>i.id===pr[1]).name:'';
+      }
+    }
+    if(!ref){
+      const card=cards.find(c=>_careerNorm(c.title)===_careerNorm(sg.dir));
+      if(!card){row.state='x';row.text='找不到方向';row.need='dir';return row;}
+      if(card.dropped){row.state='x';row.text='方向已決定不進行';return row;}
+      ref={cardId:card.id};
+      if(sg.item){
+        const it=card.items.find(i=>_careerNorm(i.name)===_careerNorm(sg.item));
+        if(!it){row.state='x';row.text='找不到細項';return row;}
+        ref.itemId=it.id;
+      }
     }
     row.ref=ref;
     const cur=taskCareerRef(task);
@@ -1907,9 +1929,42 @@ function computeCareerApply(){
     row.state='ok';row.text='可套用';row.checked=true;return row;
   });
 }
+function capSnapshot(){
+  _careerApplyRows.forEach((r,i)=>{const c=document.getElementById('cap-chk-'+i);if(c&&!c.disabled)_capUser[r.si]=c.checked;});
+}
+function capPick(si,kind,val){
+  capSnapshot();
+  delete _capUser[si];
+  const ov=_capOv[si]||(_capOv[si]={});
+  if(kind==='task')ov.taskId=val===''?null:val;
+  else ov.val=val;
+  renderCareerApply();
+}
+function capSelHtml(r){
+  const si=Number(r.si);
+  if(r.need==='task'||r.selTask!=null){
+    const opts=taskData.tasks.filter(t=>!isClosed(t)).map(t=>`<option value="${escAttr(String(t.id))}"${String(t.id)===String(r.selTask)?' selected':''}>${esc(t.text)}</option>`).join('');
+    return`<select class="cap-sel" id="cap-sel-${si}" aria-label="指定任務" onchange="capPick(${si},'task',this.value)"><option value="">指定任務…</option>${opts}</select>`;
+  }
+  if(r.need==='dir'||r.selDir){
+    const cards=readCareerCards()||[];
+    let o=`<option value="">指定方向／細項…</option>`;
+    [1,2,3,4,0].forEach(q=>{
+      const grp=cards.filter(c=>c.q===q&&!c.dropped);if(!grp.length)return;
+      o+=`<optgroup label="${escAttr(q===0?'未放置':'Q'+q)}">`;
+      grp.forEach(c=>{
+        o+=`<option value="${escAttr(c.id)}"${c.id===r.selDir?' selected':''}>${esc(c.title)}</option>`;
+        c.items.forEach(i=>{const iv=c.id+'|'+i.id;o+=`<option value="${escAttr(iv)}"${iv===r.selDir?' selected':''}>${esc('　› '+i.name)}</option>`;});
+      });
+      o+='</optgroup>';
+    });
+    return`<select class="cap-sel" id="cap-sel-${si}" aria-label="指定方向" onchange="capPick(${si},'dir',this.value)">${o}</select>`;
+  }
+  return'';
+}
 function toggleCareerApply(){
   const p=document.getElementById('careerApplyPanel');if(!p)return;
-  if(p.style.display==='none'){renderCareerApply();p.style.display='';}
+  if(p.style.display==='none'){_capUser={};renderCareerApply();p.style.display='';}
   else p.style.display='none';
 }
 function renderCareerApply(msg){
@@ -1917,8 +1972,9 @@ function renderCareerApply(msg){
   _careerApplyRows=computeCareerApply();
   const rows=_careerApplyRows.map((r,i)=>{
     const can=r.state==='ok'||r.state==='over';
+    if(can&&_capUser[r.si]!==undefined)r.checked=_capUser[r.si];
     const cls=r.state==='ok'?'ok':(r.state==='x'?'warn':'');
-    return`<label class="cap-row"><input type="checkbox" id="cap-chk-${i}" ${r.checked?'checked':''} ${can?'':'disabled'}><span>${esc(r.label)} → ${esc(r.dir+(r.item?' › '+r.item:''))}</span><span class="cap-st ${cls}">${esc(r.text)}</span></label>`;
+    return`<label class="cap-row"><input type="checkbox" id="cap-chk-${i}" ${r.checked?'checked':''} ${can?'':'disabled'}><span>${esc(r.label)} → ${esc(r.dir+(r.item?' › '+r.item:''))}</span>${capSelHtml(r)}<span class="cap-st ${cls}">${esc(r.text)}</span></label>`;
   }).join('');
   p.innerHTML=`<div class="cap-hd">依 Career 目前的方向／細項名稱比對；勾選後按「套用」才會寫入，不會自動執行。${msg?'<br><b>'+esc(msg)+'</b>':''}</div>${rows}<div class="cap-act"><button class="cap-btn" onclick="applyCareerSuggest()">套用</button><button class="cap-btn sec" onclick="toggleCareerApply()">關閉</button></div>`;
 }
@@ -1931,6 +1987,7 @@ function applyCareerSuggest(){
     t.careerRef=r.ref.itemId?{cardId:r.ref.cardId,itemId:r.ref.itemId}:{cardId:r.ref.cardId};n++;
   });
   if(n)saveTaskData();
+  _capUser={};
   renderTaskLib();
   renderCareerApply('已套用 '+n+' 項');
 }
@@ -3508,9 +3565,12 @@ function renderFeedbackCard(fbData,isVacation){
   // 使用者反映缺分析見解），舊資料(09-08當天存的)還是diagnosis欄位名，兩者都吃
   // 才不會讓昨天存的反饋重新打開時顯示空白。
   const insightText=fbData.insight||fbData.diagnosis;
-  const insightHtml=(!isVacation&&insightText)?`<div class="fb-reason">${esc(insightText)}</div>`:'';
+  // 10-29：insight依「。」切成要點列點（空字串濾掉、句尾補回「。」）
+  const _fbLis=(arr)=>arr.map(t=>`<li class="fb-li">${esc(t)}</li>`).join('');
+  const insightPts=(!isVacation&&insightText)?String(insightText).split('。').map(t=>t.trim()).filter(Boolean).map(t=>/[！？!?]$/.test(t)?t:t+'。'):[];
+  const insightHtml=insightPts.length?`<ul class="fb-list">${_fbLis(insightPts)}</ul>`:'';
   const dirHtml=Array.isArray(fbData.directions)&&fbData.directions.length
-    ?`<div class="fb-directions">${fbData.directions.map(d=>`<div class="fb-dir-item">${esc(d)}</div>`).join('')}</div>`
+    ?`<ul class="fb-list fb-directions">${_fbLis(fbData.directions)}</ul>`
     :'';
   // 09-09新增：本週配速建議，只在有本週歷史資料時才會出現，跟明日行動視覺區隔
   const weekHtml=(!isVacation&&fbData.week_plan)
@@ -3593,7 +3653,7 @@ async function genReviewFeedback(){
       +'{"charge":"real或anxious（今天是真正充電還是隱性焦慮的假休）",'+NL
       +'"trend":"up或protect（明天能量會回升還是仍需保護）",'+NL
       +'"reason":"一句話原因，18字以內",'+NL
-      +'"directions":["①時間＋具體事項（不用可以、建議等模糊詞，15-20字內）"]（1-2項，根據今日活動記錄產生，禁止用範例文字，語氣溫和直接、不評產出、不過度鼓勵'
+      +'"directions":["①時間＋具體事項（不用可以、建議等模糊詞，15-20字內）"]（1-2項，根據今日活動記錄產生，禁止用範例文字，語氣溫和直接、不評產出、不過度鼓勵；只能提到【今日活動記錄】中出現過的任務與時段，不得編造課程、會議、約會等不存在的行程或固定時間，若要建議時段用「上午／下午／晚上」等相對時段'
       +(saved.overall?'，且須直接回應本人整體反饋中的關切點':'')+'）}';
   } else {
     // ── 非休假：原有產出期待 + 水管分析流程 ──
@@ -3693,7 +3753,7 @@ async function genReviewFeedback(){
       +'"insight":"2-3句話的分析見解，不是重述【實際覆盤結果】已經寫的事實，要講因果或型態——'
       +(hasAiPlan?'AI水管vs實際最大落差點，原因是計畫問題還是當日狀態問題':'今日任務選擇反映了什麼決策傾向')
       +'，並指出這對日後排程設計的啟示",'+NL
-      +'"directions":["①時間或場景＋具體事項（不用可以考慮、建議等模糊詞，15-20字內）"]（2-3項，明日行動，必須根據【實際覆盤結果】的今日實際任務和狀態產生，禁止使用任何預設範例文字'
+      +'"directions":["①時間或場景＋具體事項（不用可以考慮、建議等模糊詞，15-20字內）"]（2-3項，明日行動，必須根據【實際覆盤結果】的今日實際任務和狀態產生，禁止使用任何預設範例文字；只能提到【實際覆盤結果】或今日行程中出現過的任務與時段，不得編造課程、會議、約會等不存在的行程或固定時間，若要建議時段用「上午／下午／晚上」等相對時段'
       +(saved.overall?'，且須直接回應本人整體反饋中的關切點':'')+'）'
       +(weekDays.length>1?',"week_plan":"1-2句話，只能根據上方【本週記錄】列出的實際天數與數字，給本週剩餘時間的配速調整建議，禁止提及【本週記錄】沒列出的日期或數字。若提及連續過載或特定天數（例如「已連續兩天過載」），必須把確切日期以括號附在該句文字後面，日期只能用上方【本週記錄】列出的MM-DD格式，例如「本週已連續兩天過載(09-08、09-09)」"':'')
       +'}'
