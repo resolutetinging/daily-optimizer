@@ -2965,9 +2965,9 @@ function capacityAdviceHtml(a){
     else txt=`🟠 不建議再增加臨時任務（負荷約 ${pct}%）`;
   }
   const opts=(a.level==='ok'&&Array.isArray(a.opts))?a.opts.filter(o=>typeof o==='string'&&o):[];
-  const optHtml=opts.length?`<div class="cap-advice-opts" style="margin-top:3px;font-size:12px;color:#7a7570;">可參考的中耗能任務：${opts.slice(0,5).map(esc).join('、')}${opts.length>5?`　等 ${opts.length} 項`:''}</div>`:'';
+  const optHtml=opts.length?`<div class="cap-advice-opts" style="margin-top:3px;font-size:12px;color:#7a7570;">可參考的中耗能任務${opts.length>5?`（共 ${opts.length} 項，列前 5 項）`:''}：<ul class="fb-list">${opts.slice(0,5).map(o=>`<li>${esc(o)}</li>`).join('')}</ul></div>`:'';
   const gr=(a.level==='ok'&&Array.isArray(a.growth))?a.growth.filter(g=>g&&typeof g.name==='string'&&g.name).slice(0,3):[];
-  const grHtml=gr.length?`<div class="cap-advice-growth" style="margin-top:3px;font-size:12px;color:#7a7570;">長期目標可推進：${gr.map(g=>{const nm=`${esc(g.name)}${g.card?`（${esc(g.card)}）`:''}`;const lg=Array.isArray(g.learning)?g.learning.filter(x=>typeof x==='string'&&x).slice(0,2):[];if(lg.length)return `${nm}：掌握一些 ${lg.map(esc).join('、')}`;return `${nm}（${esc(g.status)}）`;}).join('、')}</div>`:'';
+  const grHtml=gr.length?`<div class="cap-advice-growth" style="margin-top:3px;font-size:12px;color:#7a7570;">長期目標可推進：<ul class="fb-list">${gr.map(g=>{const nm=`${esc(g.name)}${g.card?`（${esc(g.card)}）`:''}`;const lg=Array.isArray(g.learning)?g.learning.filter(x=>typeof x==='string'&&x).slice(0,2):[];if(lg.length)return `<li>${nm}：掌握一些 ${lg.map(esc).join('、')}</li>`;return `<li>${nm}（${esc(g.status)}）</li>`;}).join('')}</ul></div>`:'';
   return `<div class="cap-advice" style="margin-top:6px;font-size:12px;color:#6a6660;">${esc(txt)}</div>${optHtml}${grHtml}`;
 }
 /* ── 10-21：臨時任務建議即時預估（任務庫上方），與生成後 pipe-summary 同一公式；
