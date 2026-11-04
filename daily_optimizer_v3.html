@@ -516,7 +516,10 @@ input:checked+.js-slider:before{transform:translateX(13px);}
 
   <div class="header">
     <div>
-      <div class="h-date" id="hdate">—</div>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+        <div class="h-date" id="hdate" style="margin-bottom:0;">—</div>
+        <button id="moodFab" onclick="moodFabToggle()" aria-label="今日心情" title="今日心情" style="position:relative;width:28px;height:28px;border-radius:50%;border:1px solid #d8d2c8;background:#f3f0ea;font-size:15px;line-height:1;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;padding:0;color:#7a7570;">＋</button>
+      </div>
       <div class="h-title">Daily Optimizer</div>
     </div>
     <div style="display:flex;gap:7px;align-items:center">
@@ -526,38 +529,8 @@ input:checked+.js-slider:before{transform:translateX(13px);}
     </div>
   </div>
 
-  <div class="card">
-    <div class="clabel">昨晚戰力</div>
-    <div class="prow">
-      <div class="pring">
-        <svg viewBox="0 0 72 72" width="70" height="70">
-          <circle class="ring-bg" cx="36" cy="36" r="30"/>
-          <circle class="ring-fg" id="rfg" cx="36" cy="36" r="30"/>
-        </svg>
-        <div class="ring-txt">
-          <div class="ring-num" id="pnum">—</div>
-          <div class="ring-pct">%</div>
-        </div>
-      </div>
-      <div class="pinfo">
-        <div class="pstatus" id="pstatus">讀取中…</div>
-        <div class="pdesc" id="pdesc">正在連接 Sleep Dashboard</div>
-      </div>
-    </div>
-    <div class="bars">
-      <div class="bi"><div class="bl"><span>Deep</span><span id="dv">—</span></div><div class="bt"><div class="bf" id="db2" style="width:0%;background:#7a8e9e"></div></div></div>
-      <div class="bi"><div class="bl"><span>REM</span><span id="rv">—</span></div><div class="bt"><div class="bf" id="rb" style="width:0%;background:#8e7a9e"></div></div></div>
-      <div class="bi"><div class="bl"><span>Core</span><span id="cv">—</span></div><div class="bt"><div class="bf" id="cb" style="width:0%;background:#7a9e8a"></div></div></div>
-      <div class="bi"><div class="bl"><span>Awake</span><span id="av">—</span></div><div class="bt"><div class="bf" id="ab" style="width:0%;background:#b09870"></div></div></div>
-    </div>
-    <div id="sleep-meta" style="font-size:11px;color:#9a9088;margin-top:8px;padding-top:8px;border-top:1px solid #ece8e0;line-height:1.6;"></div>
-    <div id="depletedRow" style="margin-top:6px;"></div>
-  </div>
-
-  <!-- 手動輸入戰力已於 2026-07-10 移除：戰力一律讀 localStorage（sas_combat_weekday→weighted→rawScore），遠端睡眠明細抓不到時只影響明細顯示 -->
-
   <!-- 今日心情快速記錄（寫入 Mental Dashboard 同一份 wellness_v5；固定位置，沒開行程的日子也能記） -->
-  <div class="card" id="moodCard" style="padding:0;overflow:hidden;">
+  <div class="card" id="moodCard" style="padding:0;overflow:hidden;display:none;">
     <div id="moodHd" onclick="moodToggle()" style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:12px 17px;cursor:pointer;">
       <div>
         <div class="clabel" style="margin:0;">今日心情</div>
@@ -590,6 +563,36 @@ input:checked+.js-slider:before{transform:translateX(13px);}
       <div style="text-align:center;padding-top:8px;"><a href="https://resolutetinging.github.io/wellness-tracker/mental-dashboard.html" target="_blank" rel="noopener" style="font-size:11.5px;color:#7a8e9e;">到 Mental 看完整記錄 →</a></div>
     </div>
   </div>
+
+  <div class="card">
+    <div class="clabel">昨晚戰力</div>
+    <div class="prow">
+      <div class="pring">
+        <svg viewBox="0 0 72 72" width="70" height="70">
+          <circle class="ring-bg" cx="36" cy="36" r="30"/>
+          <circle class="ring-fg" id="rfg" cx="36" cy="36" r="30"/>
+        </svg>
+        <div class="ring-txt">
+          <div class="ring-num" id="pnum">—</div>
+          <div class="ring-pct">%</div>
+        </div>
+      </div>
+      <div class="pinfo">
+        <div class="pstatus" id="pstatus">讀取中…</div>
+        <div class="pdesc" id="pdesc">正在連接 Sleep Dashboard</div>
+      </div>
+    </div>
+    <div class="bars">
+      <div class="bi"><div class="bl"><span>Deep</span><span id="dv">—</span></div><div class="bt"><div class="bf" id="db2" style="width:0%;background:#7a8e9e"></div></div></div>
+      <div class="bi"><div class="bl"><span>REM</span><span id="rv">—</span></div><div class="bt"><div class="bf" id="rb" style="width:0%;background:#8e7a9e"></div></div></div>
+      <div class="bi"><div class="bl"><span>Core</span><span id="cv">—</span></div><div class="bt"><div class="bf" id="cb" style="width:0%;background:#7a9e8a"></div></div></div>
+      <div class="bi"><div class="bl"><span>Awake</span><span id="av">—</span></div><div class="bt"><div class="bf" id="ab" style="width:0%;background:#b09870"></div></div></div>
+    </div>
+    <div id="sleep-meta" style="font-size:11px;color:#9a9088;margin-top:8px;padding-top:8px;border-top:1px solid #ece8e0;line-height:1.6;"></div>
+    <div id="depletedRow" style="margin-top:6px;"></div>
+  </div>
+
+  <!-- 手動輸入戰力已於 2026-07-10 移除：戰力一律讀 localStorage（sas_combat_weekday→weighted→rawScore），遠端睡眠明細抓不到時只影響明細顯示 -->
 
   <!-- 休假模式卡片 -->
   <div class="rest-card" id="restCard">
@@ -1501,6 +1504,9 @@ const _moodSafeId=s=>typeof s==='string'&&/^[A-Za-z0-9_-]{1,64}$/.test(s);
 const _moodDateStr=()=>displayKey.replace('review_','');
 let _moodScore=5,_moodEmos=[],_moodPeople=[],_moodEmoList=[],_moodPeopleList=[],_moodOpen=false;
 function _moodInfo(s){return s<=3?'😔':(s<=6?'😌':'😊');}
+// 11-04：頁首「週x」旁的圓形按鈕為今日心情入口；心情卡平常隱藏，按按鈕才在頁首下方展開
+function moodFabToggle(){const c=document.getElementById('moodCard');if(!c)return;const show=c.style.display==='none';c.style.display=show?'block':'none';_moodOpen=show;document.getElementById('moodBody').style.display=show?'block':'none';document.getElementById('moodChev').textContent=show?'▴':'▾';moodCardRender();}
+function _moodFabUpdate(list,summary){const f=document.getElementById('moodFab');if(!f)return;if(list&&list.length){const sc=Number(list[list.length-1].moodScore)||0;f.textContent=sc<=3?'😔':sc<=6?'😌':'😊';}else f.textContent='＋';f.title=summary||'今日心情';f.setAttribute('aria-label',summary||'今日心情');}
 function moodToggle(){_moodOpen=!_moodOpen;document.getElementById('moodBody').style.display=_moodOpen?'block':'none';document.getElementById('moodChev').textContent=_moodOpen?'▴':'▾';if(_moodOpen)moodCardRender();}
 function moodQuick(s){document.getElementById('moodSlider').value=s;moodSliderChange();}
 function moodSliderChange(){_moodScore=+document.getElementById('moodSlider').value;document.getElementById('moodNum').textContent=_moodScore;document.getElementById('moodEmoji').textContent=_moodInfo(_moodScore);}
@@ -1536,6 +1542,7 @@ function moodCardRender(){
       const tags=(Array.isArray(l.emotionTags)?l.emotionTags:[]).filter(x=>typeof x==='string').slice(0,3).join('、');
       sumEl.textContent=lbl+'已記 '+list.length+' 筆；最近 '+_moodPad(t.getHours())+':'+_moodPad(t.getMinutes())+'　'+(Number(l.moodScore)||0)+' 分'+(tags?'　'+tags:'');
     }
+    _moodFabUpdate(list,sumEl.textContent);
   }
   if(_moodOpen)moodChipsRender();
 }
