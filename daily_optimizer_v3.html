@@ -556,6 +556,41 @@ input:checked+.js-slider:before{transform:translateX(13px);}
 
   <!-- 手動輸入戰力已於 2026-07-10 移除：戰力一律讀 localStorage（sas_combat_weekday→weighted→rawScore），遠端睡眠明細抓不到時只影響明細顯示 -->
 
+  <!-- 今日心情快速記錄（寫入 Mental Dashboard 同一份 wellness_v5；固定位置，沒開行程的日子也能記） -->
+  <div class="card" id="moodCard" style="padding:0;overflow:hidden;">
+    <div id="moodHd" onclick="moodToggle()" style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:12px 17px;cursor:pointer;">
+      <div>
+        <div class="clabel" style="margin:0;">今日心情</div>
+        <div id="moodSummary" style="font-size:11.5px;color:#9a9088;margin-top:3px;line-height:1.5;"></div>
+      </div>
+      <span id="moodChev" style="font-size:12px;color:#9a9088;">▾</span>
+    </div>
+    <div id="moodBody" style="display:none;padding:0 17px 15px;">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+        <span id="moodEmoji" style="font-size:26px;">😌</span>
+        <span id="moodNum" style="font-size:26px;font-weight:300;color:#38342e;min-width:22px;">5</span>
+        <span style="font-size:11px;color:#9a9088;">/ 10</span>
+        <input type="range" id="moodSlider" min="1" max="10" value="5" oninput="moodSliderChange()" style="flex:1;">
+      </div>
+      <div style="display:flex;gap:6px;margin-bottom:12px;">
+        <button class="obtn" style="flex:1;padding:7px 4px;" onclick="moodQuick(2)">😔 低落</button>
+        <button class="obtn" style="flex:1;padding:7px 4px;" onclick="moodQuick(5)">😌 普通</button>
+        <button class="obtn" style="flex:1;padding:7px 4px;" onclick="moodQuick(8)">😊 很好</button>
+      </div>
+      <div class="clabel" style="margin-bottom:6px;">情緒標籤（可多選）</div>
+      <div id="moodEmoChips" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;"></div>
+      <div id="moodPeopleWrap" style="display:none;">
+        <div class="clabel" style="margin-bottom:6px;">人物（選填）</div>
+        <div id="moodPeopleChips" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;"></div>
+      </div>
+      <input class="feel-input" id="moodNote" maxlength="200" placeholder="一句話備註（選填）" style="width:100%;margin-bottom:10px;"
+        onkeydown="if(event.key==='Enter')moodSave();">
+      <button class="save-all-btn" onclick="moodSave()" style="width:100%;padding:11px;border-radius:10px;font-size:14px;">記錄</button>
+      <div id="moodMsg" style="font-size:12px;text-align:center;padding-top:8px;color:#7a9e8a;display:none;"></div>
+      <div style="text-align:center;padding-top:8px;"><a href="https://resolutetinging.github.io/wellness-tracker/mental-dashboard.html" target="_blank" rel="noopener" style="font-size:11.5px;color:#7a8e9e;">到 Mental 看完整記錄 →</a></div>
+    </div>
+  </div>
+
   <!-- 休假模式卡片 -->
   <div class="rest-card" id="restCard">
     <div class="rest-title">🌿 休假模式</div>
@@ -1414,11 +1449,127 @@ window.onload=()=>{setDate();renderT();renderKey();refreshGistUI();fetchSleep();
 
 function setDate(){const d=new Date(),w=['週日','週一','週二','週三','週四','週五','週六'];document.getElementById('hdate').textContent=`${d.getMonth()+1}月${d.getDate()}日　${w[d.getDay()]}`;}
 
+/* ══ 今日心情快速記錄（寫入 Mental Dashboard 的 wellness_v5；key 名與 entry 格式須與 mental-dashboard.html saveEntry 完全一致）══ */
+const MOOD_KEY='wellness_v5';
+const MOOD_CUSTOM_EMO_KEY='mental_custom_emotions'; // 只讀，Mental 自訂標籤
+// 以下三項須與 mental-dashboard.html 的 EMOTIONS／CATEGORY_KEYWORDS／autoCategorize 逐字一致，修改時兩邊一起改
+const MOOD_EMOTIONS=['平靜','喜悅','感恩','焦慮','疲憊','孤獨','充實','迷茫','愛','憤怒','希望','壓力','失落','無力','沒有特別感受'];
+const MOOD_CATEGORY_KEYWORDS={
+  '情緒波動':['憤怒','難過','焦慮','崩潰','情緒低落','情緒失控','煩躁','沮喪','低潮','情緒波動','心情差','不安','暴怒','委屈'],
+  '家庭':['mom','媽媽','爸爸','家人','家庭','家庭聚會','親戚','孩子','小孩','家族'],
+  '外部人際':['吵架','衝突','伴侶','另一半','朋友','人際','社交','得罪','誤會'],
+  '咖啡/飲水代償':['咖啡','咖啡因','提神','熬夜','濃縮','拿鐵','手沖','美式','水喝不夠','脫水','忘記喝水','補水','電解質','代償'],
+  '工作/任務壓力':['工作','任務','deadline','截止','加班','壓力','開會','會議','專案','進度','老闆','客戶','報告','趕工']
+};
+function _moodAutoCategorize(entry){
+  const result=new Set();
+  if(!entry)return[];
+  if(typeof entry.moodScore==='number'&&entry.moodScore<=3)result.add('情緒波動');
+  const textParts=[];
+  (entry.emotionTags||[]).forEach(t=>{if(t)textParts.push(String(t));});
+  (entry.impactFactors||[]).forEach(f=>{if(f&&f.detail)textParts.push(String(f.detail));});
+  if(entry.notes)textParts.push(String(entry.notes));
+  const fullText=textParts.join(' ').toLowerCase();
+  Object.entries(MOOD_CATEGORY_KEYWORDS).forEach(([cat,keywords])=>{
+    if(keywords.some(kw=>fullText.includes(kw.toLowerCase())))result.add(cat);
+  });
+  return[...result];
+}
+// 與 Mental freshDB() 相同的完整結構
+function _moodFreshDB(){return{profile:{hdType:'',hdProfile:'',hdDefinition:'',hdAuthority:'',hdStrategy:'',hdNotSelf:'',hdCross:'',hdParseResult:'',people:[],peopleCats:[]},entries:[],customCats:[],catOverrides:{}};}
+// 每次都重新讀 localStorage（不持有記憶體副本）。回傳 {db, corrupt}；不存在→完整新結構；缺欄位→補預設
+function _moodReadDB(){
+  let raw=null;
+  try{raw=localStorage.getItem(MOOD_KEY);}catch(e){return{db:_moodFreshDB(),corrupt:true};}
+  if(raw==null||raw==='')return{db:_moodFreshDB(),corrupt:false};
+  let d;
+  try{d=JSON.parse(raw);}catch(e){return{db:null,corrupt:true};}
+  if(!d||typeof d!=='object'||Array.isArray(d))return{db:null,corrupt:true};
+  const f=_moodFreshDB();
+  if(!d.profile||typeof d.profile!=='object')d.profile=f.profile;
+  if(!Array.isArray(d.profile.people))d.profile.people=[];
+  if(!Array.isArray(d.profile.peopleCats))d.profile.peopleCats=[];
+  if(!Array.isArray(d.entries))d.entries=[];
+  if(!Array.isArray(d.customCats))d.customCats=[];
+  if(!d.catOverrides||typeof d.catOverrides!=='object')d.catOverrides={};
+  return{db:d,corrupt:false};
+}
+const _moodPad=n=>String(n).padStart(2,'0');
+const _moodLocalDate=d=>d.getFullYear()+'-'+_moodPad(d.getMonth()+1)+'-'+_moodPad(d.getDate());
+const _moodSafeId=s=>typeof s==='string'&&/^[A-Za-z0-9_-]{1,64}$/.test(s);
+// 以 displayKey（使用者正在看的那天）為準，不用 new Date() 當日期
+const _moodDateStr=()=>displayKey.replace('review_','');
+let _moodScore=5,_moodEmos=[],_moodPeople=[],_moodEmoList=[],_moodPeopleList=[],_moodOpen=false;
+function _moodInfo(s){return s<=3?'😔':(s<=6?'😌':'😊');}
+function moodToggle(){_moodOpen=!_moodOpen;document.getElementById('moodBody').style.display=_moodOpen?'block':'none';document.getElementById('moodChev').textContent=_moodOpen?'▴':'▾';if(_moodOpen)moodCardRender();}
+function moodQuick(s){document.getElementById('moodSlider').value=s;moodSliderChange();}
+function moodSliderChange(){_moodScore=+document.getElementById('moodSlider').value;document.getElementById('moodNum').textContent=_moodScore;document.getElementById('moodEmoji').textContent=_moodInfo(_moodScore);}
+function moodToggleEmo(i){const n=_moodEmoList[i];if(n==null)return;const k=_moodEmos.indexOf(n);if(k>-1)_moodEmos.splice(k,1);else _moodEmos.push(n);moodChipsRender();}
+function moodTogglePerson(i){const n=_moodPeopleList[i];if(n==null)return;const k=_moodPeople.indexOf(n);if(k>-1)_moodPeople.splice(k,1);else _moodPeople.push(n);moodChipsRender();}
+function _moodChipStyle(sel){return 'padding:5px 12px;border-radius:100px;font-size:12.5px;cursor:pointer;font-family:inherit;border:1.5px solid '+(sel?'#7a8e9e':'#cec8bf')+';background:'+(sel?'#7a8e9e':'transparent')+';color:'+(sel?'#fff':'#7a7570')+';';}
+function moodChipsRender(){
+  let custom=[];
+  try{const a=JSON.parse(localStorage.getItem(MOOD_CUSTOM_EMO_KEY)||'[]');if(Array.isArray(a))custom=a.filter(x=>typeof x==='string'&&x.trim());}catch(e){}
+  _moodEmoList=[...MOOD_EMOTIONS];custom.forEach(c=>{if(!_moodEmoList.includes(c))_moodEmoList.push(c);});
+  document.getElementById('moodEmoChips').innerHTML=_moodEmoList.map((n,i)=>`<button type="button" style="${_moodChipStyle(_moodEmos.includes(n))}" onclick="moodToggleEmo(${i})">${esc(n)}</button>`).join('');
+  const r=_moodReadDB();
+  _moodPeopleList=(r.db?r.db.profile.people:[]).filter(p=>p&&typeof p.name==='string'&&p.name.trim()).map(p=>p.name);
+  document.getElementById('moodPeopleWrap').style.display=_moodPeopleList.length?'block':'none';
+  document.getElementById('moodPeopleChips').innerHTML=_moodPeopleList.map((n,i)=>`<button type="button" style="${_moodChipStyle(_moodPeople.includes(n))}" onclick="moodTogglePerson(${i})">👤 ${esc(n)}</button>`).join('');
+}
+// 當天（displayKey）已記幾筆：不含備填與示範資料
+function _moodDayEntries(db,dateStr){
+  return db.entries.filter(e=>e&&!e.isBackfilled&&!e.isDemo&&typeof e.timestamp==='string'&&!isNaN(new Date(e.timestamp).getTime())&&_moodLocalDate(new Date(e.timestamp))===dateStr)
+    .sort((a,b)=>new Date(a.timestamp)-new Date(b.timestamp));
+}
+function moodCardRender(){
+  const sumEl=document.getElementById('moodSummary');if(!sumEl)return;
+  const ds=_moodDateStr(),isToday=displayKey===todayKey();
+  const r=_moodReadDB();
+  const lbl=isToday?'今天':ds.slice(5).replace('-','/');
+  if(!r.db){sumEl.textContent='Mental 資料讀取異常，暫不能記錄';}
+  else{
+    const list=_moodDayEntries(r.db,ds);
+    if(!list.length)sumEl.textContent=lbl+'還沒有記錄，點開快速記一筆';
+    else{
+      const l=list[list.length-1],t=new Date(l.timestamp);
+      const tags=(Array.isArray(l.emotionTags)?l.emotionTags:[]).filter(x=>typeof x==='string').slice(0,3).join('、');
+      sumEl.textContent=lbl+'已記 '+list.length+' 筆；最近 '+_moodPad(t.getHours())+':'+_moodPad(t.getMinutes())+'　'+(Number(l.moodScore)||0)+' 分'+(tags?'　'+tags:'');
+    }
+  }
+  if(_moodOpen)moodChipsRender();
+}
+function moodSave(){
+  const msg=document.getElementById('moodMsg');
+  const r=_moodReadDB(); // 寫入前當下重讀
+  if(!r.db){msg.style.color='#a07068';msg.textContent='wellness_v5 格式異常，為避免覆蓋已中止，請先到 Mental 檢查';msg.style.display='block';return;}
+  const db=r.db;
+  const ds=_moodDateStr();
+  const ts=new Date(ds+'T12:00:00');ts.setHours(new Date().getHours(),new Date().getMinutes(),0,0);
+  let id='e_'+Date.now();
+  const ids=new Set(db.entries.map(e=>e&&e.id));
+  while(ids.has(id)||!_moodSafeId(id))id='e_'+(Date.now()+Math.floor(Math.random()*1000)+1);
+  const entry={id,timestamp:ts.toISOString(),moodScore:_moodScore,emotionTags:[..._moodEmos],impactFactors:_moodPeople.map(n=>({category:'friends',detail:n})),notes:document.getElementById('moodNote').value,categories:[]};
+  entry.categories=[...new Set(_moodAutoCategorize(entry))];
+  // 同一天的備填紀錄（isBackfilled）刪除；其他日備填與使用者手記不動
+  const day=_moodLocalDate(ts);
+  db.entries=db.entries.filter(e=>!(e&&e.isBackfilled&&typeof e.timestamp==='string'&&!isNaN(new Date(e.timestamp).getTime())&&_moodLocalDate(new Date(e.timestamp))===day));
+  db.entries.push(entry);
+  try{localStorage.setItem(MOOD_KEY,JSON.stringify(db));}catch(e){msg.style.color='#a07068';msg.textContent='寫入失敗：'+e.message;msg.style.display='block';return;}
+  _moodEmos=[];_moodPeople=[];document.getElementById('moodNote').value='';
+  msg.style.color='#7a9e8a';msg.textContent='✓ 已記錄';msg.style.display='block';
+  setTimeout(()=>{msg.style.display='none';},2500);
+  moodCardRender();moodChipsRender();
+}
+window.addEventListener('storage',e=>{if(e.key===MOOD_KEY||e.key===null)moodCardRender();});
+moodCardRender();
+
 /* sleep */
 async function reloadCombat(){
   // 重置為今日 key，並隱藏歷史編輯 banner
   displayKey=todayKey();
   updateGenBtnLabel();
+  moodCardRender();
   const banner=document.getElementById('editingBanner');
   if(banner)banner.style.display='none';
   // 清除覆盤區，避免殘留昨日資料
@@ -3832,6 +3983,7 @@ async function genReviewFeedback(){
 }
 function loadSavedReview(key){
   displayKey=key||todayKey();
+  moodCardRender();
   const saved=JSON.parse(localStorage.getItem(displayKey)||'{}');
   renderDepletedRow();
   if(saved.overall)document.getElementById('overallFeedback').value=saved.overall;
