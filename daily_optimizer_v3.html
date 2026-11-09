@@ -875,7 +875,9 @@ function _shufflePick(arr, n){
 }
 
 /* ── 從任務庫依 pipe type 組出 hint（取代 LLM 自由發揮） ── */
-function buildHintFromTasks(pipeType, tasks){
+/* 11-09：可選第三、四參數 used（當日已建議任務名 Set）與 n（本卡建議數）；有傳 used 時只挑尚未建議過的、
+   挑完寫回 used，全用完回傳 null 的特例由呼叫端（_assignPipeHints）處理；未傳 used 時維持原本行為 */
+function buildHintFromTasks(pipeType, tasks, used, n){
   if(!tasks||!tasks.length)return null;
   let pool;
   // 08-04修正：原本用catKey（學習/求職/日常事務）篩選，但使用者實際用「任務能耗設定」
@@ -895,6 +897,15 @@ function buildHintFromTasks(pipeType, tasks){
   if(pipeType==='high'||pipeType==='mid'){
     const cards=readCareerCards();
     focusP=pool.filter(t=>!urgent.includes(t)&&isFocusTask(t,cards));
+  }
+  if(used){
+    const fresh=t=>!used.has(t.text);
+    const cnt=n||3;
+    const pk=[...urgent,...focusP].filter(fresh).slice(0,cnt);
+    const nm=[...pk,..._shufflePick(pool.filter(t=>!pk.includes(t)&&!urgent.includes(t)&&!focusP.includes(t)&&fresh(t)),cnt-pk.length)].map(t=>t.text);
+    if(!nm.length)return null;
+    nm.forEach(x=>used.add(x));
+    return `💡 適合：${nm.join('、')}`;
   }
   const picked=[...urgent,...focusP].slice(0,3);
   const names=[...picked,..._shufflePick(pool.filter(t=>!picked.includes(t)),3-picked.length)].map(t=>t.text);
@@ -1038,14 +1049,31 @@ function _demotePipesInRange(pipes,from,to,matchTypes,newType,tasks,toMin,fmtMin
     const os=Math.max(ps,from),oe=Math.min(pe,to);
     if(!matchTypes.includes(p.type)||oe<=os){out.push(p);return;}
     if(os>ps)out.push({...p,end:fmtMin(os)});
-    out.push({...p,start:fmtMin(os),end:fmtMin(oe),type:newType,label:LABEL_DEFAULT[newType],hint:buildHintFromTasks(newType,tasks)||'💡 請從任務積木中挑選'});
+    out.push({...p,start:fmtMin(os),end:fmtMin(oe),type:newType,label:LABEL_DEFAULT[newType],hint:'💡 請從任務積木中挑選'}); // 11-09：hint 由最後 _assignPipeHints 統一分配
     if(oe<pe)out.push({...p,start:fmtMin(oe)});
   });
   return out;
 }
 
+/* 11-09：所有水管定案後依時間先後統一分配建議任務；當日已建議集合避免同任務重複出現；
+   每 40 分鐘 1 個（最少 1、最多 3）；該類別任務用完改顯示「已安排在前面時段」 */
+function _assignPipeHints(pipes,tasks,toMin){
+  const used=new Set();
+  const order=pipes.map((p,i)=>i).sort((a,b)=>toMin(pipes[a].start)-toMin(pipes[b].start)||a-b);
+  order.forEach(i=>{
+    const p=pipes[i];
+    if(!['high','mid','low'].includes(p.type))return;
+    const dur=toMin(p.end)-toMin(p.start);
+    const n=Math.min(3,Math.max(1,Math.floor(dur/40)));
+    const h=buildHintFromTasks(p.type,tasks,used,n);
+    if(h)p.hint=h;
+    else if(tasks&&tasks.length)p.hint=p.type==='low'?'💡 同類任務已安排在前面時段，這段可休息或自由運用':'💡 同類任務已安排在前面時段，這段可彈性運用或休息';
+    else p.hint='💡 請從任務積木中挑選';
+  });
+}
+
 /* ── LLM 輸出後處理：label 白名單 + hint 完全由任務庫生成 ── */
-function sanitizePipes(result, calEvents, tasks, pwr){
+function sanitizePipes(result, calEvents, tasks, pwr, closeMin){
   if(!result||!result.pipes)return result;
   // 08-17：不管零長度水管是AI自己生成還是後面Calendar強制注入產生，一律先濾掉，
   // 不要讓「時間長度是0」的卡片出現在畫面上
@@ -1072,7 +1100,7 @@ function sanitizePipes(result, calEvents, tasks, pwr){
     } else {
       const valid=new Set(LABEL_OPTIONS[p.type]||[]);
       if(!valid.has(label))label=LABEL_DEFAULT[p.type]||label;
-      hint=buildHintFromTasks(p.type,tasks)||'💡 請從任務積木中挑選';
+      hint='💡 請從任務積木中挑選'; // 11-09：hint 由最後 _assignPipeHints 統一分配（同任務一天只建議一次）
     }
     return hiCal?{...p,label,hint,energy:'high'}:{...p,label,hint};
   });
@@ -1141,6 +1169,65 @@ function sanitizePipes(result, calEvents, tasks, pwr){
   }
   result.pipes.sort((a,b)=>toMin(a.start)-toMin(b.start));
 
+  /* ── 11-09 高耗能行程前後緩衝（程式強制）：🔥 行程前 30 分「行程前緩衝」、後 30 分「行程後休息」
+     （rest 卡，calBuf:true）。區間扣掉所有 Calendar 行程、不早於 00:00 與當天第一張卡；
+     非行程水管與區間重疊的部分切掉，剩不到 10 分鐘的碎片併入緩衝；兩緩衝重疊或相鄰時合併成一張（沿用先到者的 label） ── */
+  const _bufEvs=parsedCal.filter(ev=>ev.energy==='high'&&toMin(ev.end)>toMin(ev.start));
+  if(_bufEvs.length){
+    const calRanges=parsedCal.map(ev=>[toMin(ev.start),toMin(ev.end)]).filter(r=>r[1]>r[0]);
+    const firstStart=result.pipes.length?Math.min(...result.pipes.map(p=>toMin(p.start))):0;
+    const isCalLike=p=>p.calBuf||(p.type==='rest'&&calNames.has(normalizeCJK(p.label||'')));
+    let segs=[];
+    _bufEvs.forEach(ev=>{
+      const es=toMin(ev.start),ee=toMin(ev.end);
+      [[es-30,es,'行程前緩衝','⏸ 行程前緩衝，不排任務'],[ee,ee+30,'行程後休息','🔒 行程後休息，不排任務']].forEach(([a,b,label,hint])=>{
+        a=Math.max(a,0,firstStart);b=Math.min(b,1440);
+        // 扣掉 Calendar 行程後可能剩多段
+        let parts=[[a,b]];
+        calRanges.forEach(([cs,ce])=>{
+          const np=[];
+          parts.forEach(([x,y])=>{
+            if(ce<=x||cs>=y){np.push([x,y]);return;}
+            if(x<cs)np.push([x,cs]);
+            if(y>ce)np.push([ce,y]);
+          });
+          parts=np;
+        });
+        parts.forEach(([x,y])=>{
+          if(y<=x)return;
+          // 剩不到 10 分鐘的碎片併入緩衝（只併非行程水管的殘段）
+          result.pipes.forEach(p=>{
+            if(isCalLike(p))return;
+            const ps=toMin(p.start),pe=toMin(p.end);
+            if(ps<x&&pe>x&&x-ps<10)x=ps;
+            if(ps<y&&pe>y&&pe-y<10)y=pe;
+          });
+          segs.push({a:x,b:y,label,hint});
+        });
+      });
+    });
+    segs.sort((m,n)=>m.a-n.a||m.b-n.b);
+    const fin=[];
+    segs.forEach(sg=>{
+      const prev=fin[fin.length-1];
+      if(prev&&sg.a<=prev.b){prev.b=Math.max(prev.b,sg.b);return;} // 重疊或相鄰：合併成一張，不連出兩張休息卡
+      fin.push(sg);
+    });
+    fin.forEach(sg=>{
+      const kept=[];
+      result.pipes.forEach(p=>{
+        const ps=toMin(p.start),pe=toMin(p.end);
+        if(isCalLike(p)||pe<=sg.a||ps>=sg.b){kept.push(p);return;}
+        if(ps<sg.a)kept.push({...p,end:fmtMin(sg.a)});
+        if(pe>sg.b)kept.push({...p,start:fmtMin(sg.b)});
+      });
+      kept.push({start:fmtMin(sg.a),end:fmtMin(sg.b),type:'rest',label:sg.label,hint:sg.hint,calBuf:true});
+      result.pipes=kept;
+    });
+    result.pipes=result.pipes.filter(p=>toMin(p.end)>toMin(p.start));
+    result.pipes.sort((a,b)=>toMin(a.start)-toMin(b.start));
+  }
+
   /* ── 段間緩衝強制修正：AI排定的相鄰水管若分秒緊貼(gap<=0)，且兩側都不是Calendar鎖定行程，
      從前一段末尾切出緩衝時間插入一段「段間緩衝」rest pipe，不完全依賴LLM遵守prompt指示；
      bufferMin(pwr) 沿用「能耗配置」卡片既有公式，原本只當顯示文字用，這裡才是真正接進生成結果 ── */
@@ -1166,7 +1253,7 @@ function sanitizePipes(result, calEvents, tasks, pwr){
     }
     const curIsCal=cur.type==='rest'&&calNames.has(normalizeCJK(cur.label));
     const nextIsCal=next.type==='rest'&&calNames.has(normalizeCJK(next.label));
-    if(curIsCal||nextIsCal)continue; // Calendar鎖定行程前後不強加緩衝
+    if(curIsCal||nextIsCal||cur.calBuf||next.calBuf)continue; // Calendar鎖定行程與11-09行程緩衝卡前後不強加緩衝
     const newEndMin=curEnd-buf;
     if(newEndMin<=toMin(cur.start))continue; // 該段本身太短，硬縮會消失或變負值，跳過
     const origEnd=cur.end;
@@ -1186,6 +1273,23 @@ function sanitizePipes(result, calEvents, tasks, pwr){
     result.pipes=result.pipes.filter(p=>toMin(p.end)>toMin(p.start));
     result.pipes.sort((a,b)=>toMin(a.start)-toMin(b.start));
   }
+
+  /* ── 11-09 閉館後只排輕量或休息（程式強制）：closeMin 為閉館分鐘數（外出日傳 null 不套用）；
+     閉館後非行程、非緩衝卡的 high/mid 改為 low，跨閉館時間的水管切兩段（閉館前維持原 type） ── */
+  if(typeof closeMin==='number'){
+    const cl=[];
+    result.pipes.forEach(p=>{
+      const ps=toMin(p.start),pe=toMin(p.end);
+      const isCalP=p.calBuf||(p.type==='rest'&&calNames.has(normalizeCJK(p.label||'')));
+      if(isCalP||(p.type!=='high'&&p.type!=='mid')||pe<=closeMin){cl.push(p);return;}
+      const low={...p,type:'low',label:LABEL_DEFAULT.low};
+      if(ps>=closeMin){cl.push(low);return;}
+      cl.push({...p,end:fmtMin(closeMin)});
+      cl.push({...low,start:fmtMin(closeMin)});
+    });
+    result.pipes=cl;
+  }
+  _assignPipeHints(result.pipes,tasks,toMin);
 
   if(result.summary)result.summary=normalizeCJK(result.summary);
   return result;
@@ -2422,7 +2526,8 @@ async function generate(){
 6. 輸出純 JSON，無 markdown；pipes 陣列依 start 時間升序排列
 7. 單一水管（非Calendar行程）建議不超過2小時；同屬性任務需求時間更長時，拆成兩段水管，中間插入短暫rest緩衝
 8. AI排定的相鄰水管之間（不含Calendar鎖定行程前後）應留數分鐘緩衝，不必分秒緊貼相接
-9. 行尾有 🔥 的 Calendar 行程為高耗能（面試、上課等）：其前 30 分鐘不排高能水管，其後 60 分鐘只排 low 或 rest；該行程 label 仍原封不動用行程名稱（不含 🔥）。
+9. 行尾有 🔥 的 Calendar 行程為高耗能（面試、上課等）：其前 30 分鐘與其後 30 分鐘由系統自動保留為緩衝／休息，請勿在這兩段排任何水管；其後 30–60 分鐘只排 low 或 rest；該行程 label 仍原封不動用行程名稱（不含 🔥）。
+10. 閉館時間後只可排 low 或 rest（外出日依行程，不適用）；系統也會強制把閉館後的 high／mid 改為 low。
 
 格式：{"summary":"一句話策略叮嚀（45字內）","pipes":[{"start":"09:30","end":"12:00","type":"high","label":"深度高能","hint":""}],"skipTasks":["原始任務名"]}`;
 
@@ -2517,7 +2622,7 @@ ${_pdNames.length?'開館前已完成（不需排入）：'+_pdNames.join('、')
     }
     // 繁中保底：cc_zht.js 為外部非同步載入的共用檔，未就緒時原樣顯示不報錯
     const zhSafe=(typeof s2tDeep==='function')?s2tDeep(raw):raw;
-    const result=sanitizePipes(zhSafe,calEvents,getAiTasks(),p) /* 10-21 排除 preDone */;
+    const result=sanitizePipes(zhSafe,calEvents,getAiTasks(),p,isOut?null:closeH*60) /* 10-21 排除 preDone；11-09 閉館時間 */;
     document.getElementById('ovl').classList.add('hidden');
     // 若 Groq 回傳舊格式（無 pipes 欄位），自動改用示範資料
     if(!result.pipes||!result.pipes.length) renderPipeSandbox(getMockPipes(p),true,'Groq回傳內容缺少pipes欄位（格式異常，非連線失敗）');
