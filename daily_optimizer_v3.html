@@ -1144,15 +1144,24 @@ function sanitizePipes(result, calEvents, tasks, pwr, closeMin){
      維持不變，只有「是否已有」的判斷窗變寬，插入位置沒變） ── */
   const LUNCH_S=toMin('13:00'), LUNCH_E=toMin('14:00');
   const LUNCH_DETECT_S=toMin('11:00'), LUNCH_DETECT_E=toMin('15:00');
+  /* 11-10 修：原本 11:00-15:00 內只要有任何人工行程就當作「午餐已安排」，使用者 11-10 有 14:00-15:00
+     論命行程，結果整天沒有午休。改為：人工行程真的佔到 13:00-14:00，或行程名稱看得出是午餐（午餐／午休／
+     午飯／吃飯／lunch），才算已安排；AI 的 rest 水管則要與 12:00-14:00 重疊至少 30 分鐘或名稱含「午」才算
+     （避免 14:30 的傍晚蓄能被當成午休）。插入位置仍固定 13:00-14:00，此時必定不與人工行程重疊。 */
+  const LUNCH_NAME_RE=/午餐|午休|午飯|吃飯|lunch/i;
+  const LUNCH_CORE_S=toMin('12:00'), LUNCH_CORE_E=toMin('14:00');
   const calOverlapsLunch=parsedCal.some(ev=>{
     const s=toMin(ev.start), e=toMin(ev.end);
-    return s<LUNCH_DETECT_E && e>LUNCH_DETECT_S;
+    if(s<LUNCH_E && e>LUNCH_S) return true;
+    return LUNCH_NAME_RE.test(ev.name||'') && s<LUNCH_DETECT_E && e>LUNCH_DETECT_S;
   });
   if(!calOverlapsLunch){
     const hasLunchRest=result.pipes.some(p=>{
       if(p.type!=='rest')return false;
+      if(calNames.has(normalizeCJK(p.label||'')))return false; // 人工行程已在上面判斷過
       const s=toMin(p.start), e=toMin(p.end);
-      return s<LUNCH_DETECT_E && e>LUNCH_DETECT_S;
+      if(/午/.test(p.label||'') && s<LUNCH_DETECT_E && e>LUNCH_DETECT_S) return true;
+      return Math.min(e,LUNCH_CORE_E)-Math.max(s,LUNCH_CORE_S)>=30;
     });
     if(!hasLunchRest){
       const rebuilt=[];
