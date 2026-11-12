@@ -1785,8 +1785,47 @@ function sickSaveFields(){
   if(displayKey!==todayKey())return {};
   return pwrSick?{combatSick:true,combatPowerRaw:pwrRaw}:{combatSick:undefined,combatPowerRaw:undefined};
 }
+/* 11-12：pipesSick＝「行程產出當下」是否身體不適。只在兩處生成存檔寫入（今天才動；未不適→undefined，JSON 不留 key；過去日期不動）。休假／工作日存檔／saveReview 不寫也不清 */
+function pipesSickFields(){
+  if(displayKey!==todayKey())return {};
+  return {pipesSick:pwrSick?true:undefined};
+}
+/* 提示文字判斷（純函式）：非今天或一致→空字串；固定字串，不插入任何外部資料 */
+function sickRegenHintText(isToday,nowSick,pipesSick){
+  if(!isToday||nowSick===pipesSick)return '';
+  return nowSick
+    ?'這份行程是在標記身體不適前產出的，建議重新生成'
+    :'這份行程是在身體不適時產出的（戰力以 '+SICK_PWR_CAP+' 計），已取消標記，可以重新生成';
+}
+/* 可重複呼叫：先移除舊提示再視情況插在 .pipe-track 上方（.pipe-track 重繪時整個 #sout 會被換掉，提示自然消失） */
+function renderSickRegenHint(){
+  try{
+    const sc=document.getElementById('sout');
+    if(!sc)return;
+    const old=document.getElementById('sickRegenHint');
+    if(old)old.remove();
+    const track=sc.querySelector('.pipe-track');
+    if(!track)return;
+    const isToday=displayKey===todayKey();
+    if(!isToday)return;
+    const saved=JSON.parse(localStorage.getItem(displayKey)||'{}');
+    if(!saved.pipes||!saved.pipes.length)return;
+    const txt=sickRegenHintText(true,pwrSick===true,saved.pipesSick===true);
+    if(!txt)return;
+    const d=document.createElement('div');
+    d.id='sickRegenHint';d.className='mock-notice';d.textContent=txt;
+    track.parentNode.insertBefore(d,track);
+  }catch(e){}
+}
+let _lastPwrRawInput=null,_lastSickDates=null;
+window.addEventListener('storage',e=>{
+  if(e.storageArea!==localStorage||!(e.key==='sleep_feel_v1'||e.key===null))return;
+  if(_lastPwrRawInput===null)return;
+  setPwr(_lastPwrRawInput,_lastSickDates);
+});
 function setPwr(v,sickDates){
   const rawV=v;
+  _lastPwrRawInput=rawV;_lastSickDates=Array.isArray(sickDates)?sickDates.slice():sickDates;
   pwrSick=Array.isArray(sickDates)&&sickDates.some(sleepSickFor);
   pwrRaw=Math.round(rawV);
   if(pwrSick)v=Math.min(v,SICK_PWR_CAP);
@@ -1811,6 +1850,7 @@ function setPwr(v,sickDates){
     else{sk.textContent='';sk.style.display='none';}
   }
   updateCapLive(); // 10-21：戰力載入後即時更新
+  renderSickRegenHint();
 }
 function setFS(st,txt){
   const fdot=document.getElementById('fdot'),ftxt=document.getElementById('ftxt');
@@ -2779,7 +2819,7 @@ function renderOut(r){
     calEvents: document.getElementById('calInput').value.trim(),
     taskLibrary: getEffectiveTasks().map(t=>t.text),
     combatPower: pwr,
-    ...sickSaveFields(),
+    ...sickSaveFields(),...pipesSickFields(),
     mode: selMode,
     feel: selFeel,
   }));
@@ -3062,7 +3102,7 @@ function renderPipeSandbox(result,isMock=false,errMsg=''){
     summary:result.summary||'',capacityAdvice:capAdvice,
     calEvents:document.getElementById('calInput').value.trim(),
     taskLibrary:getEffectiveTasks().map(t=>t.text),
-    combatPower:pwr,...sickSaveFields(),mode:selMode,feel:selFeel,
+    combatPower:pwr,...sickSaveFields(),...pipesSickFields(),mode:selMode,feel:selFeel,
   }));
 
   renderReview(allReviewNames);
@@ -4201,6 +4241,7 @@ function renderSavedSchedule(saved){
   // 新水管格式優先
   if(saved.pipes&&saved.pipes.length){
     renderSavedPipeSandbox(saved);
+    renderSickRegenHint(); // 11-12：fetchSleep 與本函式先後不固定，兩邊都呼叫
     // 每次載入都用即時 getEffectiveTasks()（非凍結的 saved.items），讓事後才切換成「每日」的任務能補進覆盤；
     // renderReview 內建的還原邏輯會把舊 saved.items 裡沒出現在此清單的項目（含 custom／臨時積木）加回來，不會丟資料
     renderReview(getEffectiveTasks().map(t=>t.text));
