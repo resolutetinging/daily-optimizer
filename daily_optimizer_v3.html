@@ -1807,7 +1807,7 @@ function setPwr(v,sickDates){
   document.getElementById('pdesc').textContent=pwrSick?'昨晚標記身體不適：戰力不採用睡眠數字，今天以輕任務與休息為主':lvDesc;
   const sk=document.getElementById('psick');
   if(sk){
-    if(pwrSick){sk.textContent='原始戰力 '+Math.round(rawV)+'，因身體不適以 '+Math.round(v)+' 計';sk.style.display='';}
+    if(pwrSick&&Math.round(rawV)>Math.round(v)){sk.textContent='原始戰力 '+Math.round(rawV)+'，因身體不適以 '+Math.round(v)+' 計';sk.style.display='';}
     else{sk.textContent='';sk.style.display='none';}
   }
   updateCapLive(); // 10-21：戰力載入後即時更新
@@ -3819,6 +3819,8 @@ async function saveReview(){
     if(i.crefCleared)row.crefCleared=true;
     return row;
   }),overall,savedAt:new Date().toISOString()};
+  // 11-12 身體不適：今天的覆盤存檔時，若現在被標記或既有紀錄帶標記，同步 combatPower 與標記欄位（取消標記會清掉）；從未標記過的紀錄不動
+  if(displayKey===todayKey()&&(pwrSick||existing.combatSick===true))Object.assign(data,{combatPower:pwr},sickSaveFields());
   localStorage.setItem(displayKey,JSON.stringify(data));
   renderCrefDist();
   logOverloadDay(data,displayKey.replace('review_',''));
