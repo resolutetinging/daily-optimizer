@@ -3040,6 +3040,7 @@ Return ONLY JSON: [{"t":"task name","type":"high","ideal":30},...]`;
 
 function renderPipeSandbox(result,isMock=false,errMsg=''){
   _pipes=result.pipes||[];_skipTasks=Array.isArray(result.skipTasks)?result.skipTasks:[];
+  updateCapLive(); // 11-12：即時預估的剩餘時間比例改依新水管，生成當下即同步
   // 10-27 階段5：AI 不得建議跳過期限 ≤3 天的任務（只濾輸出，不改 prompt）
   const _nearNames=new Set(getEffectiveTasks().filter(isDueNear).map(t=>t.text));
   if(_nearNames.size)_skipTasks=_skipTasks.filter(n=>!_nearNames.has(n));
