@@ -3074,7 +3074,7 @@ function renderPipeSandbox(result,isMock=false,errMsg=''){
   // 載入既有臨時積木
   const exData=JSON.parse(localStorage.getItem(displayKey)||'{}');
   _tempBricks=exData.tempBricks||[];
-  const capAdvice=calcCapacityAdvice([...getEffectiveTasks().map(t=>t.text),..._tempBricks],pwr,document.getElementById('calInput').value.trim()); // 10-21：傳入行程文字計高耗能負荷
+  const capAdvice=calcCapacityAdvice([...getEffectiveTasks().map(t=>t.text),..._tempBricks],pwr,document.getElementById('calInput').value.trim(),displayKey.replace('review_','')); // 10-21：傳入行程文字計高耗能負荷；11-12：校正錨點＝顯示日期
   sumHtml=buildPipeSummaryHtml(result.summary,capAdvice);
 
   sc.innerHTML=mockNotice+sumHtml
@@ -3219,7 +3219,58 @@ function highlightCurrentPipe(scrollTo){
 }
 // 戰力 vs 今日任務負荷的臨時任務建議（純前端計算，不交給LLM）
 // 依使用者過去覆盤校準：戰力約 50 仍可完成加權負荷約 7（7/50=0.14，取 0.15）
-const CAPACITY_PER_CP=0.15;
+const CAPACITY_PER_CP=0.15; // 紀錄不足時的預設係數
+// 11-12：可承受負荷改由使用者自己的歷史覆盤校正（anchorDate 由呼叫端傳入，函式內不取今天）
+const CAP_CAL_DAYS=60, CAP_CAL_BAND_MIN=5, CAP_CAL_MIN=10;
+function capBandOf(cp){return cp>=80?'Peak':cp>=70?'Stable':cp>=60?'Caution':'Critical';}
+function calibrateCapacity(cp,anchorDate){
+  const fallback={cap:cp*CAPACITY_PER_CP,mode:'default',capped:false,n:0,bandN:0,band:capBandOf(cp)};
+  try{
+    if(typeof anchorDate!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(anchorDate))return fallback;
+    const energyMap=getTaskEnergyMap();
+    let hiMult=1.0;
+    try{const ew=JSON.parse(localStorage.getItem('cc_energy_weights')||'{}');if(ew.highIntensity)hiMult=ew.highIntensity;}catch(e){}
+    const a0=new Date(anchorDate+'T12:00:00');
+    // 11-12：過載日不採計（避免把硬撐過載學成正常承受量）；log 壞資料視為空
+    const overloadDates=new Set();
+    try{const lg=JSON.parse(localStorage.getItem(OVERLOAD_LOG_KEY)||'[]');if(Array.isArray(lg))lg.forEach(e=>{if(e&&typeof e.date==='string'&&Number(e.overloadCount)>0)overloadDates.add(e.date);});}catch(e){}
+    const samples=[];
+    for(let i=1;i<=CAP_CAL_DAYS;i++){
+      const d=new Date(a0.getTime());d.setDate(d.getDate()-i);
+      const ds=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+      let r;try{r=JSON.parse(localStorage.getItem('review_'+ds)||'null');}catch(e){continue;}
+      if(!r||typeof r!=='object')continue;
+      if(r.restMode||r.combatSick===true)continue;
+      if(overloadDates.has(ds))continue;
+      let fb=r.aiFeedback;
+      if(typeof fb==='string'){try{fb=JSON.parse(fb);}catch(e){fb=null;}}
+      if(fb&&typeof fb==='object'&&(fb.overload==='burnout'||fb.overload==='sustainable'))continue;
+      const rcp=r.combatPower;
+      if(typeof rcp!=='number'||!Number.isFinite(rcp)||rcp<=0)continue;
+      if(!Array.isArray(r.items)||!r.items.length)continue;
+      let done=0;
+      r.items.forEach(it=>{
+        if(!it||typeof it!=='object'||typeof it.name!=='string'||REST_BRICKS.includes(it.name))return;
+        const f=it.status==='done'?1:it.status==='part'?0.5:0;
+        if(!f)return;
+        const lvl=energyMap[it.name]||'mid';
+        let w=TASK_WEIGHT[lvl]||1.0;
+        if(lvl==='high')w*=hiMult;
+        done+=w*f;
+      });
+      samples.push({cp:rcp,done});
+    }
+    const med=arr=>{const v=arr.slice().sort((x,y)=>x-y),m=v.length>>1;return v.length%2?v[m]:(v[m-1]+v[m])/2;};
+    const band=capBandOf(cp);
+    const bs=samples.filter(x=>capBandOf(x.cp)===band);
+    const base={n:samples.length,bandN:bs.length,band};
+    const dflt=cp*CAPACITY_PER_CP;
+    const fin=(v,mode)=>({cap:Math.min(v,dflt),mode,capped:v>dflt,...base}); // 只往下校正
+    if(bs.length>=CAP_CAL_BAND_MIN)return fin(med(bs.map(x=>x.done)),'band');
+    if(samples.length>=CAP_CAL_MIN)return fin(cp*med(samples.map(x=>x.done/x.cp)),'ratio');
+    return Object.assign({cap:dflt,mode:'default',capped:false},base);
+  }catch(e){return fallback;}
+}
 // 10-12：讀 CC「未來發展四象限」cc_career_v1 第二象限細項（唯讀，不寫回；資料視為不可信）；只依狀態排序，不用進度%
 // 10-13：顯示不再帶日期（CC 不再記錄主題學會日期）；舊存檔的 journal／learnedAt 仍只用於同狀態內排序，不顯示
 function readCareerGrowth(){
@@ -3263,7 +3314,7 @@ function readCareerGrowth(){
     return out.slice(0,3);
   }catch(e){return [];}
 }
-function calcCapacityAdvice(taskNames,combatPower,calEventsStr){ // 10-21：第三參數＝calInput 文字，未傳時行為不變
+function calcCapacityAdvice(taskNames,combatPower,calEventsStr,anchorDate){ // 10-21：第三參數＝calInput 文字，未傳時行為不變
   const cp=Number(combatPower);
   if(combatPower===null||combatPower===undefined||combatPower===''||!Number.isFinite(cp)) return null;
   const energyMap=getTaskEnergyMap();
@@ -3287,13 +3338,15 @@ function calcCapacityAdvice(taskNames,combatPower,calEventsStr){ // 10-21：第�
       if(hrs>0) load+=hrs*TASK_WEIGHT.high*hiMult;
     });
   }
-  const cap=cp*CAPACITY_PER_CP;
+  const cal=calibrateCapacity(cp,anchorDate); // 11-12：anchorDate（YYYY-MM-DD）由呼叫端傳入
+  const cap=cal.cap;
+  const calF={calMode:cal.mode,calN:cal.n,calBandN:cal.bandN,calBand:cal.band};
   const r1=v=>Math.round(v*10)/10;
   // 10-08：可參考選項＝耗能設定為中耗能、今天沒勾選的任務（依任務庫順序），生成當下存起來
   const picked=new Set(taskNames||[]);
   const opts=(taskData.tasks||[]).filter(t=>!isClosed(t)&&(t.energy||'mid')==='mid'&&!picked.has(t.text)).map(t=>t.text);
-  if(load+1.0<=cap) return {level:'ok',load:r1(load),cap:r1(cap),spare:Math.max(1,Math.floor(cap-load)),cp,opts,growth:readCareerGrowth()};
-  return {level:'full',load:r1(load),cap:r1(cap),spare:0,cp};
+  if(load+1.0<=cap) return {level:'ok',load:r1(load),cap:r1(cap),spare:Math.max(1,Math.floor(cap-load)),cp,opts,growth:readCareerGrowth(),...calF};
+  return {level:'full',load:r1(load),cap:r1(cap),spare:0,cp,...calF};
 }
 function capacityAdviceHtml(a){
   if(!a||typeof a!=='object')return '';
@@ -3309,11 +3362,16 @@ function capacityAdviceHtml(a){
     else if(a.critical) txt='🔴 不建議再增加臨時任務（戰力 Critical，今日以完成既有任務為主）';
     else txt=`🟠 不建議再增加臨時任務（負荷約 ${pct}%）`;
   }
+  let calLine='';
+  if(a.calMode==='band') calLine=`依你近 ${CAP_CAL_DAYS} 天紀錄：同等級（${esc(a.calBand)}）的 ${Math.floor(Number(a.calBandN))||0} 天實際完成負荷中位數（已排除過載日）`;
+  else if(a.calMode==='ratio') calLine=`依你近 ${CAP_CAL_DAYS} 天 ${Math.floor(Number(a.calN))||0} 天紀錄的完成比例估算（同等級紀錄不足 ${CAP_CAL_BAND_MIN} 天）（已排除過載日）`;
+  else if(a.calMode==='default') calLine=`紀錄不足 ${CAP_CAL_MIN} 天，使用預設係數`;
+  const calHtml=calLine?`<div class="cap-advice-cal" style="margin-top:2px;font-size:11px;color:#7a7570;">${calLine}</div>`:'';
   const opts=(a.level==='ok'&&Array.isArray(a.opts))?a.opts.filter(o=>typeof o==='string'&&o):[];
   const optHtml=opts.length?`<div class="cap-advice-opts" style="margin-top:3px;font-size:12px;color:#7a7570;">可參考的中耗能任務${opts.length>5?`（共 ${opts.length} 項，列前 5 項）`:''}：<ul class="fb-list">${opts.slice(0,5).map(o=>`<li>${esc(o)}</li>`).join('')}</ul></div>`:'';
   const gr=(a.level==='ok'&&Array.isArray(a.growth))?a.growth.filter(g=>g&&typeof g.name==='string'&&g.name).slice(0,3):[];
   const grHtml=gr.length?`<div class="cap-advice-growth" style="margin-top:3px;font-size:12px;color:#7a7570;">長期目標可推進：<ul class="fb-list">${gr.map(g=>{const nm=`${esc(g.name)}${g.card?`（${esc(g.card)}）`:''}`;const lg=Array.isArray(g.learning)?g.learning.filter(x=>typeof x==='string'&&x).slice(0,2):[];if(lg.length)return `<li>${nm}：掌握一些 ${lg.map(esc).join('、')}</li>`;return `<li>${nm}（${esc(g.status)}）</li>`;}).join('')}</ul></div>`:'';
-  return `<div class="cap-advice" style="margin-top:6px;font-size:12px;color:#6a6660;">${esc(txt)}</div>${optHtml}${grHtml}`;
+  return `<div class="cap-advice" style="margin-top:6px;font-size:12px;color:#6a6660;">${esc(txt)}</div>${calHtml}${optHtml}${grHtml}`;
 }
 /* ── 10-21：臨時任務建議即時預估（任務庫上方），與生成後 pipe-summary 同一公式；
    生成後那行是存檔快照不動。初始化時 taskData／_tempBricks 可能尚未就緒，一律 try 包住 ── */
@@ -3321,7 +3379,7 @@ function updateCapLive(){
   const el=document.getElementById('capLive');if(!el)return;
   try{
     let tb=[];try{tb=Array.isArray(_tempBricks)?_tempBricks:[];}catch(e){}
-    const a=pwr?calcCapacityAdvice([...getEffectiveTasks().map(t=>t.text),...tb],pwr,document.getElementById('calInput').value.trim()):null;
+    const a=pwr?calcCapacityAdvice([...getEffectiveTasks().map(t=>t.text),...tb],pwr,document.getElementById('calInput').value.trim(),displayKey.replace('review_','')):null;
     el.innerHTML=a?`<div style="margin:0 0 8px;padding:8px 10px;border-radius:8px;background:rgba(176,152,112,.08);"><div style="font-size:10.5px;color:#9a9088;letter-spacing:.02em;">即時預估（隨任務庫開關、今日行程更新）</div>${capacityAdviceHtml(a)}</div>`:'';
   }catch(e){el.innerHTML='';}
 }
