@@ -3231,9 +3231,8 @@ function calibrateCapacity(cp,anchorDate){
     let hiMult=1.0;
     try{const ew=JSON.parse(localStorage.getItem('cc_energy_weights')||'{}');if(ew.highIntensity)hiMult=ew.highIntensity;}catch(e){}
     const a0=new Date(anchorDate+'T12:00:00');
-    // 11-12：過載日不採計（避免把硬撐過載學成正常承受量）；log 壞資料視為空
-    const overloadDates=new Set();
-    try{const lg=JSON.parse(localStorage.getItem(OVERLOAD_LOG_KEY)||'[]');if(Array.isArray(lg))lg.forEach(e=>{if(e&&typeof e.date==='string'&&Number(e.overloadCount)>0)overloadDates.add(e.date);});}catch(e){}
+    // 11-12：原本排除過載日，但過載是逐段水管判定，使用者 34 天中 33 天有過載、分布連續無明顯界線，
+    // 排除後幾乎無樣本；改不排除，靠同級中位數＋上限 cp×0.15 防樂觀（使用者同意）
     const samples=[];
     for(let i=1;i<=CAP_CAL_DAYS;i++){
       const d=new Date(a0.getTime());d.setDate(d.getDate()-i);
@@ -3241,10 +3240,6 @@ function calibrateCapacity(cp,anchorDate){
       let r;try{r=JSON.parse(localStorage.getItem('review_'+ds)||'null');}catch(e){continue;}
       if(!r||typeof r!=='object')continue;
       if(r.restMode||r.combatSick===true)continue;
-      if(overloadDates.has(ds))continue;
-      let fb=r.aiFeedback;
-      if(typeof fb==='string'){try{fb=JSON.parse(fb);}catch(e){fb=null;}}
-      if(fb&&typeof fb==='object'&&(fb.overload==='burnout'||fb.overload==='sustainable'))continue;
       const rcp=r.combatPower;
       if(typeof rcp!=='number'||!Number.isFinite(rcp)||rcp<=0)continue;
       if(!Array.isArray(r.items)||!r.items.length)continue;
@@ -3363,8 +3358,8 @@ function capacityAdviceHtml(a){
     else txt=`🟠 不建議再增加臨時任務（負荷約 ${pct}%）`;
   }
   let calLine='';
-  if(a.calMode==='band') calLine=`依你近 ${CAP_CAL_DAYS} 天紀錄：同等級（${esc(a.calBand)}）的 ${Math.floor(Number(a.calBandN))||0} 天實際完成負荷中位數（已排除過載日）`;
-  else if(a.calMode==='ratio') calLine=`依你近 ${CAP_CAL_DAYS} 天 ${Math.floor(Number(a.calN))||0} 天紀錄的完成比例估算（同等級紀錄不足 ${CAP_CAL_BAND_MIN} 天）（已排除過載日）`;
+  if(a.calMode==='band') calLine=`依你近 ${CAP_CAL_DAYS} 天紀錄：同等級（${esc(a.calBand)}）的 ${Math.floor(Number(a.calBandN))||0} 天實際完成負荷中位數`;
+  else if(a.calMode==='ratio') calLine=`依你近 ${CAP_CAL_DAYS} 天 ${Math.floor(Number(a.calN))||0} 天紀錄的完成比例估算（同等級紀錄不足 ${CAP_CAL_BAND_MIN} 天）`;
   else if(a.calMode==='default') calLine=`紀錄不足 ${CAP_CAL_MIN} 天，使用預設係數`;
   const calHtml=calLine?`<div class="cap-advice-cal" style="margin-top:2px;font-size:11px;color:#7a7570;">${calLine}</div>`:'';
   const opts=(a.level==='ok'&&Array.isArray(a.opts))?a.opts.filter(o=>typeof o==='string'&&o):[];
