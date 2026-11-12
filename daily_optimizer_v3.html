@@ -4241,6 +4241,7 @@ async function genReviewFeedback(){
 function loadSavedReview(key){
   displayKey=key||todayKey();
   moodCardRender();
+  updateCapLive(); // 11-12：即時預估以 displayKey 為校正錨點，切換日期後重算
   const saved=JSON.parse(localStorage.getItem(displayKey)||'{}');
   renderDepletedRow();
   if(saved.overall)document.getElementById('overallFeedback').value=saved.overall;
