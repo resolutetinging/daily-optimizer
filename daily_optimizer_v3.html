@@ -580,6 +580,7 @@ input:checked+.js-slider:before{transform:translateX(13px);}
       <div class="pinfo">
         <div class="pstatus" id="pstatus">讀取中…</div>
         <div class="pdesc" id="pdesc">正在連接 Sleep Dashboard</div>
+        <div class="pdesc" id="psick" style="display:none;font-size:10px;margin-top:3px"></div>
       </div>
     </div>
     <div class="bars">
@@ -1304,7 +1305,7 @@ function sanitizePipes(result, calEvents, tasks, pwr, closeMin){
   return result;
 }
 
-let selLoc='',selMode='',selFeel='',pwr=0,reviewItems=[];
+let selLoc='',selMode='',selFeel='',pwr=0,pwrSick=false,pwrRaw=0,reviewItems=[];
 // 09-30 XSS修補：原本「加入覆盤」按鈕把任務名稱直接拼進onclick="addToReview('${n}',i)"屬性，
 // 任務名稱是使用者可自訂文字，若含雙引號會跳脫屬性造成注入；改成只傳rowIdx，
 // 透過這個全域陣列（每次renderOut/renderSavedSchedule渲染outList時同步設定）查回名稱，
@@ -1541,6 +1542,7 @@ function openRestReview(){
     restMode: true,
     restNote: note,
     combatPower: pwr,
+    ...sickSaveFields(),
     taskLibrary: getEffectiveTasks().map(t=>t.text),
   }));
   // Show output section
@@ -1716,7 +1718,7 @@ async function fetchSleep(){
   setFS('err','無法讀取睡眠明細 · 戰力已改用本機快取值');
   const _wd=parseInt(localStorage.getItem('sas_combat_weekday')||'');
   const _wt=parseInt(localStorage.getItem('sas_combat_weighted')||'');
-  setPwr((!isNaN(_wd)&&_wd>0)?_wd:(!isNaN(_wt)&&_wt>0)?_wt:50);
+  setPwr((!isNaN(_wd)&&_wd>0)?_wd:(!isNaN(_wt)&&_wt>0)?_wt:50,[tpeDateStr(0),tpeDateStr(-1)]);
 }
 function parseSleep(html){
   const m=html.match(/const RAW = (\{[\s\S]+?\});\s*\n/);if(!m)return false;
@@ -1748,7 +1750,7 @@ function showSleep(s){
   const weighted=parseInt(localStorage.getItem('sas_combat_weighted')||'');
   const v=(!isNaN(weekday)&&weekday>0)?weekday:(!isNaN(weighted)&&weighted>0)?weighted:Math.round(rawScore);
 
-  setPwr(v);
+  setPwr(v,[e.date]);
   const fmt=m=>m>=60?`${(m/60).toFixed(1)}h`:`${m}min`;
   document.getElementById('dv').textContent=fmt(deep);
   document.getElementById('rv').textContent=fmt(rem);
@@ -1762,7 +1764,32 @@ function showSleep(s){
   const meta=document.getElementById('sleep-meta');
   if(meta) meta.textContent=`數據日期：${e.date}　總睡眠 ${fmt(totalDisplay)}`; // 10-01：移除睡眠債（debtHours 07-03隨自算公式刪除後殘留未定義，致此行拋錯被fetchSleep吞掉、誤觸代理重抓）
 }
-function setPwr(v){
+/* 11-12：Sleep 頁「身體不適」標記（sleep_feel_v1.nights[date].sick===true）。資料經 Gist 同步視為不可信：只認嚴格 true、驗日期格式 */
+const SICK_PWR_CAP=59;
+function sleepSickFor(date){
+  try{
+    if(typeof date!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(date))return false;
+    const o=JSON.parse(localStorage.getItem('sleep_feel_v1')||'null');
+    if(!o||typeof o!=='object'||!o.nights||typeof o.nights!=='object')return false;
+    if(!Object.prototype.hasOwnProperty.call(o.nights,date))return false;
+    const n=o.nights[date];
+    return !!(n&&typeof n==='object'&&n.sick===true);
+  }catch(e){return false;}
+}
+function tpeDateStr(offsetDays){ // 台北時間日期字串，offsetDays 以參數傳入
+  const t=new Date(Date.now()+(offsetDays||0)*864e5);
+  return new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Taipei',year:'numeric',month:'2-digit',day:'2-digit'}).format(t);
+}
+/* 存檔用（展開在 ...existing 之後）：今天且已標記→寫入兩欄；今天且未標記→回傳 undefined，覆蓋合併物件裡殘留的舊值，JSON.stringify 會丟棄（key 消失；從未標記過的紀錄不受影響）；非今天→空物件，不動歷史紀錄既有欄位 */
+function sickSaveFields(){
+  if(displayKey!==todayKey())return {};
+  return pwrSick?{combatSick:true,combatPowerRaw:pwrRaw}:{combatSick:undefined,combatPowerRaw:undefined};
+}
+function setPwr(v,sickDates){
+  const rawV=v;
+  pwrSick=Array.isArray(sickDates)&&sickDates.some(sleepSickFor);
+  pwrRaw=Math.round(rawV);
+  if(pwrSick)v=Math.min(v,SICK_PWR_CAP);
   pwr=v;
   // 完全對齊 sleep-dashboard 顏色與標籤（手動模式已於 2026-07-10 移除，戰力一律來自查詢值）
   let rc,lvLabel,lvDesc;
@@ -1777,7 +1804,12 @@ function setPwr(v){
   const ps=document.getElementById('pstatus');
   ps.textContent=lvLabel;
   ps.style.color=rc;
-  document.getElementById('pdesc').textContent=lvDesc;
+  document.getElementById('pdesc').textContent=pwrSick?'昨晚標記身體不適：戰力不採用睡眠數字，今天以輕任務與休息為主':lvDesc;
+  const sk=document.getElementById('psick');
+  if(sk){
+    if(pwrSick){sk.textContent='原始戰力 '+Math.round(rawV)+'，因身體不適以 '+Math.round(v)+' 計';sk.style.display='';}
+    else{sk.textContent='';sk.style.display='none';}
+  }
   updateCapLive(); // 10-21：戰力載入後即時更新
 }
 function setFS(st,txt){
@@ -2543,7 +2575,7 @@ async function generate(){
   const usr=`今天：${dateLabel}
 地點：${selLoc}${isOut?'':` 開館${selLoc==='分館'?'08:30':'09:15'} 閉館${close}`}
 模式：${selMode} | 戰力：${p}%（${lv}）
-體感：${selFeel||'未填寫'}
+${(!isBackfill&&pwrSick)?'使用者昨晚標記身體不適，今天以恢復為優先，不要排高強度任務\n':''}體感：${selFeel||'未填寫'}
 週四：${isThu?'是，需安排斗數筆記整理':'否'} | 週一：${isMon&&!isOut?'17:00閉館':'否'}
 今日 Calendar：
 ${calEvents||'（無）'}
@@ -2671,7 +2703,7 @@ function renderWorkdayOut(){
   document.getElementById('savedToast').style.display='none';
   // 存 workdayMode 標記
   const existing=JSON.parse(localStorage.getItem(displayKey)||'{}');
-  localStorage.setItem(displayKey,JSON.stringify({...existing,workdayMode:true,combatPower:pwr,mode:selMode,feel:selFeel,taskLibrary:allNames}));
+  localStorage.setItem(displayKey,JSON.stringify({...existing,workdayMode:true,combatPower:pwr,...sickSaveFields(),mode:selMode,feel:selFeel,taskLibrary:allNames}));
   // 覆盤：正常模式，帶入所有任務
   renderReview(allNames);
   const o=document.getElementById('outSec');
@@ -2747,6 +2779,7 @@ function renderOut(r){
     calEvents: document.getElementById('calInput').value.trim(),
     taskLibrary: getEffectiveTasks().map(t=>t.text),
     combatPower: pwr,
+    ...sickSaveFields(),
     mode: selMode,
     feel: selFeel,
   }));
@@ -3029,7 +3062,7 @@ function renderPipeSandbox(result,isMock=false,errMsg=''){
     summary:result.summary||'',capacityAdvice:capAdvice,
     calEvents:document.getElementById('calInput').value.trim(),
     taskLibrary:getEffectiveTasks().map(t=>t.text),
-    combatPower:pwr,mode:selMode,feel:selFeel,
+    combatPower:pwr,...sickSaveFields(),mode:selMode,feel:selFeel,
   }));
 
   renderReview(allReviewNames);
@@ -3883,6 +3916,7 @@ async function genReviewFeedback(){
   const cp=saved.combatPower||pwr||0;
   const cpLabel=cp>=80?'🔥 Peak（80+）':cp>=70?'⚡ Stable（70-79）':cp>=60?'⚠ Caution（60-69）':'🔴 Critical（<60）';
   const isVacation=!!saved.restMode;
+  const sickNote=saved.combatSick===true?'使用者前一晚標記身體不適，評估當日表現時以恢復為優先，不以產出量苛責'+NL:''; // 依該筆 review 自帶欄位，不讀今天狀態
 
   // ── 計畫層：優先用 aiScheduled，沒有就用任務庫 ──
   const aiScheduled=saved.aiScheduled||[];
@@ -3928,6 +3962,7 @@ async function genReviewFeedback(){
     const restNote=saved.restNote?'今日休假備註：'+saved.restNote+NL:'';
     prompt='你是我的效能顧問。今天是【休假日】，不做績效評估，只看充電品質。'+NL+NL
       +'日期：'+dateStr+'　戰力：'+cp+'% '+cpLabel+NL
+      +sickNote
       +restNote
       +'【今日活動記錄】'+NL+actualItems+overall+NL+NL
       +'只能輸出一個JSON物件，不要有其他文字、不要用markdown code fence包住，務必使用繁體中文（台灣正體），嚴禁簡體字與日文（含漢字新字體與假名）。schema如下：'+NL
@@ -4022,6 +4057,7 @@ async function genReviewFeedback(){
       +'嚴禁提及【實際覆盤結果】【AI 預排任務】【今日 Calendar 行程】以外的任何活動或事項名稱，不可自行編造具體事件（例如晚餐、逛街、看書店等未列出的活動）。'+NL+NL
       +'日期：'+dateStr+'　模式：'+(saved.mode||'未知')+'　體感：'+(saved.feel||'未知')+NL
       +'今日戰力：'+cp+'% '+cpLabel+'　期待基準：'+cpExpect+NL
+      +sickNote
       +(completionPct!=null?'今日完成率：'+completionPct+'%（'+saved.items.length+'項中done算1分、part算0.5分加總）'+NL:'')
       +(saved.depleted_at?'⚡ 能量低點：'+saved.depleted_at+NL:'')
       +planSection+overloadSection+alignSection+weekContextSection+NL+NL
